@@ -1,0 +1,113 @@
+# =============================================================================
+# Git Ignore - TIR Yakıt Takip Sistemi
+# =============================================================================
+
+# Environment Variables (CRITICAL - NEVER COMMIT)
+.env
+.env.local
+.env.*.local
+*.env
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# =============================================================================
+# IDE & Editors
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# Testing & Coverage
+# =============================================================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# =============================================================================
+# Logs & Databases
+# =============================================================================
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# =============================================================================
+# OS Generated
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project Specific
+# Model files (large binaries)
+models/*.gguf
+models/*.bin
+models/*.pt
+models/*.pth
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Test outputs & Reports
+test_*.txt
+final_test*.txt
+test_results*.json
+*_output.txt
+*_report.*
+all_test_results.txt
+fresh_test_output.txt
+full_test_*.txt
+
+# Build outputs
+*.spec
+build/
+dist/

@@ -1,0 +1,138 @@
+# 06 - Seferler
+
+> Sefer kayıtlarının listelenmesi ve yönetimi
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                               Seferler                               │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ 📅 Tarih: [01.01] - [31.01] │ [📤 Excel] [+ Yeni Sefer]       │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │TARİH│SAAT│ARAÇ    │ŞOFÖR    │ÇIKIŞ  │VARIŞ  │KM │TON│DURUM│⋮│  │
+│  ├─────┼────┼────────┼─────────┼───────┼───────┼───┼───┼─────┼─┤  │
+│  │25.01│08:30│34ABC12│A.Yılmaz │Ankara │İstanbul│450│18 │ ✅  │⋮│  │
+│  │24.01│14:00│06DEF45│M.Kaya   │İzmir  │Ankara │580│22 │ ⏳  │⋮│  │
+│  │24.01│09:15│35GHI78│A.Demir  │Bursa  │Antalya│480│15 │ ❌  │⋮│  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Toolbar
+
+| Element | Açıklama |
+|---------|----------|
+| Date Range | Başlangıç - Bitiş tarih picker |
+| Excel | Secondary button |
+| Yeni Sefer | Primary button |
+
+---
+
+## Tablo Kolonları
+
+| Kolon | Width | Format |
+|-------|-------|--------|
+| Tarih | 80px | 25.01.2026 |
+| Saat | 60px | 08:30 |
+| Araç | 90px | Plaka |
+| Şoför | 100px | Ad Soyad |
+| Çıkış | 80px | Şehir |
+| Varış | 80px | Şehir |
+| Mesafe | 60px | X km |
+| Yük | 50px | X ton |
+| Durum | 80px | Badge |
+| ⋮ | 40px | Menu |
+
+---
+
+## Durum Badge
+
+| Durum | Icon | BG | Text |
+|-------|------|-----|------|
+| Tamam | ✅ | `#D1FAE5` | `#059669` |
+| Devam Ediyor | ⏳ | `#FEF3C7` | `#D97706` |
+| İptal | ❌ | `#FEE2E2` | `#DC2626` |
+
+---
+
+## Modal: Yeni Sefer
+
+### Form - Sol Kolon
+
+| Alan | Tip |
+|------|-----|
+| Tarih* | Date Picker |
+| Saat | Time Picker |
+| Araç* | Select (aktif araçlar) |
+| Şoför* | Select (aktif şoförler) |
+
+### Form - Sağ Kolon
+
+| Alan | Tip |
+|------|-----|
+| Çıkış Yeri* | Input |
+| Varış Yeri* | Input |
+| Mesafe (km)* | Number |
+| Net Yük (kg) | Number |
+
+### Form - Alt (Full Width)
+
+| Alan | Tip |
+|------|-----|
+| Boş Sefer | Checkbox |
+| Başlangıç KM | Number |
+| Bitiş KM | Number |
+| Dağıtılan Yakıt | Number |
+| Durum | Select: Tamam, Devam Ediyor, İptal |
+
+---
+
+## Select Dropdown (Araç/Şoför)
+
+```
+┌────────────────────────┐
+│ 🔍 Ara...              │
+├────────────────────────┤
+│ 🚛 34ABC123 - Mercedes │
+│ 🚛 06DEF456 - Volvo    │
+│ 🚛 35GHI789 - Scania   │
+└────────────────────────┘
+```
+
+| Stil | Değer |
+|------|-------|
+| Search | Üstte, sticky |
+| Item Height | 40px |
+| Icon | Truck/User, 16px |
+| Hover | `#F8FAFC` |
+
+---
+
+## API
+
+```
+GET    /api/v1/trips?skip=0&limit=100
+POST   /api/v1/trips
+PUT    /api/v1/trips/{id}
+DELETE /api/v1/trips/{id}
+POST   /api/v1/trips/upload
+```
+
+---
+
+## Validations
+
+| Alan | Kural |
+|------|-------|
+| Mesafe | 1-10000 |
+| Bitiş KM | > Başlangıç KM |
+| Tarih | Required |
+| Araç/Şoför | Required |

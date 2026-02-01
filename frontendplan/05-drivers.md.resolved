@@ -1,0 +1,141 @@
+# 05 - Sürücüler
+
+> Şoför kadrosunun listelenmesi ve yönetimi
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                              Sürücüler                               │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ 🔍 Ara...       │ ☑ Sadece Aktif │ [📤 Excel] [+ Yeni Şoför] │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ AD SOYAD   │ TELEFON     │ EHLİYET │ PUAN │ DURUM │ İŞLEM     │  │
+│  ├────────────┼─────────────┼─────────┼──────┼───────┼───────────┤  │
+│  │ Ahmet Yılmaz│ 532 *** 45 │ E       │ ★★★★☆│  ✅   │ ⋮         │  │
+│  │ Mehmet Kaya │ 545 *** 12 │ E       │ ★★★☆☆│  ✅   │ ⋮         │  │
+│  │ Ali Demir   │ 554 *** 78 │ C       │ ★★★★★│  ❌   │ ⋮         │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ← Önceki   Sayfa 1 / 3   Sonraki →                                 │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Tablo Kolonları
+
+| Kolon | Width | Açıklama |
+|-------|-------|----------|
+| Ad Soyad | 150px | Tam isim |
+| Telefon | 120px | Maskelenmiş: 532 *** 45 |
+| İşe Başlama | 100px | Tarih formatı |
+| Ehliyet | 60px | B, C, D, E, G |
+| Puan | 100px | Yıldız gösterimi (1-5) |
+| Durum | 80px | Aktif/Pasif badge |
+| İşlemler | 80px | Dropdown menu |
+
+---
+
+## Puan Gösterimi
+
+### Yıldız Display
+
+```
+★★★★☆  4.0
+```
+
+| Puan | Görünüm | Renk |
+|------|---------|------|
+| 4.5-5.0 | ★★★★★ | `#10B981` |
+| 3.5-4.4 | ★★★★☆ | `#2563EB` |
+| 2.5-3.4 | ★★★☆☆ | `#F59E0B` |
+| 1.5-2.4 | ★★☆☆☆ | `#EF4444` |
+| 0-1.4 | ★☆☆☆☆ | `#EF4444` |
+
+---
+
+## Modal: Yeni/Düzenle Şoför
+
+### Form Fields
+
+| Alan | Tip | Kural |
+|------|-----|-------|
+| Ad Soyad* | Input | Min 3, max 100 |
+| Telefon | Input | Format: 0XXX XXX XX XX |
+| İşe Başlama | Date Picker | |
+| Ehliyet Sınıfı | Select | B, C, D, E, G (default: E) |
+| Puan | Slider | 0-5 (default: 1.0) |
+| Notlar | Textarea | Max 500 |
+
+### Telefon Mask
+
+```
+Input:  05321234567
+Display: 0532 123 45 67
+API:     Maskelenmiş döner
+```
+
+---
+
+## Modal: Puan Güncelleme
+
+```
+┌──────────────────────────────────────┐
+│  Şoför Puanı Güncelle               │
+│                                      │
+│  Ahmet Yılmaz                        │
+│                                      │
+│  Puan: [──────●────] 3.5            │
+│                                      │
+│  0.1                            2.0  │
+│  (Çok Düşük)              (Mükemmel) │
+│                                      │
+│  [İptal]              [Güncelle]     │
+└──────────────────────────────────────┘
+```
+
+| Element | Stil |
+|---------|------|
+| Slider | Range 0.1-2.0, step 0.1 |
+| Track | `#E2E8F0`, 8px height |
+| Active | `#2563EB` |
+| Thumb | 24px circle, white, shadow |
+
+---
+
+## Actions Dropdown
+
+| Item | Icon | Açıklama |
+|------|------|----------|
+| Düzenle | Pencil | Modal aç |
+| Puan Ver | Star | Puan modal |
+| Sil | Trash2 | Soft delete |
+
+---
+
+## API
+
+```
+GET    /api/v1/drivers?aktif_only=true&skip=0&limit=100
+POST   /api/v1/drivers
+PUT    /api/v1/drivers/{id}
+POST   /api/v1/drivers/{id}/score?score=1.5
+DELETE /api/v1/drivers/{id}
+POST   /api/v1/drivers/upload
+```
+
+---
+
+## States
+
+| Durum | Görünüm |
+|-------|---------|
+| Loading | Skeleton rows |
+| Empty | "Henüz şoför eklenmedi" + CTA |
+| Error | Error banner + Retry |

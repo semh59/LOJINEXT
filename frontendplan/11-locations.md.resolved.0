@@ -1,0 +1,105 @@
+# 11 - Güzergahlar (Locations)
+
+> Sık kullanılan güzergahların yönetimi ve analizi
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                             Güzergahlar                              │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔍 Ara...              │ Zorluk: [Tümü ▾] │ [+ Yeni Güzergah] │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ ÇIKIŞ    │ VARIŞ    │ MESAFE │ SÜRE  │ ZORLUK   │ TIRM.│ İNİŞ │⋮││
+│  ├──────────┼──────────┼────────┼───────┼──────────┼──────┼──────┼─┤│
+│  │ Ankara   │ İstanbul │ 450 km │ 5.5 s │ 🟢 Düz   │ 200m │ 180m │⋮││
+│  │ İzmir    │ Antalya  │ 480 km │ 6.0 s │ 🟡 Eğimli│ 950m │ 800m │⋮││
+│  │ Trabzon  │ Erzurum  │ 320 km │ 5.0 s │ 🔴 Dağlık│1500m │ 400m │⋮││
+│  └────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Zorluk Badge
+
+| Zorluk | Icon | BG | Text |
+|--------|------|-----|------|
+| Düz | 🟢 | `#D1FAE5` | `#059669` |
+| Hafif Eğimli | 🟡 | `#FEF3C7` | `#D97706` |
+| Dik/Dağlık | 🔴 | `#FEE2E2` | `#DC2626` |
+
+---
+
+## Modal: Yeni Güzergah
+
+### Form Fields
+
+| Alan | Tip | Kural |
+|------|-----|-------|
+| Çıkış Yeri* | Input | Max 100 |
+| Varış Yeri* | Input | Max 100 |
+| Mesafe (km)* | Number | > 0 |
+| Tahmini Süre | Number | 0-48 saat |
+| Zorluk | Select | Düz, Hafif Eğimli, Dik/Dağlık |
+
+### Koordinatlar (Opsiyonel - Collapsible)
+
+| Alan | Açıklama |
+|------|----------|
+| Çıkış Lat | -90 to 90 |
+| Çıkış Lon | -180 to 180 |
+| Varış Lat | -90 to 90 |
+| Varış Lon | -180 to 180 |
+
+---
+
+## Actions
+
+| Item | Icon | Açıklama |
+|------|------|----------|
+| Analiz Et | BarChart | OpenRouteService ile analiz |
+| Düzenle | Pencil | Modal |
+| Sil | Trash2 | Soft delete |
+
+---
+
+## Analiz Sonucu Modal
+
+```
+┌────────────────────────────────────────┐
+│  📊 Güzergah Analizi                   │
+│                                        │
+│  Ankara → İstanbul                     │
+│                                        │
+│  ┌────────┐ ┌────────┐ ┌────────┐     │
+│  │ Mesafe │ │ Süre   │ │ Zorluk │     │
+│  │ 452 km │ │ 5.2 s  │ │ Düz    │     │
+│  └────────┘ └────────┘ └────────┘     │
+│                                        │
+│  Tırmanış: 245 m    İniş: 198 m       │
+│                                        │
+│  [Kapat]              [Kaydet]         │
+└────────────────────────────────────────┘
+```
+
+---
+
+## API
+
+```
+GET    /api/v1/locations?zorluk=X
+POST   /api/v1/locations
+PUT    /api/v1/locations/{id}
+DELETE /api/v1/locations/{id}
+
+POST   /api/v1/locations/{id}/analyze
+       → OpenRouteService analizi
+
+GET    /api/v1/locations/search/by-route?cikis=X&varis=Y
+```

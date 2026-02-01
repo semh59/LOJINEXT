@@ -1,0 +1,122 @@
+# 07 - Yakıt Kayıtları
+
+> Yakıt alım/fiş kayıtlarının takibi ve yönetimi
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                           Yakıt Kayıtları                            │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │📅 [01.01] - [31.01]│ Durum: [Tümü ▾]│ [📤 Excel] [+ Yeni]    │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │TARİH│ARAÇ   │İSTASYON│LİTRE│FİYAT│TOPLAM│KM   │DEPO │DURUM│⋮ │  │
+│  ├─────┼───────┼────────┼─────┼─────┼──────┼─────┼─────┼─────┼──┤  │
+│  │25.01│34ABC12│Shell   │450L │42.50│19,125│45000│Doldu│ ⏳  │⋮ │  │
+│  │24.01│06DEF45│Opet    │380L │41.80│15,884│62000│Kısmi│ ✅  │⋮ │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Toolbar
+
+| Element | Açıklama |
+|---------|----------|
+| Date Range | Tarih filtresi |
+| Durum Filter | Bekliyor, Onaylandı, Reddedildi, Tümü |
+| Excel | Secondary |
+| Yeni Kayıt | Primary |
+
+---
+
+## Tablo Kolonları
+
+| Kolon | Width | Format |
+|-------|-------|--------|
+| Tarih | 80px | 25.01.2026 |
+| Araç | 90px | Plaka |
+| İstasyon | 100px | Text |
+| Litre | 70px | X L |
+| Birim Fiyat | 70px | X.XX TL |
+| Toplam | 90px | X,XXX TL |
+| KM Sayaç | 70px | Number |
+| Fiş No | 80px | Text |
+| Depo | 70px | Badge |
+| Durum | 80px | Badge |
+| ⋮ | 40px | Menu |
+
+---
+
+## Badges
+
+### Depo Durumu
+
+| Durum | BG | Text |
+|-------|-----|------|
+| Doldu | `#D1FAE5` | `#059669` |
+| Kısmi | `#FEF3C7` | `#D97706` |
+| Bilinmiyor | `#F1F5F9` | `#64748B` |
+
+### Onay Durumu
+
+| Durum | BG | Text |
+|-------|-----|------|
+| Onaylandı | `#D1FAE5` | `#059669` |
+| Bekliyor | `#FEF3C7` | `#D97706` |
+| Reddedildi | `#FEE2E2` | `#DC2626` |
+
+---
+
+## Modal: Yeni Yakıt Kaydı
+
+### Form Fields
+
+| Alan | Tip | Validation |
+|------|-----|------------|
+| Tarih* | Date | Required |
+| Araç* | Select | Required |
+| İstasyon | Input | Max 100 |
+| Litre* | Number | 0.01-10000 |
+| Birim Fiyat* | Number | 0.01-1000 TL |
+| Toplam Tutar | Number | Auto-calc |
+| KM Sayaç* | Number | 1-9999999 |
+| Fiş No | Input | Max 50 |
+| Depo Durumu | Select | Bilinmiyor/Doldu/Kısmi |
+
+### Auto Calculate
+
+```javascript
+toplamTutar = litre * birimFiyat
+```
+
+Kullanıcı manuel de girebilir.
+
+---
+
+## Actions Dropdown
+
+| Item | Icon | Açıklama |
+|------|------|----------|
+| Onayla | Check | Durum = Onaylandı |
+| Düzenle | Pencil | Modal |
+| Reddet | X | Durum = Reddedildi |
+| Sil | Trash2 | Soft delete |
+
+---
+
+## API
+
+```
+GET    /api/v1/fuel?skip=0&limit=100
+POST   /api/v1/fuel
+PUT    /api/v1/fuel/{id}
+DELETE /api/v1/fuel/{id}
+POST   /api/v1/fuel/upload
+```

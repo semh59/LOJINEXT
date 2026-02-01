@@ -1,0 +1,174 @@
+# 04 - Araçlar
+
+> Filo araçlarının listelenmesi ve yönetimi (CRUD + Excel Import)
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                               Araçlar                                │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ 🔍 Ara...       │ ☑ Sadece Aktif │ [📤 Excel] [+ Yeni Araç]  │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ PLAKA    │ MARKA    │ MODEL  │ YIL │ TANK │ HEDEF │ DURUM │⋮  │  │
+│  ├──────────┼──────────┼────────┼─────┼──────┼───────┼───────┼───┤  │
+│  │ 34ABC123 │ Mercedes │ Actros │2022 │ 600L │ 32.0  │  ✅   │ ⋮ │  │
+│  │ 06DEF456 │ Volvo    │ FH16   │2021 │ 700L │ 30.0  │  ✅   │ ⋮ │  │
+│  │ 35GHI789 │ Scania   │ R500   │2023 │ 650L │ 31.5  │  ❌   │ ⋮ │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ← Önceki   Sayfa 1 / 5   Sonraki →                                 │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Toolbar
+
+| Element | Stil |
+|---------|------|
+| Container | bg white, padding 16px, radius 8px, shadow |
+| Search | 280px width, icon sol |
+| Toggle | "Sadece Aktif", default ON |
+| Excel Button | Secondary, icon Upload |
+| Add Button | Primary, icon Plus |
+
+---
+
+## Tablo
+
+### Header
+
+| Özellik | Değer |
+|---------|-------|
+| Background | `#F8FAFC` |
+| Text | 12px, 600, uppercase, `#64748B` |
+| Padding | 16px |
+
+### Kolonlar
+
+| Kolon | Width | Align |
+|-------|-------|-------|
+| Plaka | 120px | left |
+| Marka | 100px | left |
+| Model | 100px | left |
+| Yıl | 60px | center |
+| Tank | 80px | right |
+| Hedef | 80px | right |
+| Durum | 80px | center |
+| İşlemler | 60px | center |
+
+### Row
+
+| Özellik | Değer |
+|---------|-------|
+| Padding | 16px |
+| Border | 1px solid `#F1F5F9` |
+| Hover | `#F8FAFC` |
+
+### Durum Badge
+
+| Durum | BG | Text |
+|-------|-----|------|
+| Aktif | `#D1FAE5` | `#059669` |
+| Pasif | `#FEE2E2` | `#DC2626` |
+
+### Actions Dropdown
+
+| Item | Icon | Color |
+|------|------|-------|
+| Düzenle | Pencil | default |
+| Sil | Trash2 | `#EF4444` |
+
+---
+
+## Modal: Yeni/Düzenle Araç
+
+### Container
+
+| Özellik | Değer |
+|---------|-------|
+| Width | 520px |
+| Radius | 16px |
+| Padding | 32px |
+
+### Form Fields
+
+| Alan | Tip | Validation |
+|------|-----|------------|
+| Plaka* | Input | `^[0-9]{2}[A-Z]{1,3}[0-9]{2,4}$` |
+| Marka* | Input | min 2, max 50 |
+| Model | Input | max 50 |
+| Yıl | Number | 1990 - now+1 |
+| Tank | Number + "L" | 1-5000, default 600 |
+| Hedef | Number + "L/100km" | 1-100, default 32 |
+| Notlar | Textarea | max 500 |
+
+### Layout
+
+- 1 column: Plaka, Marka, Model, Notlar
+- 2 column: Yıl + Tank, Hedef + (empty)
+
+### Footer
+
+| Button | Position |
+|--------|----------|
+| İptal | Left, secondary |
+| Kaydet | Right, primary |
+
+---
+
+## Excel Upload Modal
+
+| Element | Stil |
+|---------|------|
+| Dropzone | Dashed border, 200px height |
+| Icon | Cloud Upload, 48px |
+| Text | "Dosyayı sürükleyin veya seçin" |
+| Subtext | "Max 10MB, .xlsx/.xls" |
+| Progress | Linear bar, `#2563EB` |
+| Success | ✅ X kayıt eklendi |
+| Errors | ⚠️ Y hata (list) |
+
+---
+
+## Delete Confirmation
+
+```
+┌──────────────────────────────┐
+│  ⚠️ Araç Silinecek          │
+│                              │
+│  "34ABC123" plakası araç     │
+│  pasif yapılacaktır.         │
+│                              │
+│  [İptal]         [Sil]       │
+└──────────────────────────────┘
+```
+
+---
+
+## API
+
+```
+GET    /api/v1/vehicles?aktif_only=true&skip=0&limit=100
+POST   /api/v1/vehicles
+PUT    /api/v1/vehicles/{id}
+DELETE /api/v1/vehicles/{id}  ← Soft delete
+POST   /api/v1/vehicles/upload (multipart/form-data)
+```
+
+---
+
+## Animasyonlar
+
+| Element | Animation |
+|---------|-----------|
+| Table rows | Staggered fade (30ms) |
+| Modal | Scale 0.95→1, 200ms |
+| Dropdown | Slide down, 150ms |
+| Delete | Slide left out, 200ms |

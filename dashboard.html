@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>LojiNext AI - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: '#2563EB',
+                        sidebar: '#1E293B'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gray-50 flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-sidebar text-white flex-shrink-0 hidden md:flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-gray-700">
+            <h1 class="text-xl font-bold tracking-tight">LojiNext AI</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-1">
+            <a href="#" class="flex items-center gap-3 px-4 py-3 bg-primary rounded-lg text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                Dashboard
+            </a>
+            <a href="#"
+                class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                </svg>
+                Araçlar
+            </a>
+            <a href="#"
+                class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Raporlar
+            </a>
+        </nav>
+        <div class="p-4 border-t border-gray-700">
+            <button onclick="logout()"
+                class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors w-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Çıkış Yap
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-y-auto">
+        <!-- Topbar -->
+        <header class="bg-white h-16 border-b border-gray-200 flex items-center justify-between px-8">
+            <h2 class="text-xl font-semibold text-gray-800">Dashboard</h2>
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-sm font-medium text-gray-900" id="user-name">Admin</p>
+                    <p class="text-xs text-gray-500">Yönetici</p>
+                </div>
+                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-primary font-bold">
+                    A</div>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="p-8 space-y-8">
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="stats-container">
+                <!-- Skeleton Loading -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-32"></div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-32"></div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-32"></div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-pulse h-32"></div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Main Chart -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Aylık Tüketim Trendi</h3>
+                    <div class="h-80 w-full relative">
+                        <canvas id="consumptionChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Side Panel -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Hızlı Erişim</h3>
+                    <div class="space-y-3">
+                        <button
+                            class="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+                            <span class="font-medium text-gray-700">Yeni Sefer Ekle</span>
+                            <span class="text-gray-400 group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+                        <button
+                            class="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+                            <span class="font-medium text-gray-700">Yakıt Fişi Gir</span>
+                            <span class="text-gray-400 group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+                        <button
+                            class="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+                            <span class="font-medium text-gray-700">Rapor Oluştur</span>
+                            <span class="text-gray-400 group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api/v1';
+
+        // Auth Check
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = 'login.html';
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch(`${API_URL}/reports/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.status === 401) logout();
+
+                const data = await response.json();
+                renderStats(data);
+            } catch (err) {
+                console.error('Stats fetching failed', err);
+            }
+        }
+
+        function renderStats(data) {
+            const container = document.getElementById('stats-container');
+            const items = [
+                { label: 'TOPLAM SEFER', value: data.toplam_sefer, icon: '🚛', color: 'blue' },
+                { label: 'TOPLAM KM', value: data.toplam_km.toLocaleString() + ' km', icon: '📍', color: 'green' },
+                { label: 'TOPLAM YAKIT', value: data.toplam_yakit.toLocaleString() + ' L', icon: '⛽', color: 'orange' },
+                { label: 'FİLO ORT.', value: data.filo_ortalama + ' L', icon: '📊', color: 'purple' },
+            ];
+
+            container.innerHTML = items.map(item => `
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-${item.color}-50 rounded-lg flex items-center justify-center text-2xl">
+                            ${item.icon}
+                        </div>
+                        <span class="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-full">+2.5%</span>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">${item.label}</h3>
+                    <p class="text-2xl font-bold text-gray-900 mt-1">${item.value}</p>
+                </div>
+            `).join('');
+
+            renderChart();
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('consumptionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz'],
+                    datasets: [{
+                        label: 'Yakıt Tüketimi (L)',
+                        data: [1200, 1350, 1250, 1600, 1450, 1700],
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { borderDash: [2, 4] }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Init
+        fetchStats();
+    </script>
+</body>
+
+</html>

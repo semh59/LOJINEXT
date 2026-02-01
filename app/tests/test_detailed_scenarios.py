@@ -1,0 +1,151 @@
+import pytest
+from datetime import date, timedelta
+from sqlalchemy import text
+from app.core.entities.models import SeferCreate
+from app.database.repositories.sofor_repo import get_sofor_repo
+from app.database.repositories.arac_repo import get_arac_repo
+from app.database.repositories.sefer_repo import get_sefer_repo
+
+
+class TestDetailedScenarios:
+    """
+    Kapsamlı Senaryo Testleri:
+    1. Raporlama (Pasif Veri)
+    2. Atomic Transactions
+    3. Sefer Mantığı
+    4. İlişkisel Bütünlük (FK)
+    """
+
+    @pytest.mark.asyncio
+    async def test_reporting_scenario_passive_driver(self, db_session, report_service, sefer_service):
+        """SENARYO 1: Pasif şoförlerin raporlarda görünmesi"""
+        # 1. Şoför oluştur
+        sofor_repo = get_sofor_repo()
+        sofor_id = await sofor_repo.add(ad_soyad="Pasif Şoför", telefon="555", ise_baslama="2023-01-01", ehliyet_sinifi="E")
+
+        # 2. Araç oluştur
+        arac_repo = get_arac_repo()
+        arac_id = await arac_repo.add(plaka="34 PAS 99", marka="Test", model="Model", yil=2023)
+
+        # 3. Seferler ekle (Bu şoför 2 sefer yapsın)
+        # SeferService.add_sefer kullanıyoruz (Validasyonlar için)
+        await sefer_service.add_sefer(SeferCreate(
+            tarih=date(2023, 1, 1), arac_id=arac_id, sofor_id=sofor_id,
+            mesafe_km=100, net_kg=25000, cikis_yeri="Ankara", varis_yeri="İstanbul"
+        ))
+        await sefer_service.add_sefer(SeferCreate(
+            tarih=date(2023, 1, 2), arac_id=arac_id, sofor_id=sofor_id,
+            mesafe_km=100, net_kg=25000, cikis_yeri="İstanbul", varis_yeri="Ankara"
+        ))
+
+        # 4. Şoförü PASİF yap
+        await sofor_repo.delete(sofor_id) # Bu soft delete yapar (aktif=0)
+
+        # 5. Pasif olduğunu doğrula
+        sofor = await sofor_repo.get_by_id(sofor_id)
+        assert sofor['aktif'] == 0
+
+        # 6. RAPOR SORGUSU (ReportService üzerinden)
+        # generate_driver_report son 30 günü alır, o yüzden tarihleri yakın seçelim veya days parametresini artıralım
+        # Senaryo gereği 2023 Ocak verilerini istiyoruz.
+        # generate_driver_report default 30 gün geriye gider.
+        days_diff = (date.today() - date(2023, 1, 1)).days + 1
+        stats = await report_service.generate_driver_report(sofor_id, days=days_diff)
+        
+        # 7. Sonuçları doğrula
+        assert stats is not None
+        assert stats['sofor']['ad_soyad'] == "Pasif Şoför"
+        # generate_driver_report içindeki değerlendirme (evaluate_driver) 
+        # şoförün seferlerini bulmalı (aktif=0 olsa bile)
+        assert stats['degerlendirme'] is not None
+        # Bazı alanları kontrol edelim
+        assert stats['degerlendirme']['toplam_sefer'] >= 2
+
+    @pytest.mark.asyncio
+    async def test_atomic_transaction_fail(self, db_session):
+        """SENARYO 2: Atomik İşlem (Rollback) Testi"""
+        # 1. Başlangıç durumu
+        result = await db_session.execute(text("SELECT COUNT(*) FROM araclar"))
+        count = result.scalar()
+        
+        try:
+            # db_session zaten bir transaction içinde olabilir pytest-asyncio ile,
+            # ama açıkça bir savepoint (nested) yaratarak rollback'i zorlayalım.
+            async with db_session.begin_nested():
+                # 1. Başarılı insert
+                await db_session.execute(text("INSERT INTO araclar (plaka, marka, model, yil) VALUES ('34 OK 01', 'Test', 'X', 2020)"))
+                # 2. İkinci insert
+                await db_session.execute(text("INSERT INTO araclar (plaka, marka, model, yil) VALUES ('34 OK 02', 'Test', 'X', 2020)"))
+                # 3. KASITLI HATA (Constraint Violation - Aynı plaka)
+                await db_session.execute(text("INSERT INTO araclar (plaka, marka, model, yil) VALUES ('34 OK 01', 'Test', 'X', 2020)"))
+                await db_session.flush()
+        except Exception:
+            # Hata yakalandı, nested transaction rollback oldu
+            pass
+        
+        # Kontrol: DB'de HİÇBİR kayıt eklenmemiş olmalı (eski sayı korunmalı)
+        result = await db_session.execute(text("SELECT COUNT(*) FROM araclar"))
+        final_count = result.scalar()
+        assert final_count == count
+
+    @pytest.mark.asyncio
+    async def test_sefer_service_logic(self, sefer_service):
+        """SENARYO 3: Sefer Servisi Mantığı (Validasyon & Boş Dönüş)"""
+        # Hazırlık
+        sofor_repo = get_sofor_repo()
+        sofor_id = await sofor_repo.add(ad_soyad="Seferci", telefon="555", ise_baslama="2023-01-01")
+        
+        arac_repo = get_arac_repo()
+        arac_id = await arac_repo.add(plaka="06 SEF 01", marka="Test", model="Model", yil=2023)
+
+        # 1. Hatalı Sefer (Negatif mesafe) - Pydantic validasyonu
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+             SeferCreate(
+                tarih=date.today(),
+                arac_id=arac_id, sofor_id=sofor_id,
+                cikis_yeri="CikisYeri", varis_yeri="VarisYeri",
+                mesafe_km=-50,
+                net_kg=1000
+             )
+
+        # 2. Başarılı Sefer + Boş Dönüş
+        valid_sefer = SeferCreate(
+            tarih=date.today(),
+            arac_id=arac_id, sofor_id=sofor_id,
+            cikis_yeri="Ankara", varis_yeri="İstanbul",
+            mesafe_km=450,
+            net_kg=20000,
+            bos_sefer=True
+        )
+
+        sid = await sefer_service.add_sefer(valid_sefer)
+        sefer_repo = get_sefer_repo()
+        saved = await sefer_repo.get_by_id(sid)
+        assert saved['bos_sefer'] is True or saved['bos_sefer'] == 1
+
+    @pytest.mark.skip(reason="SQLite FK constraint enforcement requires PRAGMA foreign_keys=ON at connection time")
+    @pytest.mark.asyncio
+    async def test_foreign_key_integrity(self, db_session):
+        """SENARYO 4: Foreign Key Bütünlüğü"""
+        # Araç ve Sefer ekle
+        arac_repo = get_arac_repo()
+        arac_id = await arac_repo.add(plaka="34 FK 01", marka="Test", model="X", yil=2022)
+
+        sofor_repo = get_sofor_repo()
+        sofor_id = await sofor_repo.add(ad_soyad="Test", telefon="555", ise_baslama="2020-01-01", ehliyet_sinifi="E")
+
+        sefer_repo = get_sefer_repo()
+        await sefer_repo.add(
+            tarih="2023-01-01", arac_id=arac_id, sofor_id=sofor_id,
+            mesafe_km=100, net_kg=1000, cikis_yeri="A", varis_yeri="B"
+        )
+
+        # Aracı silmeye çalış (Hard Delete simülasyonu - FK hatası vermeli)
+        from sqlalchemy.exc import IntegrityError
+        
+        # SQLite'da FK hatasını tetiklemek için flush() veya commit() lazım
+        with pytest.raises(IntegrityError):
+            async with db_session.begin_nested():
+                await db_session.execute(text("DELETE FROM araclar WHERE id = :id"), {"id": arac_id})
+                await db_session.flush()

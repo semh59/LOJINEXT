@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .shadow-premium {
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 20px 25px -5px rgba(0, 0, 0, 0.02);
+  }
+  .shadow-soft {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 10px -2px rgba(0, 0, 0, 0.02);
+  }
+  .shadow-floating {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08), 0 10px 20px -5px rgba(0, 0, 0, 0.03);
+  }
+}
+
+/* Base styles */
+body {
+  @apply antialiased text-neutral-800 bg-[#F4F7FE] selection:bg-primary/20;
+  background: radial-gradient(circle at 50% 0%, #E0E7FF 0%, #F4F7FE 100%);
+  min-height: 100vh;
+}
+
+/* Glassmorphism */
+.glass {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-premium;
+}
+
+.glass-dark {
+  @apply bg-neutral-900/80 backdrop-blur-lg border border-white/10 shadow-floating;
+}
+
+/* Button Premium Overhaul */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-95;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply bg-white/50 backdrop-blur-sm text-neutral-800 border border-neutral-200 hover:bg-white hover:border-primary/50 shadow-soft;
+}
+
+.btn-danger {
+  @apply bg-gradient-to-r from-danger to-danger-dark text-white shadow-lg shadow-danger/20 hover:-translate-y-0.5;
+}
+
+/* Card Overhaul */
+.card {
+  @apply bg-white rounded-2xl shadow-dashboard-card border border-neutral-100/50 transition-all duration-300;
+}
+
+.card-premium {
+  @apply glass hover:shadow-floating hover:-translate-y-1;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-neutral-300 rounded-full hover:bg-neutral-400 transition-colors;
+}
+
+/* Animations */
+.animate-stagger-fade {
+  animation: staggerFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes staggerFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

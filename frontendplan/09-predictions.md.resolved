@@ -1,0 +1,136 @@
+# 09 - AI Tahminler
+
+> ML/AI modelleri ile yakıt tüketim tahmini ve trend analizi
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                            AI Tahminler                              │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────┐│
+│  │                    🎯 Yakıt Tahmini                             ││
+│  │                                                                 ││
+│  │  Araç: [34ABC123 ▾]    Şoför: [A.Yılmaz ▾]                     ││
+│  │  Mesafe: [450] km      Yük: [18] ton                           ││
+│  │  Tırmanış: [500] m     İniş: [300] m                           ││
+│  │                                                                 ││
+│  │  [Tahmin Et]                                                    ││
+│  │                                                                 ││
+│  │  ┌─────────────────────────────────────────────────────────┐   ││
+│  │  │         Tahmini Tüketim: 34.2 L/100km                   │   ││
+│  │  │         Model: XGBoost Ensemble                         │   ││
+│  │  └─────────────────────────────────────────────────────────┘   ││
+│  └─────────────────────────────────────────────────────────────────┘│
+│                                                                      │
+│  ┌────────────────────────────┐ ┌────────────────────────────────┐  │
+│  │  📈 Haftalık Tahmin       │ │  📊 Trend Analizi              │  │
+│  │                            │ │                                │  │
+│  │  7 günlük tahmin grafiği   │ │  Trend: Artıyor ↑             │  │
+│  │  + güven aralığı           │ │  Eğim: +0.5                   │  │
+│  │                            │ │  Mevcut: 35.2 L/100km         │  │
+│  │                            │ │  Önceki: 34.1 L/100km         │  │
+│  └────────────────────────────┘ └────────────────────────────────┘  │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Yakıt Tahmini Formu
+
+### Form Fields
+
+| Alan | Tip | Kural |
+|------|-----|-------|
+| Araç* | Select | Aktif araçlar |
+| Şoför | Select | Aktif şoförler (puan için) |
+| Mesafe* | Number | 1-10000 km |
+| Yük | Number | 0-50 ton |
+| Tırmanış | Number | 0-5000 m |
+| İniş | Number | 0-5000 m |
+
+### Sonuç Kartı
+
+| Özellik | Değer |
+|---------|-------|
+| Background | `#DBEAFE` (primary light) |
+| Border Left | 4px `#2563EB` |
+| Value | 32px, 700, `#1E293B` |
+| Model Text | 14px, `#64748B` |
+
+---
+
+## Haftalık Tahmin Grafiği
+
+| Özellik | Değer |
+|---------|-------|
+| Chart Type | Line + Confidence Band |
+| Line | `#2563EB` |
+| Confidence | `rgba(37,99,235,0.1)` |
+| X Axis | 7 gün (tarihler) |
+| Y Axis | L/100km |
+| Tooltip | Tarih + Tahmin + Aralık |
+
+---
+
+## Trend Analizi Kartı
+
+### Trend Badge
+
+| Trend | Icon | Color |
+|-------|------|-------|
+| Artıyor | ↑ | `#EF4444` (kötü) |
+| Azalıyor | ↓ | `#10B981` (iyi) |
+| Sabit | → | `#64748B` |
+
+### Metrics
+
+| Metric | Format |
+|--------|--------|
+| Eğim | +0.5 veya -0.3 |
+| Mevcut | X.X L/100km |
+| Önceki | X.X L/100km |
+
+---
+
+## Model Durumu (Admin Panel)
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  🤖 Model Durumu                                               │
+│                                                                │
+│  ✅ Physics Model      (Ağırlık: 40%)                         │
+│  ✅ LightGBM           (Ağırlık: 25%)                         │
+│  ✅ XGBoost            (Ağırlık: 20%)                         │
+│  ✅ Gradient Boosting  (Ağırlık: 10%)                         │
+│  ✅ Random Forest      (Ağırlık: 5%)                          │
+│                                                                │
+│  [Modeli Eğit]                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## API
+
+```
+POST /api/v1/predictions/predict
+Body: { arac_id, sofor_id, mesafe_km, ton, ascent_m, descent_m }
+→ { tahmini_tuketim, model_used }
+
+GET /api/v1/predictions/time-series/forecast?arac_id=X
+→ { forecast: [...], forecast_dates: [...], confidence_low, confidence_high, trend }
+
+GET /api/v1/predictions/time-series/trend?arac_id=X&days=30
+→ { trend, trend_tr, slope, current_avg, previous_avg }
+
+GET /api/v1/predictions/ensemble/status
+→ { models, weights, total_models }
+
+POST /api/v1/predictions/train/{arac_id}?model_type=xgboost
+POST /api/v1/predictions/time-series/train?arac_id=X&days=180&epochs=100
+```

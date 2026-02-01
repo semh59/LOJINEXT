@@ -1,0 +1,73 @@
+# LojiNext AI - Web Arayüzü Tasarım Dökümanları
+
+> **Amaç:** Tasarımcıya verilecek sayfa özellik dökümanları
+> **Platform:** Desktop only (1280px - 1920px)
+> **Kullanıcı:** Filo Yöneticisi (Admin)
+> **Teknoloji:** React
+
+---
+
+## 📁 Dosya Yapısı
+
+```
+pages/
+├── 00-overview.md          ← Bu dosya (genel bakış)
+├── 01-design-system.md     ← Renk, tipografi, spacing, komponentler
+├── 02-login.md             ← Giriş sayfası
+├── 03-dashboard.md         ← Ana sayfa
+├── 04-vehicles.md          ← Araçlar
+├── 05-drivers.md           ← Sürücüler
+├── 06-trips.md             ← Seferler
+├── 07-fuel.md              ← Yakıt kayıtları
+├── 08-reports.md           ← Raporlar
+├── 09-predictions.md       ← AI Tahminler
+├── 10-alerts.md            ← Uyarılar
+├── 11-locations.md         ← Güzergahlar
+├── 12-settings.md          ← Ayarlar
+└── 13-users.md             ← Kullanıcı yönetimi
+```
+
+---
+
+## 🎨 Tasarım Prensipleri
+
+| Prensip | Açıklama |
+|---------|----------|
+| **Clean & Minimal** | Gereksiz elementler yok, odak veri üzerinde |
+| **Data-First** | İstatistikler ve tablolar ön planda |
+| **Consistent** | Tüm sayfalarda aynı grid, spacing, renk |
+| **Accessible** | Kontrast AA, 14px min font |
+| **Fast** | Skeleton loading, optimistic updates |
+
+---
+
+## 🧭 Navigasyon Haritası
+
+```
+Login → Dashboard ─┬→ Araçlar
+                   ├→ Sürücüler
+                   ├→ Seferler
+                   ├→ Yakıt
+                   ├→ Güzergahlar
+                   ├→ Raporlar
+                   ├→ AI Tahminler
+                   ├→ Ayarlar (Admin)
+                   └→ Kullanıcılar (Admin)
+```
+
+---
+
+## 📐 Sayfa Şablonu (Ortak Layout)
+
+```
+┌─────────┬────────────────────────────────────────────────────────┐
+│         │                    HEADER (64px)                       │
+│         │  [Sayfa Başlığı]              🔔(3)  👤 Admin ▾       │
+│ SIDEBAR ├────────────────────────────────────────────────────────┤
+│ (260px) │                                                        │
+│         │                    CONTENT AREA                        │
+│  Menu   │                    (padding: 32px)                     │
+│  Items  │                                                        │
+│         │                                                        │
+└─────────┴────────────────────────────────────────────────────────┘
+```

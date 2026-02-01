@@ -1,0 +1,117 @@
+# 10 - Uyarılar (Alerts)
+
+> Sistem bildirimleri ve anomali uyarılarının yönetimi
+
+---
+
+## Header Zil Simgesi
+
+```
+┌──────────────────────────────────────────┐
+│                            🔔(3) 👤 Admin │
+│                             ↓             │
+│  ┌─────────────────────────────────────┐ │
+│  │ Bildirimler     [Tümünü Okundu Yap] │ │
+│  ├─────────────────────────────────────┤ │
+│  │ 🔴 Yakıt Anomalisi                  │ │
+│  │    34ABC123 aracında yüksek tük...  │ │
+│  │    2 saat önce                      │ │
+│  ├─────────────────────────────────────┤ │
+│  │ 🟡 Maliyet Uyarısı                  │ │
+│  │    Haftalık yakıt maliyeti %15...   │ │
+│  │    5 saat önce                      │ │
+│  ├─────────────────────────────────────┤ │
+│  │ 🟢 Sistem Bildirimi                 │ │
+│  │    Yedekleme tamamlandı             │ │
+│  │    1 gün önce        ✓ Okundu       │ │
+│  ├─────────────────────────────────────┤ │
+│  │         [Tümünü Gör →]              │ │
+│  └─────────────────────────────────────┘ │
+└──────────────────────────────────────────┘
+```
+
+---
+
+## Zil Simgesi
+
+| Özellik | Değer |
+|---------|-------|
+| Icon | Bell, 24px |
+| Badge | 16px circle, `#EF4444`, white text |
+| Badge Position | Top-right, -4px offset |
+| Hover | Background `#F1F5F9` |
+
+---
+
+## Dropdown Panel
+
+| Özellik | Değer |
+|---------|-------|
+| Width | 380px |
+| Max Height | 400px |
+| Background | `#FFFFFF` |
+| Shadow | `0 10px 40px rgba(0,0,0,0.15)` |
+| Border Radius | 12px |
+| Position | Right-aligned, below header |
+
+---
+
+## Uyarı Kartı (Dropdown İçi)
+
+| Element | Stil |
+|---------|------|
+| Container | Padding 16px, border-bottom |
+| Severity Dot | 8px circle, sol üst |
+| Title | 14px, 600, `#1E293B` |
+| Message | 13px, `#64748B`, truncate 2 line |
+| Time | 12px, `#94A3B8` |
+| Unread BG | `#F8FAFC` |
+| Read | Normal white bg |
+
+---
+
+## Severity Colors
+
+| Level | Dot | Left Border |
+|-------|-----|-------------|
+| Critical | `#DC2626` | 3px `#DC2626` |
+| High | `#EA580C` | 3px `#EA580C` |
+| Medium | `#D97706` | 3px `#D97706` |
+| Low | `#6B7280` | 3px `#6B7280` |
+
+---
+
+## Uyarılar Sayfası (Tam Liste)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                              Uyarılar                                │
+├──────────────────────────────────────────────────────────────────────┤
+│  [Tümünü Okundu Yap]              Filtre: [Severity ▾] [Tip ▾]      │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ SEVERİTY │ TİP          │ BAŞLIK           │ TARİH   │ DURUM │⋮││
+│  ├──────────┼──────────────┼──────────────────┼─────────┼───────┼─┤│
+│  │ 🔴 CRİT  │ fuel_anomaly │ Yüksek tüketim   │ 2s önce │ Yeni  │⋮││
+│  │ 🟡 MED   │ cost_anomaly │ Maliyet artışı   │ 5s önce │ Yeni  │⋮││
+│  │ 🟢 LOW   │ system       │ Backup tamamlandı│ 1g önce │ ✓     │⋮││
+│  └────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## API
+
+```
+GET  /api/v1/alerts?status=unread&limit=10
+GET  /api/v1/alerts/count
+     → { total, unread, critical, high, medium, low }
+
+POST /api/v1/alerts/mark-read
+     Body: { alert_ids: [1,2,3] }
+
+POST /api/v1/alerts/mark-all-read
+
+DELETE /api/v1/alerts/{id}
+```

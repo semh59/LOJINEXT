@@ -1,0 +1,130 @@
+# 13 - Kullanıcı Yönetimi (Users)
+
+> Sistem kullanıcılarının yönetimi (Sadece Admin)
+
+---
+
+## Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                           Kullanıcılar                               │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔍 Ara...                               [+ Yeni Kullanıcı]     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ KULLANICI ADI │ AD SOYAD       │ ROL    │ DURUM  │ İŞLEM      │ │
+│  ├───────────────┼────────────────┼────────┼────────┼────────────┤ │
+│  │ admin         │ Sistem Admin   │ 👑 Admin│  ✅    │ -          │ │
+│  │ operator1     │ Ali Veli       │ 👤 User │  ✅    │ ⋮          │ │
+│  │ operator2     │ Ahmet Yılmaz   │ 👤 User │  ❌    │ ⋮          │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Tablo Kolonları
+
+| Kolon | Width | Format |
+|-------|-------|--------|
+| Kullanıcı Adı | 150px | Text |
+| Ad Soyad | 180px | Text |
+| Rol | 100px | Badge |
+| Durum | 80px | Badge |
+| İşlemler | 80px | Menu |
+
+---
+
+## Rol Badge
+
+| Rol | Icon | BG | Text |
+|-----|------|-----|------|
+| Admin | 👑 | `#DBEAFE` | `#2563EB` |
+| User | 👤 | `#F1F5F9` | `#64748B` |
+
+---
+
+## Durum Badge
+
+| Durum | BG | Text |
+|-------|-----|------|
+| Aktif | `#D1FAE5` | `#059669` |
+| Pasif | `#FEE2E2` | `#DC2626` |
+
+---
+
+## Modal: Yeni Kullanıcı
+
+```
+┌────────────────────────────────────────┐
+│  👤 Yeni Kullanıcı                     │
+│                                        │
+│  Kullanıcı Adı*  [                  ]  │
+│  Şifre*          [                  ]  │
+│  Ad Soyad        [                  ]  │
+│  Rol             [User ▾            ]  │
+│  Aktif           [● Açık]              │
+│                                        │
+│  [İptal]              [Kaydet]         │
+└────────────────────────────────────────┘
+```
+
+### Form Fields
+
+| Alan | Tip | Kural |
+|------|-----|-------|
+| Kullanıcı Adı* | Input | Unique, 3-50 char |
+| Şifre* | Password | Min 8, mixed case + number |
+| Ad Soyad | Input | Max 100 |
+| Rol | Select | admin, user |
+| Aktif | Toggle | Default: true |
+
+---
+
+## Actions
+
+| Item | Icon | Açıklama | Color |
+|------|------|----------|-------|
+| Sil | Trash2 | Soft delete | `#EF4444` |
+
+> Not: Admin kendini silemez
+
+---
+
+## Delete Confirmation
+
+```
+┌────────────────────────────────────┐
+│  ⚠️ Kullanıcı Silinecek           │
+│                                    │
+│  "operator1" kullanıcısı           │
+│  pasif yapılacaktır.               │
+│                                    │
+│  [İptal]             [Sil]         │
+└────────────────────────────────────┘
+```
+
+---
+
+## API
+
+```
+GET    /api/v1/users?skip=0&limit=100
+POST   /api/v1/users
+       Body: { kullanici_adi, sifre, ad_soyad, rol, aktif }
+DELETE /api/v1/users/{id}
+       → Soft delete (aktif=false)
+```
+
+---
+
+## Validations
+
+| Alan | Kural |
+|------|-------|
+| Kullanıcı Adı | Unique check on blur |
+| Şifre | Strong password regex |
+| Self Delete | Blocked (400 error) |
