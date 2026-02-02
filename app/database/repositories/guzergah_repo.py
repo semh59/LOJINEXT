@@ -8,16 +8,22 @@ from app.infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 class GuzergahRepository(BaseRepository[Guzergah]):
     """Güzergah veritabanı operasyonları"""
-    
+
     model = Guzergah
-    
+
     async def get_all_active(self) -> List[Dict]:
         """Tüm aktif güzergahları getir"""
-        query = select(self.model).where(self.model.aktif == True).order_by(self.model.ad)
+        query = (
+            select(self.model).where(self.model.aktif == True).order_by(self.model.ad)
+        )
         result = await self.session.execute(query)
-        return [row.to_dict() if hasattr(row, 'to_dict') else row.__dict__ for row in result.scalars().all()]
+        return [
+            row.to_dict() if hasattr(row, "to_dict") else row.__dict__
+            for row in result.scalars().all()
+        ]
 
     async def create_guzergah(self, data: dict) -> Guzergah:
         """Yeni güzergah oluştur"""
@@ -31,16 +37,13 @@ class GuzergahRepository(BaseRepository[Guzergah]):
         """Soft delete (aktif=False)"""
         return await self.update(id, aktif=False)
 
-# Singleton Pattern
-import threading
-_guzergah_repo_lock = threading.Lock()
-_guzergah_repo: Optional[GuzergahRepository] = None
 
-def get_guzergah_repo(session: Optional[AsyncSession] = None) -> GuzergahRepository:
-    global _guzergah_repo
-    if session:
-        return GuzergahRepository(session=session)
-    with _guzergah_repo_lock:
-        if _guzergah_repo is None:
-            _guzergah_repo = GuzergahRepository()
-    return _guzergah_repo
+# Singleton Removal - Use Dependency Injection
+# import threading
+# _guzergah_repo_lock = threading.Lock()
+# _guzergah_repo: Optional[GuzergahRepository] = None
+
+# def get_guzergah_repo(session: Optional[AsyncSession] = None) -> GuzergahRepository:
+#     if session:
+#         return GuzergahRepository(session=session)
+#     return GuzergahRepository() # Should generally avoid this without session

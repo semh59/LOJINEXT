@@ -32,13 +32,13 @@ class SeferRepository(BaseRepository[Sefer]):
         limit: int = 100,
         offset: int = 0,
         desc: bool = True,
-        include_inactive: bool = False
+        include_inactive: bool = False,
     ) -> List[Dict]:
         """Seferleri getir (join ile plaka ve şoför adı dahil)"""
         # Input validation
         limit = max(1, min(int(limit or 100), self.MAX_LIMIT))
         offset = max(0, int(offset or 0))
-        
+
         query = """
             SELECT s.*, a.plaka, sf.ad_soyad as sofor_adi
             FROM seferler s
@@ -50,15 +50,25 @@ class SeferRepository(BaseRepository[Sefer]):
 
         if tarih:
             query += " AND s.tarih = :tarih"
-            params["tarih"] = date.fromisoformat(tarih) if isinstance(tarih, str) else tarih
+            params["tarih"] = (
+                date.fromisoformat(tarih) if isinstance(tarih, str) else tarih
+            )
 
         if baslangic_tarih:
             query += " AND s.tarih >= :baslangic_tarih"
-            params["baslangic_tarih"] = date.fromisoformat(baslangic_tarih) if isinstance(baslangic_tarih, str) else baslangic_tarih
+            params["baslangic_tarih"] = (
+                date.fromisoformat(baslangic_tarih)
+                if isinstance(baslangic_tarih, str)
+                else baslangic_tarih
+            )
 
         if bitis_tarih:
             query += " AND s.tarih <= :bitis_tarih"
-            params["bitis_tarih"] = date.fromisoformat(bitis_tarih) if isinstance(bitis_tarih, str) else bitis_tarih
+            params["bitis_tarih"] = (
+                date.fromisoformat(bitis_tarih)
+                if isinstance(bitis_tarih, str)
+                else bitis_tarih
+            )
 
         if arac_id:
             query += " AND s.arac_id = :arac_id"
@@ -80,13 +90,13 @@ class SeferRepository(BaseRepository[Sefer]):
                 s.varis_yeri LIKE :search
             )"""
             params["search"] = f"%{search}%"
-            
+
         # if not include_inactive:
         #    query += " AND s.aktif = TRUE"
 
         # ORDER BY Whitelist
         order_direction = "DESC" if desc else "ASC"
-        
+
         # SQL Injection Prevention for dynamic ORDER BY
         query += f" ORDER BY s.tarih {order_direction}, s.id {order_direction} LIMIT :limit OFFSET :offset"
         params["limit"] = limit
@@ -107,11 +117,11 @@ class SeferRepository(BaseRepository[Sefer]):
         bos_sefer: bool = False,
         ascent_m: float = None,
         descent_m: float = None,
-        durum: str = 'Bekliyor',
+        durum: str = "Bekliyor",
         notlar: str = None,
         guzergah_id: int = None,
         bos_agirlik_kg: int = 0,
-        dolu_agirlik_kg: int = 0
+        dolu_agirlik_kg: int = 0,
     ) -> int:
         """Yeni sefer ekle"""
         if isinstance(tarih, str):
@@ -136,7 +146,7 @@ class SeferRepository(BaseRepository[Sefer]):
             durum=durum,
             ascent_m=ascent_m,
             descent_m=descent_m,
-            notlar=notlar
+            notlar=notlar,
         )
 
     async def get_bugunun_seferleri(self) -> List[Dict]:
@@ -158,14 +168,30 @@ class SeferRepository(BaseRepository[Sefer]):
 
     async def update_sefer(self, id: int, **kwargs) -> bool:
         """Sefer güncelle"""
-        allowed = ["tarih", "arac_id", "sofor_id", "mesafe_km", "net_kg",
-                   "cikis_yeri", "varis_yeri", "saat", "bos_sefer",
-                   "tuketim", "dagitilan_yakit", "periyot_id", "durum",
-                   "ascent_m", "descent_m", "notlar", "guzergah_id", 
-                   "bos_agirlik_kg", "dolu_agirlik_kg"]
+        allowed = [
+            "tarih",
+            "arac_id",
+            "sofor_id",
+            "mesafe_km",
+            "net_kg",
+            "cikis_yeri",
+            "varis_yeri",
+            "saat",
+            "bos_sefer",
+            "tuketim",
+            "dagitilan_yakit",
+            "periyot_id",
+            "durum",
+            "ascent_m",
+            "descent_m",
+            "notlar",
+            "guzergah_id",
+            "bos_agirlik_kg",
+            "dolu_agirlik_kg",
+        ]
 
         if "net_kg" in kwargs:
-             kwargs["ton"] = round(kwargs["net_kg"] / 1000, 2)
+            kwargs["ton"] = round(kwargs["net_kg"] / 1000, 2)
 
         updates = {k: v for k, v in kwargs.items() if k in allowed or k == "ton"}
         return await self.update(id, **updates)
@@ -180,9 +206,9 @@ class SeferRepository(BaseRepository[Sefer]):
                 obj = await session.get(self.model, id)
                 if not obj:
                     return False
-                
+
                 await session.delete(obj)
-                
+
                 if not self.session:
                     await session.commit()
                 return True
@@ -199,21 +225,23 @@ class SeferRepository(BaseRepository[Sefer]):
         """
         if not trips:
             return 0
-            
+
         count = 0
         from sqlalchemy import text
-        
+
         # Güncellenecek verileri hazırla
         update_data = []
         for trip in trips:
-            if hasattr(trip, 'id') and hasattr(trip, 'tuketim'):
-                update_data.append({
-                    "periyot_id": getattr(trip, 'periyot_id', None),
-                    "dagitilan_yakit": getattr(trip, 'dagitilan_yakit', None),
-                    "tuketim": trip.tuketim,
-                    "id": trip.id
-                })
-        
+            if hasattr(trip, "id") and hasattr(trip, "tuketim"):
+                update_data.append(
+                    {
+                        "periyot_id": getattr(trip, "periyot_id", None),
+                        "dagitilan_yakit": getattr(trip, "dagitilan_yakit", None),
+                        "tuketim": trip.tuketim,
+                        "id": trip.id,
+                    }
+                )
+
         if not update_data:
             return 0
 
@@ -227,16 +255,16 @@ class SeferRepository(BaseRepository[Sefer]):
                         tuketim = :tuketim
                     WHERE id = :id
                 """)
-                
+
                 # Tek seferde çalıştır
                 result = await session.execute(stmt, update_data)
                 count = result.rowcount
-                
+
                 if not self.session:
                     await session.commit()
-                    
+
                 logger.info(f"Updated {len(update_data)} trips with fuel data (Bulk)")
-                    
+
             except Exception as e:
                 logger.error(f"Bulk update failed: {e}")
                 if not self.session:
@@ -245,11 +273,7 @@ class SeferRepository(BaseRepository[Sefer]):
 
         return count
 
-    async def get_for_training(
-        self,
-        arac_id: int,
-        limit: int = 200
-    ) -> List[Dict]:
+    async def get_for_training(self, arac_id: int, limit: int = 200) -> List[Dict]:
         """
         AI model eğitimi için sefer verilerini getir.
         Sadece tüketim verisi olan ve tamamlanmış seferler.
@@ -275,16 +299,13 @@ class SeferRepository(BaseRepository[Sefer]):
 
 
 # Thread-safe Singleton
-import threading
-_sefer_repo_lock = threading.Lock()
-_sefer_repo: Optional[SeferRepository] = None
+# Thread-safe Singleton Removal - Use DI
+# import threading
+# _sefer_repo_lock = threading.Lock()
+# _sefer_repo: Optional[SeferRepository] = None
 
-def get_sefer_repo(session: Optional[AsyncSession] = None) -> SeferRepository:
-    """SeferRepo Provider. Eğer session verilirse yeni instance döner (UoW için)."""
-    global _sefer_repo
-    if session:
-        return SeferRepository(session=session)
-    with _sefer_repo_lock:
-        if _sefer_repo is None:
-            _sefer_repo = SeferRepository()
-    return _sefer_repo
+# def get_sefer_repo(session: Optional[AsyncSession] = None) -> SeferRepository:
+#     """SeferRepo Provider. Eğer session verilirse yeni instance döner (UoW için)."""
+#     if session:
+#         return SeferRepository(session=session)
+#     return SeferRepository()

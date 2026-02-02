@@ -5,15 +5,17 @@ Güzergah (Route) Servisi
 
 from typing import List, Optional
 from app.core.entities.models import Guzergah
-from app.database.repositories.guzergah_repo import get_guzergah_repo
+
+# from app.database.repositories.guzergah_repo import get_guzergah_repo
 from app.schemas.guzergah import GuzergahCreate, GuzergahUpdate
 from app.infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 class GuzergahService:
-    def __init__(self, repo=None):
-        self.repo = repo or get_guzergah_repo()
+    def __init__(self, repo):
+        self.repo = repo
 
     async def get_all_active(self) -> List[Guzergah]:
         """Aktif güzergahları getir"""
@@ -37,14 +39,12 @@ class GuzergahService:
         return await self.repo.soft_delete(id)
 
 
-# Singleton
-import threading
-_guzergah_service_lock = threading.Lock()
-_guzergah_service: Optional[GuzergahService] = None
+from fastapi import Depends
+from app.database.connection import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database.repositories.guzergah_repo import GuzergahRepository
 
-def get_guzergah_service() -> GuzergahService:
-    global _guzergah_service
-    with _guzergah_service_lock:
-        if _guzergah_service is None:
-            _guzergah_service = GuzergahService()
-    return _guzergah_service
+
+def get_guzergah_service(db: AsyncSession = Depends(get_db)) -> GuzergahService:
+    repo = GuzergahRepository(session=db)
+    return GuzergahService(repo=repo)

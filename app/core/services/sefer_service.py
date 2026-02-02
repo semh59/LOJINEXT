@@ -6,8 +6,13 @@ TIR Yakıt Takip Sistemi - Sefer Servisi
 from datetime import date
 from typing import List
 
-from app.core.entities.models import Sefer, SeferCreate, Guzergah
-from app.database.repositories.sefer_repo import get_sefer_repo
+from app.core.entities.models import Sefer, SeferCreate
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database.connection import get_db
+from app.database.repositories.sefer_repo import SeferRepository
+
+# from app.database.repositories.sefer_repo import get_sefer_repo
 from app.database.unit_of_work import get_uow
 from app.infrastructure.events.event_bus import EventType, get_event_bus, publishes
 from app.infrastructure.logging.logger import get_logger
@@ -21,8 +26,8 @@ class SeferService:
     Sefer işlemleri iş mantığı.
     """
 
-    def __init__(self, repo=None, event_bus=None):
-        self.repo = repo or get_sefer_repo()
+    def __init__(self, repo, event_bus=None):
+        self.repo = repo
         self.event_bus = event_bus or get_event_bus()
 
     @audit_log("CREATE", "sefer")
@@ -33,53 +38,63 @@ class SeferService:
         """
         try:
             async with get_uow() as uow:
-                # 1. Validation Logic
-                # (Active check removal - assuming fields might still be there for now or we trust ID existence)
-                # If we want to enforce Guzergah based logic:
+                # 1. Validation Logic (Ensuring vehicle is active)
+                arac = await uow.arac_repo.get_by_id(data.arac_id)
+                if not arac:
+                    raise ValueError(f"Geçersiz araç ID: {data.arac_id}")
+                if not arac.get("aktif"):
+                    raise ValueError(
+                        f"Pasif araç ile sefer oluşturulamaz: {arac.get('plaka', data.arac_id)}"
+                    )
+
                 if data.guzergah_id:
-                     guzergah = await uow.session.get(Guzergah, data.guzergah_id)
-                     if not guzergah:
-                         raise ValueError("Seçilen güzergah bulunamadı.")
-                
+                    from app.database.models import Guzergah
+
+                    guzergah = await uow.session.get(Guzergah, data.guzergah_id)
+                    if not guzergah:
+                        raise ValueError("Seçilen güzergah bulunamadı.")
+
                 if data.mesafe_km <= 0:
                     raise ValueError("Mesafe 0'dan büyük olmalıdır")
 
-                # if data.cikis_yeri.lower() == data.varis_yeri.lower():
-                #     raise ValueError("Çıkış ve varış yeri aynı olamaz")
-
                 if data.net_kg < 0:
                     raise ValueError("Yük miktarı negatif olamaz")
-                
-            # Future date check (sanity limit: 1 year)
-            trip_date = (
-                data.tarih if isinstance(data.tarih, date) else date.fromisoformat(data.tarih)
-            )
-            if (trip_date - date.today()).days > 365:
-                raise ValueError("Sefer tarihi 1 yıldan daha ileri bir tarih olamaz")
 
-            # DB Insert
-            sefer_id = await self.repo.add(
-                tarih=data.tarih,
-                saat=data.saat or "",
-                arac_id=data.arac_id,
-                sofor_id=data.sofor_id,
-                guzergah_id=data.guzergah_id,
-                net_kg=data.net_kg,
-                bos_agirlik_kg=data.bos_agirlik_kg,
-                dolu_agirlik_kg=data.dolu_agirlik_kg,
-                cikis_yeri=data.cikis_yeri,
-                varis_yeri=data.varis_yeri,
-                mesafe_km=data.mesafe_km,
-                bos_sefer=1 if data.bos_sefer else 0,
-                durum=data.durum,
-                ascent_m=data.ascent_m,
-                descent_m=data.descent_m,
-                notlar=data.notlar
-            )
+                # Future date check (sanity limit: 1 year)
+                trip_date = (
+                    data.tarih
+                    if isinstance(data.tarih, date)
+                    else date.fromisoformat(data.tarih)
+                )
+                if (trip_date - date.today()).days > 365:
+                    raise ValueError(
+                        "Sefer tarihi 1 yıldan daha ileri bir tarih olamaz"
+                    )
 
-            logger.info(f"Sefer eklendi: ID {sefer_id}, Arac {data.arac_id}")
-            return sefer_id
-            
+                # 2. DB Insert (Using UoW Repository)
+                sefer_id = await uow.sefer_repo.add(
+                    tarih=data.tarih,
+                    saat=data.saat or "",
+                    arac_id=data.arac_id,
+                    sofor_id=data.sofor_id,
+                    guzergah_id=data.guzergah_id,
+                    net_kg=data.net_kg,
+                    bos_agirlik_kg=data.bos_agirlik_kg,
+                    dolu_agirlik_kg=data.dolu_agirlik_kg,
+                    cikis_yeri=data.cikis_yeri,
+                    varis_yeri=data.varis_yeri,
+                    mesafe_km=data.mesafe_km,
+                    bos_sefer=1 if data.bos_sefer else 0,
+                    durum=data.durum,
+                    ascent_m=data.ascent_m,
+                    descent_m=data.descent_m,
+                    notlar=data.notlar,
+                )
+
+                await uow.commit()
+                logger.info(f"Sefer eklendi: ID {sefer_id}, Arac {data.arac_id}")
+                return sefer_id
+
         except Exception as e:
             logger.error(f"Sefer ekleme hatasi: {e}")
             raise
@@ -107,7 +122,7 @@ class SeferService:
                 varis_yeri=data.varis_yeri,
                 mesafe_km=data.mesafe_km,
                 bos_sefer=1 if data.bos_sefer else 0,
-                notlar=data.notlar
+                notlar=data.notlar,
             )
 
             if success:
@@ -140,23 +155,16 @@ class SeferService:
         return [Sefer.model_validate(dict(r)) for r in records]
 
     async def get_all_paged(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        aktif_only: bool = True,
-        **filters
+        self, skip: int = 0, limit: int = 100, aktif_only: bool = True, **filters
     ) -> List[Sefer]:
         """
         Sayfalı ve filtreli sefer listesi (Güvenli Katman).
         Pydantic validasyon hatalarını yakalar, tüm listeyi çökertmez.
         """
         records = await self.repo.get_all(
-            offset=skip,
-            limit=limit,
-            include_inactive=not aktif_only,
-            **filters
+            offset=skip, limit=limit, include_inactive=not aktif_only, **filters
         )
-        
+
         results = []
         for r in records:
             try:
@@ -200,23 +208,7 @@ class SeferService:
                         continue
 
                 # 2. Lokasyon Eşleme ve Hazırlık (CPU Bound kısmı thread'e alıyoruz)
-                import asyncio
-                
-                # Pre-fetch context data
-                all_loc_names = await uow.lokasyon_repo.get_benzersiz_lokasyonlar()
 
-                def _prepare_batch_sync(items, loc_names):
-                    # Bu fonksiyon thread içinde çalışacak (Non-blocking)
-                    prepared = []
-                    # Sadece simple matching yapalım, repo'nun complex logic'ini çağıramayız (async).
-                    # Not: Repo.find_closest_match async olduğu için burada direkt çağıramayız.
-                    # Ancak loc_names elimizde olduğu için fuzzy match'i burada yapabiliriz.
-                    # Veya basitçe loop içinde await etmeye devam edebiliriz.
-                    # Eğer find_closest_match ağır ise, onu optimize etmek daha doğru.
-                    # Şimdilik mevcut mantığı koruyup loop içinde await ediyoruz ancak 
-                    # listeyi sort etmek ve pre-check yapmak hızlıdır.
-                    return items
-                
                 # Eğer find_closest_match async ve DB kullanıyorsa, thread'e almak zordur.
                 # Ancak 'all_loc_names' zaten elimizde.
                 # Optimization: find_closest_match eğer sadece string distance ise, onu senkron helper yapıp threadde çalıştırmak lazım.
@@ -276,7 +268,6 @@ class SeferService:
         return count
 
 
-def get_sefer_service() -> SeferService:
-    from app.core.container import get_container
-
-    return get_container().sefer_service
+def get_sefer_service(db: AsyncSession = Depends(get_db)) -> SeferService:
+    repo = SeferRepository(session=db)
+    return SeferService(repo=repo)
