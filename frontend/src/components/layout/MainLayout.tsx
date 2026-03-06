@@ -3,14 +3,16 @@ import { motion } from 'framer-motion'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import ErrorBoundary from '../common/ErrorBoundary'
+import { ChatAssistant } from '../ai/ChatAssistant'
 
 interface MainLayoutProps {
     children: React.ReactNode
     title?: string
     breadcrumb?: string
+    hideChatAssistant?: boolean
 }
 
-export function MainLayout({ children, title, breadcrumb }: MainLayoutProps) {
+export function MainLayout({ children, title, breadcrumb, hideChatAssistant }: MainLayoutProps) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
     return (
@@ -44,6 +46,7 @@ export function MainLayout({ children, title, breadcrumb }: MainLayoutProps) {
                     </ErrorBoundary>
                 </main>
             </div>
+            {!hideChatAssistant && <ChatAssistant />}
         </div>
     )
 }

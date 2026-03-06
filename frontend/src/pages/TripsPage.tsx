@@ -1,10 +1,10 @@
-import { MainLayout } from '../components/layout/MainLayout'
+import { PremiumLayout } from '../components/layout/PremiumLayout'
 import { TripsModule } from '../features/trips/TripsModule'
 
 export default function TripsPage() {
     return (
-        <MainLayout title="Seferler" breadcrumb="Sistem / Sefer Yönetimi">
+        <PremiumLayout title="Sefer Yönetimi" primaryColor="#25d1f4">
             <TripsModule />
-        </MainLayout>
+        </PremiumLayout>
     )
 }

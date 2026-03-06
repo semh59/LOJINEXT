@@ -1,10 +1,11 @@
-from dataclasses import dataclass
-from datetime import datetime, date
-from typing import List, Optional, Dict
-import threading
 import os
+import threading
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from typing import List, Optional
 
 from sqlalchemy import text
+
 from app.database.unit_of_work import get_uow
 from app.infrastructure.logging.logger import get_logger
 
@@ -14,6 +15,7 @@ logger = get_logger(__name__)
 @dataclass
 class Recommendation:
     """Öneri modeli"""
+
     kategori: str  # 'verimlilik', 'maliyet', 'bakim', 'egitim'
     hedef_tip: str  # 'arac', 'sofor', 'filo'
     hedef_id: Optional[int]
@@ -43,7 +45,7 @@ class RecommendationEngine:
         # DEADLOCK FIX: Bu metod lock içinden çağrılıyor, iç lock kaldırıldı
         if key not in self._cache_time:
             return False
-        elapsed = (datetime.now() - self._cache_time[key]).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - self._cache_time[key]).total_seconds()
         return elapsed < self.CACHE_TTL
 
     # =========================================================================
@@ -65,9 +67,9 @@ class RecommendationEngine:
             if not arac:
                 return recommendations
 
-            plaka = arac['plaka']
-            hedef = arac.get('hedef_tuketim', 32.0)
-            yil = arac.get('yil', 2020)
+            plaka = arac["plaka"]
+            hedef = arac.get("hedef_tuketim", 32.0)
+            yil = arac.get("yil", 2020)
             yas = date.today().year - yil
 
             # Son 30 gün tüketim (PostgreSQL Syntax)
@@ -85,27 +87,31 @@ class RecommendationEngine:
                 sapma = ((ort_tuketim - hedef) / hedef) * 100 if hedef > 0 else 0
 
                 if sapma > 10:
-                    recommendations.append(Recommendation(
-                        kategori='verimlilik',
-                        hedef_tip='arac',
-                        hedef_id=arac_id,
-                        mesaj=f"{plaka}: Tüketim hedefin %{sapma:.0f} üzerinde ({ort_tuketim:.1f} L/100km)",
-                        oncelik=4 if sapma > 20 else 3,
-                        aksiyon="Bakım ve lastik kontrolü yapılmalı"
-                    ))
+                    recommendations.append(
+                        Recommendation(
+                            kategori="verimlilik",
+                            hedef_tip="arac",
+                            hedef_id=arac_id,
+                            mesaj=f"{plaka}: Tüketim hedefin %{sapma:.0f} üzerinde ({ort_tuketim:.1f} L/100km)",
+                            oncelik=4 if sapma > 20 else 3,
+                            aksiyon="Bakım ve lastik kontrolü yapılmalı",
+                        )
+                    )
 
             if yas >= 10:
-                recommendations.append(Recommendation(
-                    kategori='bakim',
-                    hedef_tip='arac',
-                    hedef_id=arac_id,
-                    mesaj=f"{plaka}: {yas} yaşında, düzenli bakım kritik önemde",
-                    oncelik=3,
-                    aksiyon="6 ayda bir detaylı bakım önerilir"
-                ))
+                recommendations.append(
+                    Recommendation(
+                        kategori="bakim",
+                        hedef_tip="arac",
+                        hedef_id=arac_id,
+                        mesaj=f"{plaka}: {yas} yaşında, düzenli bakım kritik önemde",
+                        oncelik=3,
+                        aksiyon="6 ayda bir detaylı bakım önerilir",
+                    )
+                )
 
         self._cache[cache_key] = recommendations
-        self._cache_time[cache_key] = datetime.now()
+        self._cache_time[cache_key] = datetime.now(timezone.utc)
         return recommendations
 
     # =========================================================================
@@ -120,11 +126,11 @@ class RecommendationEngine:
 
         recommendations = []
         from app.core.container import get_container
-        
+
         try:
             deger_service = get_container().degerlendirme_service
             degerlendirme = await deger_service.evaluate_driver(sofor_id)
-            
+
             if not degerlendirme:
                 return recommendations
 
@@ -132,31 +138,46 @@ class RecommendationEngine:
             puan = degerlendirme.genel_puan
 
             if puan < 50:
-                recommendations.append(Recommendation(
-                    kategori='egitim', hedef_tip='sofor', hedef_id=sofor_id,
-                    mesaj=f"{ad}: Performans puanı düşük ({puan}/100)",
-                    oncelik=4, aksiyon="Ekonomik sürüş eğitimi planlanmalı"
-                ))
+                recommendations.append(
+                    Recommendation(
+                        kategori="egitim",
+                        hedef_tip="sofor",
+                        hedef_id=sofor_id,
+                        mesaj=f"{ad}: Performans puanı düşük ({puan}/100)",
+                        oncelik=4,
+                        aksiyon="Ekonomik sürüş eğitimi planlanmalı",
+                    )
+                )
 
             if degerlendirme.trend.value == "Kötüleşiyor":
-                recommendations.append(Recommendation(
-                    kategori='verimlilik', hedef_tip='sofor', hedef_id=sofor_id,
-                    mesaj=f"{ad}: Son dönemde verimlilik düşüşü (%{abs(degerlendirme.trend_degisim):.1f})",
-                    oncelik=4, aksiyon="Sefer geçmişi incelenmeli"
-                ))
+                recommendations.append(
+                    Recommendation(
+                        kategori="verimlilik",
+                        hedef_tip="sofor",
+                        hedef_id=sofor_id,
+                        mesaj=f"{ad}: Son dönemde verimlilik düşüşü (%{abs(degerlendirme.trend_degisim):.1f})",
+                        oncelik=4,
+                        aksiyon="Sefer geçmişi incelenmeli",
+                    )
+                )
 
             if degerlendirme.filo_karsilastirma < -10:
-                recommendations.append(Recommendation(
-                    kategori='egitim', hedef_tip='sofor', hedef_id=sofor_id,
-                    mesaj=f"{ad}: Filo ortalamasının %{abs(degerlendirme.filo_karsilastirma):.0f} altında",
-                    oncelik=3, aksiyon="Bireysel koçluk seansı önerilir"
-                ))
+                recommendations.append(
+                    Recommendation(
+                        kategori="egitim",
+                        hedef_tip="sofor",
+                        hedef_id=sofor_id,
+                        mesaj=f"{ad}: Filo ortalamasının %{abs(degerlendirme.filo_karsilastirma):.0f} altında",
+                        oncelik=3,
+                        aksiyon="Bireysel koçluk seansı önerilir",
+                    )
+                )
 
         except Exception as e:
             logger.error(f"Driver recommendation error: {e}")
 
         self._cache[cache_key] = recommendations
-        self._cache_time[cache_key] = datetime.now()
+        self._cache_time[cache_key] = datetime.now(timezone.utc)
         return recommendations
 
     # =========================================================================
@@ -174,25 +195,34 @@ class RecommendationEngine:
 
         async with uow:
             # Filo ortalaması değişimi (PostgreSQL)
-            bu_ay_sql = text("SELECT AVG(tuketim) as ort FROM seferler WHERE tuketim IS NOT NULL AND tarih >= CURRENT_DATE - INTERVAL '30 days'")
+            bu_ay_sql = text(
+                "SELECT AVG(tuketim) as ort FROM seferler WHERE tuketim IS NOT NULL AND tarih >= CURRENT_DATE - INTERVAL '30 days'"
+            )
             gecen_ay_sql = text("""
                 SELECT AVG(tuketim) as ort FROM seferler 
                 WHERE tuketim IS NOT NULL 
                 AND tarih >= CURRENT_DATE - INTERVAL '60 days'
                 AND tarih < CURRENT_DATE - INTERVAL '30 days'
             """)
-            
+
             bu_ay = (await uow.session.execute(bu_ay_sql)).fetchone()
             gecen_ay = (await uow.session.execute(gecen_ay_sql)).fetchone()
 
             if bu_ay and gecen_ay and bu_ay.ort and gecen_ay.ort:
-                degisim = ((float(bu_ay.ort) - float(gecen_ay.ort)) / float(gecen_ay.ort)) * 100
+                degisim = (
+                    (float(bu_ay.ort) - float(gecen_ay.ort)) / float(gecen_ay.ort)
+                ) * 100
                 if degisim > 5:
-                    recommendations.append(Recommendation(
-                        kategori='verimlilik', hedef_tip='filo', hedef_id=None,
-                        mesaj=f"Filo tüketimi geçen aya göre %{degisim:.1f} arttı",
-                        oncelik=4, aksiyon="Genel bakım taraması yapılmalı"
-                    ))
+                    recommendations.append(
+                        Recommendation(
+                            kategori="verimlilik",
+                            hedef_tip="filo",
+                            hedef_id=None,
+                            mesaj=f"Filo tüketimi geçen aya göre %{degisim:.1f} arttı",
+                            oncelik=4,
+                            aksiyon="Genel bakım taraması yapılmalı",
+                        )
+                    )
 
             # En kötü performans (PostgreSQL)
             kotu_arac_sql = text("""
@@ -208,14 +238,19 @@ class RecommendationEngine:
             kotu_arac = (await uow.session.execute(kotu_arac_sql)).fetchone()
 
             if kotu_arac and kotu_arac.ort > 40:
-                recommendations.append(Recommendation(
-                    kategori='bakim', hedef_tip='filo', hedef_id=None,
-                    mesaj=f"{kotu_arac.plaka}: En yüksek tüketim ({kotu_arac.ort:.1f} L/100km)",
-                    oncelik=5, aksiyon="Acil bakım gerekli"
-                ))
+                recommendations.append(
+                    Recommendation(
+                        kategori="bakim",
+                        hedef_tip="filo",
+                        hedef_id=None,
+                        mesaj=f"{kotu_arac.plaka}: En yüksek tüketim ({kotu_arac.ort:.1f} L/100km)",
+                        oncelik=5,
+                        aksiyon="Acil bakım gerekli",
+                    )
+                )
 
         self._cache[cache_key] = recommendations
-        self._cache_time[cache_key] = datetime.now()
+        self._cache_time[cache_key] = datetime.now(timezone.utc)
         return recommendations
 
     # =========================================================================
@@ -236,18 +271,23 @@ class RecommendationEngine:
                 ORDER BY ort_fiyat DESC
             """)
             results = (await uow.session.execute(sql)).fetchall()
-            
+
             if len(results) >= 2:
                 pahali = results[0]
                 ucuz = results[-1]
                 fark = float(pahali.ort_fiyat) - float(ucuz.ort_fiyat)
-                
+
                 if fark > 1:
-                    recommendations.append(Recommendation(
-                        kategori='maliyet', hedef_tip='filo', hedef_id=None,
-                        mesaj=f"İstasyonlar arası fiyat farkı: {fark:.2f} TL/L ({ucuz.istasyon} en ucuz)",
-                        oncelik=3, aksiyon=f"{ucuz.istasyon} tercih edilmeli"
-                    ))
+                    recommendations.append(
+                        Recommendation(
+                            kategori="maliyet",
+                            hedef_tip="filo",
+                            hedef_id=None,
+                            mesaj=f"İstasyonlar arası fiyat farkı: {fark:.2f} TL/L ({ucuz.istasyon} en ucuz)",
+                            oncelik=3,
+                            aksiyon=f"{ucuz.istasyon} tercih edilmeli",
+                        )
+                    )
 
         return recommendations
 
@@ -258,31 +298,28 @@ class RecommendationEngine:
     async def get_all_recommendations(self) -> List[Recommendation]:
         """Tüm önerileri topla ve önceliğe göre sırala (Async & Parallel)"""
         import asyncio
-        
+
         # Bağımsız önerileri paralel çek
-        tasks = [
-            self.get_fleet_recommendations(),
-            self.get_cost_saving_suggestions()
-        ]
-        
+        tasks = [self.get_fleet_recommendations(), self.get_cost_saving_suggestions()]
+
         results = await asyncio.gather(*tasks)
-        
+
         # Faz 2: Araç ve şoför önerilerini toplu işlemeye uygun şekilde paralel al
         uow = get_uow()
         async with uow:
             # Tek bir session içinde tüm gerekli araçları ve şoförleri çek (Limitli)
             araclar = await uow.arac_repo.get_all(limit=5)
             soforler = await uow.sofor_repo.get_all(limit=5)
-            
-            # Bu öneriler her biri kendi içinde UoW başlattığı için 
-            # şimdilik paralel çağırıyoruz, ancak ileride UoW session'ı 
+
+            # Bu öneriler her biri kendi içinde UoW başlattığı için
+            # şimdilik paralel çağırıyoruz, ancak ileride UoW session'ı
             # parametre olarak geçilebilir.
             sub_tasks = []
             for a in araclar:
-                sub_tasks.append(self.get_vehicle_recommendations(a['id']))
+                sub_tasks.append(self.get_vehicle_recommendations(a["id"]))
             for s in soforler:
-                sub_tasks.append(self.get_driver_recommendations(s['id']))
-            
+                sub_tasks.append(self.get_driver_recommendations(s["id"]))
+
             sub_results = await asyncio.gather(*sub_tasks)
             results.extend(sub_results)
 
@@ -297,21 +334,21 @@ class RecommendationEngine:
         """Tüm cache'i temizle."""
         self._cache.clear()
         self._cache_time.clear()
-    
+
     def invalidate_vehicle_cache(self, arac_id: int) -> None:
         """Araç güncellendiğinde cache'i temizle (Thread-safe)."""
         with self._lock:  # SECURITY FIX: Lock eklendi
             cache_key = f"arac_{arac_id}"
             self._cache.pop(cache_key, None)
             self._cache_time.pop(cache_key, None)
-    
+
     def invalidate_driver_cache(self, sofor_id: int) -> None:
         """Şoför güncellendiğinde cache'i temizle (Thread-safe)."""
         with self._lock:  # SECURITY FIX: Lock eklendi
             cache_key = f"sofor_{sofor_id}"
             self._cache.pop(cache_key, None)
             self._cache_time.pop(cache_key, None)
-    
+
     def invalidate_fleet_cache(self) -> None:
         """Filo verisi değiştiğinde cache'i temizle (Thread-safe)."""
         with self._lock:  # SECURITY FIX: Lock eklendi
@@ -322,6 +359,7 @@ class RecommendationEngine:
 # Singleton
 _recommendation_engine = None
 _recommendation_engine_lock = threading.Lock()
+
 
 def get_recommendation_engine() -> RecommendationEngine:
     global _recommendation_engine

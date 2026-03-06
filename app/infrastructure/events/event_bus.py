@@ -9,7 +9,7 @@ import inspect
 import sys
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Set, Tuple
 
@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 
 class EventType(Enum):
     """Olay türleri"""
+
     # Veri değişiklikleri
     ARAC_ADDED = "arac_added"
     ARAC_UPDATED = "arac_updated"
@@ -28,6 +29,8 @@ class EventType(Enum):
     SOFOR_ADDED = "sofor_added"
     SOFOR_UPDATED = "sofor_updated"
     SOFOR_DELETED = "sofor_deleted"
+    ROUTE_STARTED = "route.started"
+    ROUTE_COMPLETED = "route.completed"
 
     YAKIT_ADDED = "yakit_added"
     YAKIT_UPDATED = "yakit_updated"
@@ -45,6 +48,7 @@ class EventType(Enum):
     PERIYOT_CREATED = "periyot_created"
     YAKIT_DISTRIBUTED = "yakit_distributed"
     ANOMALY_DETECTED = "anomaly_detected"
+    SLA_DELAY = "sla_delay"
 
     # UI olayları
     DATA_REFRESH_NEEDED = "data_refresh_needed"
@@ -59,9 +63,10 @@ class EventType(Enum):
 @dataclass
 class Event:
     """Olay verisi"""
+
     type: EventType
     data: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = ""
 
     def __str__(self):
@@ -71,23 +76,23 @@ class Event:
 class EventBus:
     """
     Merkezi olay yönetim sistemi (Singleton).
-    
+
     Observer Pattern implementasyonu:
     - subscribe(): Olaya abone ol
     - unsubscribe(): Aboneliği iptal et
     - publish(): Olay yayınla
-    
+
     Thread-safe tasarım.
-    
+
     Kullanım:
         event_bus = EventBus()
-        
+
         # Abone ol
         def on_yakit_added(event: Event):
             print(f"Yeni yakıt: {event.data}")
-        
+
         event_bus.subscribe(EventType.YAKIT_ADDED, on_yakit_added)
-        
+
         # Olay yayınla
         event_bus.publish(Event(
             type=EventType.YAKIT_ADDED,
@@ -114,7 +119,9 @@ class EventBus:
 
         self._subscribers: Dict[EventType, List[Callable[[Event], None]]] = {}
         self._event_history: List[Event] = []
-        self._failed_events: List[Tuple[Event, str, str, datetime]] = []  # DLQ: event, callback, error, time
+        self._failed_events: List[
+            Tuple[Event, str, str, datetime]
+        ] = []  # DLQ: event, callback, error, time
         self._processed_events: Set[str] = set()  # Idempotency tracking
         self._max_history = 100
         self._max_dlq_size = 100
@@ -129,32 +136,36 @@ class EventBus:
             raise ValueError("Invalid event: Event must have a type")
         if event.data is None:
             event.data = {}  # Default safe
-        
+
         # Payload size limit
         payload_size = sys.getsizeof(str(event.data))
         if payload_size > self._max_payload_size:
-            raise ValueError(f"Event payload too large: {payload_size} bytes (max {self._max_payload_size})")
-    
+            raise ValueError(
+                f"Event payload too large: {payload_size} bytes (max {self._max_payload_size})"
+            )
+
     def _get_event_id(self, event: Event) -> str:
         """Event için unique ID üret (idempotency için)"""
-        data_str = f"{event.type.value}:{event.timestamp.isoformat()}:{str(event.data)[:100]}"
+        data_str = (
+            f"{event.type.value}:{event.timestamp.isoformat()}:{str(event.data)[:100]}"
+        )
         return hashlib.md5(data_str.encode()).hexdigest()[:16]
-    
+
     def _is_duplicate(self, event: Event) -> bool:
         """Event daha önce işlendi mi kontrol et"""
         event_id = self._get_event_id(event)
         if event_id in self._processed_events:
             logger.debug(f"Duplicate event detected: {event_id}")
             return True
-        
+
         # Cache'e ekle
         self._processed_events.add(event_id)
-        
+
         # Cache boyutunu sınırla
         if len(self._processed_events) > self._max_processed_cache:
             # Eski entryleri temizle (basit FIFO - set'i yenile)
             self._processed_events = set(list(self._processed_events)[-500:])
-        
+
         return False
 
     def _handle_failure(self, event: Event, callback_name: str, error: str):
@@ -162,14 +173,17 @@ class EventBus:
         if len(self._failed_events) >= self._max_dlq_size:
             # En eskiyi sil
             self._failed_events.pop(0)
-            
-        self._failed_events.append((event, callback_name, error, datetime.now()))
 
+        self._failed_events.append(
+            (event, callback_name, error, datetime.now(timezone.utc))
+        )
 
-    def subscribe(self, event_type: EventType, callback: Callable[[Event], None]) -> None:
+    def subscribe(
+        self, event_type: EventType, callback: Callable[[Event], None]
+    ) -> None:
         """
         Olaya abone ol.
-        
+
         Args:
             event_type: Abone olunacak olay türü
             callback: Olay tetiklendiğinde çağrılacak fonksiyon
@@ -180,15 +194,16 @@ class EventBus:
         if callback not in self._subscribers[event_type]:
             self._subscribers[event_type].append(callback)
 
-
-    def unsubscribe(self, event_type: EventType, callback: Callable[[Event], None]) -> bool:
+    def unsubscribe(
+        self, event_type: EventType, callback: Callable[[Event], None]
+    ) -> bool:
         """
         Aboneliği iptal et.
-        
+
         Args:
             event_type: Olay türü
             callback: Kaldırılacak callback
-            
+
         Returns:
             Başarılı mı
         """
@@ -203,18 +218,18 @@ class EventBus:
     async def publish_async(self, event: Event) -> int:
         """
         Olayı asenkron yayınla (Async IO dostu).
-        
+
         Args:
             event: Yayınlanacak olay
-            
+
         Returns:
             Bilgilendirilen abone sayısı
         """
         if not self._enabled:
             return 0
-        
+
         self._validate_event(event)
-        
+
         # Idempotency check
         if self._is_duplicate(event):
             logger.debug(f"Skipping duplicate event: {event.type.value}")
@@ -227,25 +242,40 @@ class EventBus:
 
         # Abonelere bildir
         count = 0
-        tasks = []
 
         for callback in self._subscribers.get(event.type, []):
-            try:
-                if inspect.iscoroutinefunction(callback):
-                    # Async callback - await
-                    await callback(event)
-                else:
-                    # Sync callback - run directly
-                    callback(event)
-                count += 1
-            except Exception as e:
-                callback_name = getattr(callback, "__name__", str(callback))
-                logger.error(
-                    f"EventBus async callback failed | Event: {event.type.value} | "
-                    f"Callback: {callback_name} | Error: {e}",
-                    exc_info=True
-                )
-                self._handle_failure(event, callback_name, str(e))
+            callback_name = getattr(callback, "__name__", str(callback))
+            max_retries = 3
+            current_try = 0
+            success = False
+
+            while current_try <= max_retries and not success:
+                try:
+                    if inspect.iscoroutinefunction(callback):
+                        # Async callback - await
+                        await callback(event)
+                    else:
+                        # Sync callback - run directly
+                        callback(event)
+                    count += 1
+                    success = True
+                except Exception as e:
+                    current_try += 1
+                    if current_try <= max_retries:
+                        backoff = 2**current_try
+                        logger.warning(
+                            f"EventBus callback failed (try {current_try}/{max_retries}) | "
+                            f"Event: {event.type.value} | Callback: {callback_name} | "
+                            f"Waiting {backoff}s to retry. Error: {e}"
+                        )
+                        await asyncio.sleep(backoff)
+                    else:
+                        logger.error(
+                            f"EventBus async callback failed | Event: {event.type.value} | "
+                            f"Callback: {callback_name} | Error: {e}",
+                            exc_info=True,
+                        )
+                        self._handle_failure(event, callback_name, str(e))
 
         return count
 
@@ -256,9 +286,9 @@ class EventBus:
         """
         if not self._enabled:
             return 0
-            
+
         self._validate_event(event)
-        
+
         # Idempotency check
         if self._is_duplicate(event):
             logger.debug(f"Skipping duplicate event: {event.type.value}")
@@ -272,40 +302,76 @@ class EventBus:
         # Abonelere bildir
         count = 0
         for callback in self._subscribers.get(event.type, []):
-            try:
-                if inspect.iscoroutinefunction(callback):
-                    # Sync context -> Async callback
-                    # Mevcut bir loop varsa task oluştur
-                    try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            loop.create_task(callback(event))
-                            count += 1
-                        else:
-                            logger.warning(
-                                f"Skipping async subscriber {callback} inside sync publish (no running loop)"
-                            )
-                    except RuntimeError:
-                         logger.warning(
-                            f"Skipping async subscriber {callback} inside sync publish (RuntimeError getting loop)"
-                        )
-                else:
-                    callback(event)
-                    count += 1
-            except Exception as e:
-                # Log error with full context
-                callback_name = getattr(callback, "__name__", str(callback))
-                logger.error(
-                    f"EventBus callback failed | Event: {event.type.value} | "
-                    f"Callback: {callback_name} | Error: {e}",
-                    exc_info=True
-                )
+            callback_name = getattr(callback, "__name__", str(callback))
 
-                # Dead Letter Queue (DLQ)
-                self._handle_failure(event, callback_name, str(e))
+            # Helper for async retry
+            async def retry_async_cb(cb, ev, name):
+                m_retries = 3
+                c_try = 0
+                while c_try <= m_retries:
+                    try:
+                        await cb(ev)
+                        return True
+                    except Exception as exc:
+                        c_try += 1
+                        if c_try <= m_retries:
+                            b_off = 2**c_try
+                            logger.warning(
+                                f"EventBus async cb failed in sync publish (try {c_try}/{m_retries}) | "
+                                f"Waiting {b_off}s to retry. Error: {exc}"
+                            )
+                            await asyncio.sleep(b_off)
+                        else:
+                            logger.error(
+                                f"EventBus async cb failed | Error: {exc}",
+                                exc_info=True,
+                            )
+                            self._handle_failure(ev, name, str(exc))
+                return False
+
+            if inspect.iscoroutinefunction(callback):
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(retry_async_cb(callback, event, callback_name))
+                        count += 1
+                    else:
+                        logger.warning(
+                            f"Skipping async subscriber {callback} inside sync publish (no running loop)"
+                        )
+                except RuntimeError:
+                    logger.warning(
+                        f"Skipping async subscriber {callback} inside sync publish (RuntimeError getting loop)"
+                    )
+            else:
+                max_retries = 3
+                current_try = 0
+                success = False
+                while current_try <= max_retries and not success:
+                    try:
+                        callback(event)
+                        count += 1
+                        success = True
+                    except Exception as e:
+                        current_try += 1
+                        if current_try <= max_retries:
+                            backoff = 2**current_try
+                            logger.warning(
+                                f"EventBus sync cb failed (try {current_try}/{max_retries}) | "
+                                f"Waiting {backoff}s to retry. Error: {e}"
+                            )
+                            import time
+
+                            time.sleep(backoff)
+                        else:
+                            logger.error(
+                                f"EventBus sync callback failed | Event: {event.type.value} | "
+                                f"Callback: {callback_name} | Error: {e}",
+                                exc_info=True,
+                            )
+                            self._handle_failure(event, callback_name, str(e))
 
         return count
-
 
     async def publish_simple_async(self, event_type: EventType, **data) -> int:
         """Asenkron basit olay yayınla"""
@@ -318,10 +384,10 @@ class EventBus:
     def get_subscribers_count(self, event_type: EventType = None) -> int:
         """
         Abone sayısını getir.
-        
+
         Args:
             event_type: Olay türü (None ise toplam)
-            
+
         Returns:
             Abone sayısı
         """
@@ -335,11 +401,54 @@ class EventBus:
         self._event_history.clear()
         self._failed_events.clear()
 
+    async def retry_failed_events(self) -> int:
+        """DLQ'daki başarısız olayları tekrar dener."""
+        if not self._failed_events:
+            return 0
+
+        events_to_retry = self._failed_events.copy()
+        self._failed_events.clear()
+
+        success_count = 0
+        for event, callback_name, error, fail_time in events_to_retry:
+            logger.info(
+                f"Retrying DLQ event: {event.type.value} for callback {callback_name}"
+            )
+            try:
+                callbacks = self._subscribers.get(event.type, [])
+                cb = next(
+                    (
+                        c
+                        for c in callbacks
+                        if getattr(c, "__name__", str(c)) == callback_name
+                    ),
+                    None,
+                )
+
+                if not cb:
+                    logger.warning(
+                        f"Callback {callback_name} no longer subscribed for {event.type.value}, dropping event."
+                    )
+                    continue
+
+                if inspect.iscoroutinefunction(cb):
+                    await cb(event)
+                else:
+                    cb(event)
+                success_count += 1
+            except Exception as e:
+                logger.error(
+                    f"DLQ retry failed for {event.type.value}-{callback_name}: {e}"
+                )
+                self._handle_failure(event, callback_name, str(e))
+
+        return success_count
 
 
 def get_event_bus() -> EventBus:
     """EventBus singleton instance"""
     return EventBus()
+
 
 # Decorator for auto-publishing
 def publishes(event_type: EventType):
@@ -351,19 +460,22 @@ def publishes(event_type: EventType):
 
     def decorator(func):
         if inspect.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 result = await func(*args, **kwargs)
                 await get_event_bus().publish_simple_async(event_type, result=result)
                 return result
+
             return async_wrapper
         else:
+
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
                 get_event_bus().publish_simple(event_type, result=result)
                 return result
+
             return sync_wrapper
 
     return decorator
-

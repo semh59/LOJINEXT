@@ -1,0 +1,186 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Modal & Dialog Pattern
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Modal Dialog"
+version: "1.0"
+agent: "frontend"
+
+trigger_keywords:
+  - "modal"
+  - "dialog"
+  - "popup"
+  - "açılır pencere"
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  basic_modal:
+    description: "Temel modal component"
+    code: |
+      interface ModalProps {
+        isOpen: boolean;
+        onClose: () => void;
+        title: string;
+        children: React.ReactNode;
+        size?: 'sm' | 'md' | 'lg';
+      }
+
+      export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+        if (!isOpen) return null;
+        
+        const sizeClasses = {
+          sm: 'max-w-md',
+          md: 'max-w-lg',
+          lg: 'max-w-2xl',
+        };
+        
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 transition-opacity"
+              onClick={onClose}
+            />
+            
+            {/* Modal */}
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className={clsx(
+                "relative w-full bg-white rounded-lg shadow-xl",
+                sizeClasses[size]
+              )}>
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b">
+                  <h3 className="text-lg font-semibold">{title}</h3>
+                  <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                {/* Content */}
+                <div className="p-4">
+                  {children}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+  with_form:
+    description: "Form içeren modal"
+    code: |
+      interface EditModalProps<T> {
+        isOpen: boolean;
+        onClose: () => void;
+        onSubmit: (data: T) => void;
+        initialData?: Partial<T>;
+        isLoading?: boolean;
+      }
+
+      export function DriverEditModal({ 
+        isOpen, onClose, onSubmit, initialData, isLoading 
+      }: EditModalProps<Driver>) {
+        return (
+          <Modal isOpen={isOpen} onClose={onClose} title="Sürücü Düzenle">
+            <DriverForm
+              defaultValues={initialData}
+              onSubmit={(data) => {
+                onSubmit(data);
+                onClose();
+              }}
+              isLoading={isLoading}
+            />
+          </Modal>
+        );
+      }
+
+  confirm_dialog:
+    description: "Onay dialog'u"
+    code: |
+      interface ConfirmDialogProps {
+        isOpen: boolean;
+        onClose: () => void;
+        onConfirm: () => void;
+        title: string;
+        message: string;
+        confirmText?: string;
+        cancelText?: string;
+        variant?: 'danger' | 'warning' | 'info';
+        isLoading?: boolean;
+      }
+
+      export function ConfirmDialog({
+        isOpen, onClose, onConfirm,
+        title, message,
+        confirmText = "Onayla",
+        cancelText = "İptal",
+        variant = 'danger',
+        isLoading = false
+      }: ConfirmDialogProps) {
+        return (
+          <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+            <p className="text-gray-600 mb-6">{message}</p>
+            
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={onClose}>
+                {cancelText}
+              </Button>
+              <Button 
+                variant={variant} 
+                onClick={onConfirm}
+                isLoading={isLoading}
+              >
+                {confirmText}
+              </Button>
+            </div>
+          </Modal>
+        );
+      }
+
+      // Kullanım
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Sürücüyü Sil"
+        message="Bu işlem geri alınamaz. Devam etmek istiyor musunuz?"
+        confirmText="Sil"
+        variant="danger"
+      />
+
+  portal_modal:
+    description: "Portal ile modal (z-index issues için)"
+    code: |
+      import { createPortal } from 'react-dom';
+
+      export function Modal({ isOpen, children, ...props }: ModalProps) {
+        if (!isOpen) return null;
+        
+        return createPortal(
+          <div className="fixed inset-0 z-50">{/* modal content */}</div>,
+          document.body
+        );
+      }
+
+  keyboard_handling:
+    description: "Escape ile kapatma, focus trap"
+    code: |
+      useEffect(() => {
+        if (!isOpen) return;
+        
+        const handleEsc = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') onClose();
+        };
+        
+        document.addEventListener('keydown', handleEsc);
+        return () => document.removeEventListener('keydown', handleEsc);
+      }, [isOpen, onClose]);
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "ESC ile kapatma"
+  - "Backdrop click ile kapatma"
+  - "Focus trap (modal içinde tab)"
+  - "Body scroll lock"
+  - "Loading state göster"
+  - "Animation ile aç/kapa"

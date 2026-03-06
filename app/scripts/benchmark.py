@@ -2,6 +2,7 @@
 LojiNext AI Performance Benchmark Suite
 Run: python scripts/benchmark.py
 """
+
 import statistics
 import sys
 import time
@@ -17,6 +18,7 @@ sys.path.insert(0, str(APP_DIR))
 @dataclass
 class BenchmarkResult:
     """Benchmark result container."""
+
     name: str
     iterations: int
     mean_ms: float
@@ -37,7 +39,7 @@ class Benchmark:
         name: str,
         func: Callable,
         iterations: int = 100,
-        threshold_ms: float = 100.0
+        threshold_ms: float = 100.0,
     ):
         self.name = name
         self.func = func
@@ -77,7 +79,7 @@ class Benchmark:
                 max_ms=0,
                 p95_ms=0,
                 passed=False,
-                threshold_ms=self.threshold_ms
+                threshold_ms=self.threshold_ms,
             )
 
         mean = statistics.mean(self.results)
@@ -88,12 +90,14 @@ class Benchmark:
             iterations=len(self.results),
             mean_ms=round(mean, 3),
             median_ms=round(statistics.median(self.results), 3),
-            stdev_ms=round(statistics.stdev(self.results), 3) if len(self.results) > 1 else 0,
+            stdev_ms=round(statistics.stdev(self.results), 3)
+            if len(self.results) > 1
+            else 0,
             min_ms=round(min(self.results), 3),
             max_ms=round(max(self.results), 3),
             p95_ms=round(p95, 3),
             passed=p95 <= self.threshold_ms,
-            threshold_ms=self.threshold_ms
+            threshold_ms=self.threshold_ms,
         )
 
     def _percentile(self, p: int) -> float:
@@ -108,7 +112,6 @@ class Benchmark:
 def create_benchmarks() -> List[Benchmark]:
     """Create benchmark suite."""
     from app.core.services.arac_service import get_arac_service
-    from app.core.services.dashboard_service import get_dashboard_service
     from app.core.services.report_service import get_report_service
     from app.core.services.sefer_service import get_sefer_service
     from app.database.connection import get_connection
@@ -118,43 +121,31 @@ def create_benchmarks() -> List[Benchmark]:
             "Database Connection",
             lambda: get_connection().__enter__(),
             iterations=50,
-            threshold_ms=10.0
+            threshold_ms=10.0,
         ),
         Benchmark(
             "Get All Trips (limit=100)",
             lambda: get_sefer_service().get_all_trips(limit=100),
             iterations=30,
-            threshold_ms=100.0
+            threshold_ms=100.0,
         ),
         Benchmark(
             "Get All Vehicles",
             lambda: get_arac_service().get_all_vehicles(),
             iterations=50,
-            threshold_ms=50.0
-        ),
-        Benchmark(
-            "Dashboard Stats",
-            lambda: get_report_service().get_dashboard_summary(),
-            iterations=30,
-            threshold_ms=60.0
-        ),
-        Benchmark(
-            "Dashboard Full Data",
-            lambda: get_dashboard_service().get_dashboard_data(),
-            iterations=20,
-            threshold_ms=150.0
+            threshold_ms=50.0,
         ),
         Benchmark(
             "Monthly Trend Report",
             lambda: get_report_service().generate_monthly_trend(),
             iterations=20,
-            threshold_ms=200.0
+            threshold_ms=200.0,
         ),
         Benchmark(
             "Fleet Summary",
             lambda: get_report_service().generate_fleet_summary(days=30),
             iterations=20,
-            threshold_ms=200.0
+            threshold_ms=200.0,
         ),
     ]
 
@@ -166,7 +157,9 @@ def print_results(results: List[BenchmarkResult]) -> None:
     print("=" * 80)
 
     # Header
-    print(f"{'Benchmark':<30} {'Mean':>10} {'P95':>10} {'Threshold':>10} {'Status':>10}")
+    print(
+        f"{'Benchmark':<30} {'Mean':>10} {'P95':>10} {'Threshold':>10} {'Status':>10}"
+    )
     print("-" * 80)
 
     passed_count = 0
@@ -175,10 +168,14 @@ def print_results(results: List[BenchmarkResult]) -> None:
         if r.passed:
             passed_count += 1
 
-        print(f"{r.name:<30} {r.mean_ms:>9.2f}ms {r.p95_ms:>9.2f}ms {r.threshold_ms:>9.1f}ms {status:>10}")
+        print(
+            f"{r.name:<30} {r.mean_ms:>9.2f}ms {r.p95_ms:>9.2f}ms {r.threshold_ms:>9.1f}ms {status:>10}"
+        )
 
     print("-" * 80)
-    print(f"Total: {len(results)} benchmarks | Passed: {passed_count} | Failed: {len(results) - passed_count}")
+    print(
+        f"Total: {len(results)} benchmarks | Passed: {passed_count} | Failed: {len(results) - passed_count}"
+    )
     print("=" * 80)
 
     # Detailed results
@@ -186,8 +183,12 @@ def print_results(results: List[BenchmarkResult]) -> None:
     for r in results:
         print(f"  {r.name}:")
         print(f"    Iterations: {r.iterations}")
-        print(f"    Mean: {r.mean_ms:.3f}ms | Median: {r.median_ms:.3f}ms | Stdev: {r.stdev_ms:.3f}ms")
-        print(f"    Min: {r.min_ms:.3f}ms | Max: {r.max_ms:.3f}ms | P95: {r.p95_ms:.3f}ms")
+        print(
+            f"    Mean: {r.mean_ms:.3f}ms | Median: {r.median_ms:.3f}ms | Stdev: {r.stdev_ms:.3f}ms"
+        )
+        print(
+            f"    Min: {r.min_ms:.3f}ms | Max: {r.max_ms:.3f}ms | P95: {r.p95_ms:.3f}ms"
+        )
         print()
 
 

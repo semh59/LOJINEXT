@@ -1,0 +1,120 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lojinext_user:lojinext_pass@db:5432/lojinext_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DB_HOST=db
+      - DB_PORT=5432
+      - POSTGRES_USER=lojinext_user
+      - ALEMBIC_READY=true
+      - ENVIRONMENT=dev
+    volumes:
+      - app_data:/app/app/data
+      - model_data:/app/models
+      - ./backups:/app/storage/backups
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lojinext_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api/v1
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - lojinext_network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=lojinext_user
+      - POSTGRES_PASSWORD=lojinext_pass
+      - POSTGRES_DB=lojinext_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lojinext_user -d lojinext_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lojinext_network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - lojinext_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - lojinext_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - lojinext_network
+    restart: unless-stopped
+
+networks:
+  lojinext_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_data:
+  model_data:
+  prometheus_data:
+  grafana_data:

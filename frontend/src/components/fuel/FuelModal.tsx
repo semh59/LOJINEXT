@@ -1,9 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useForm, SubmitHandler } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { useQuery } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { FuelRecord } from '../../types'
-import { vehiclesApi } from '../../services/api'
+import { vehicleService } from '../../services/api/vehicle-service'
+
+const fuelSchema = z.object({
+    tarih: z.string().min(1, 'Tarih zorunludur'),
+    arac_id: z.number().min(1, 'Araç seçiniz'),
+    istasyon: z.string().min(1, 'İstasyon zorunludur'),
+    litre: z.number().min(0.1, 'Litre 0\'dan büyük olmalı'),
+    fiyat_tl: z.number().min(0.1, 'Birim fiyat 0\'dan büyük olmalı'),
+    toplam_tutar: z.number().min(0, 'Toplam tutar 0 veya daha fazla olmalı'),
+    km_sayac: z.number().min(0, 'KM sayacı 0 veya daha fazla olmalı'),
+    depo_durumu: z.enum(['Doldu', 'Kısmi']),
+    durum: z.enum(['Bekliyor', 'Onaylandı', 'Reddedildi']),
+    fis_no: z.string().optional()
+})
+
+type FuelFormData = z.infer<typeof fuelSchema>
 
 interface FuelModalProps {
     isOpen: boolean
@@ -13,62 +32,74 @@ interface FuelModalProps {
 }
 
 export function FuelModal({ isOpen, onClose, onSave, record }: FuelModalProps) {
-    const [loading, setLoading] = useState(false)
-    const [vehicles, setVehicles] = useState<any[]>([])
-    const [formData, setFormData] = useState<Partial<FuelRecord>>({
-        tarih: new Date().toISOString().slice(0, 10),
-        litre: 0,
-        birim_fiyat: 0,
-        toplam_tutar: 0,
-        km_sayac: 0,
-        depo_durumu: 'Doldu',
-        durum: 'Bekliyor'
+    // Vehicles list with React Query
+    const { data: vehiclesData = [] } = useQuery({
+        queryKey: ['vehicles', { aktif_only: true }],
+        queryFn: () => vehicleService.getAll({ limit: 100, aktif_only: true }),
+        enabled: isOpen
     })
+    const vehicles = (Array.isArray(vehiclesData) ? vehiclesData : (vehiclesData as any).items || []) as import('../../types').Vehicle[]
+
+    const {
+        register,
+        handleSubmit,
+        reset,
+        watch,
+        setValue,
+        formState: { errors, isSubmitting }
+    } = useForm<FuelFormData>({
+        resolver: zodResolver(fuelSchema),
+        defaultValues: {
+            tarih: new Date().toISOString().slice(0, 10),
+            litre: 0,
+            fiyat_tl: 0,
+            toplam_tutar: 0,
+            km_sayac: 0,
+            depo_durumu: 'Kısmi',
+            durum: 'Bekliyor',
+            istasyon: ''
+        }
+    })
+
+    const watchLitre = watch('litre')
+    const watchFiyatTl = watch('fiyat_tl')
+
+    // Auto-calculate Total
+    useEffect(() => {
+        const total = (watchLitre || 0) * (watchFiyatTl || 0)
+        setValue('toplam_tutar', parseFloat(total.toFixed(2)))
+    }, [watchLitre, watchFiyatTl, setValue])
 
     useEffect(() => {
         if (isOpen) {
-            vehiclesApi.getAll({ limit: 100, aktif_only: true })
-                .then(setVehicles)
-                .catch(console.error)
-
             if (record) {
-                setFormData({
+                reset({
                     ...record,
-                    tarih: record.tarih.slice(0, 10) // Format YYYY-MM-DD
-                })
+                    tarih: record.tarih.slice(0, 10),
+                    fiyat_tl: record.birim_fiyat || record.fiyat_tl || 0,
+                    durum: record.durum || 'Bekliyor'
+                } as any)
             } else {
-                setFormData({
+                reset({
                     tarih: new Date().toISOString().slice(0, 10),
                     litre: 0,
-                    birim_fiyat: 0,
+                    fiyat_tl: 0,
                     toplam_tutar: 0,
                     km_sayac: 0,
-                    depo_durumu: 'Doldu',
+                    depo_durumu: 'Kısmi',
                     durum: 'Bekliyor',
                     istasyon: ''
                 })
             }
         }
-    }, [isOpen, record])
+    }, [isOpen, record, reset])
 
-    // Auto-calculate Total
-    useEffect(() => {
-        const total = (formData.litre || 0) * (formData.birim_fiyat || 0)
-        if (Math.abs(total - (formData.toplam_tutar || 0)) > 0.1) {
-            setFormData(prev => ({ ...prev, toplam_tutar: parseFloat(total.toFixed(2)) }))
-        }
-    }, [formData.litre, formData.birim_fiyat])
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
+    const onSubmit: SubmitHandler<FuelFormData> = async (data) => {
         try {
-            await onSave(formData)
+            await onSave(data as any)
             onClose()
         } catch (error) {
-            console.error(error)
-        } finally {
-            setLoading(false)
+            console.error('Fuel save error:', error)
         }
     }
 
@@ -79,67 +110,47 @@ export function FuelModal({ isOpen, onClose, onSave, record }: FuelModalProps) {
             title={record ? 'Yakıt Kaydını Düzenle' : 'Yeni Yakıt Kaydı'}
         >
             <p className="text-sm text-neutral-500 mb-6">Araç yakıt alım bilgilerini giriniz.</p>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500">Tarih</label>
-                        <Input
-                            type="date"
-                            value={formData.tarih}
-                            onChange={e => setFormData({ ...formData, tarih: e.target.value })}
-                            required
-                        />
+                        <Input type="date" {...register('tarih')} error={!!errors.tarih} />
                     </div>
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500">Araç</label>
                         <select
-                            value={formData.arac_id}
-                            onChange={e => setFormData({ ...formData, arac_id: Number(e.target.value) })}
-                            className="w-full h-10 px-3 rounded-lg border border-neutral-200 bg-white text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                            required
+                            {...register('arac_id', { valueAsNumber: true })}
+                            className={`w-full h-12 px-3 rounded-lg border ${errors.arac_id ? 'border-red-500' : 'border-neutral-200'} bg-white text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all`}
                         >
                             <option value="">Seçiniz</option>
                             {vehicles.map(v => (
                                 <option key={v.id} value={v.id}>{v.plaka} - {v.marka}</option>
                             ))}
                         </select>
+                        {errors.arac_id && <p className="text-xs text-red-500 font-medium">{errors.arac_id.message}</p>}
                     </div>
                 </div>
 
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-neutral-500">İstasyon</label>
-                    <Input
-                        value={formData.istasyon || ''}
-                        onChange={e => setFormData({ ...formData, istasyon: e.target.value })}
-                        placeholder="Örn: Shell Maslak"
-                        required
-                    />
+                    <Input {...register('istasyon')} placeholder="Örn: Shell Maslak" error={!!errors.istasyon} />
+                    {errors.istasyon && <p className="text-xs text-red-500 font-medium">{errors.istasyon.message}</p>}
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500">Litre</label>
-                        <Input
-                            type="number" step="0.01"
-                            value={formData.litre}
-                            onChange={e => setFormData({ ...formData, litre: parseFloat(e.target.value) })}
-                            required
-                        />
+                        <Input type="number" step="0.01" {...register('litre', { valueAsNumber: true })} error={!!errors.litre} />
                     </div>
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500">Birim Fiyat (TL)</label>
-                        <Input
-                            type="number" step="0.01"
-                            value={formData.birim_fiyat}
-                            onChange={e => setFormData({ ...formData, birim_fiyat: parseFloat(e.target.value) })}
-                            required
-                        />
+                        <Input type="number" step="0.01" {...register('fiyat_tl', { valueAsNumber: true })} error={!!errors.fiyat_tl} />
                     </div>
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500">Toplam (Otomatik)</label>
                         <Input
                             type="number"
-                            value={formData.toplam_tutar}
+                            {...register('toplam_tutar', { valueAsNumber: true })}
                             readOnly
                             className="bg-neutral-50 font-bold text-brand-dark"
                         />
@@ -149,30 +160,29 @@ export function FuelModal({ isOpen, onClose, onSave, record }: FuelModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-neutral-500">KM Sayaç</label>
-                        <Input
-                            type="number"
-                            value={formData.km_sayac}
-                            onChange={e => setFormData({ ...formData, km_sayac: Number(e.target.value) })}
-                            required
-                        />
+                        <Input type="number" {...register('km_sayac', { valueAsNumber: true })} error={!!errors.km_sayac} />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Depo Durumu</label>
-                        <select
-                            value={formData.depo_durumu}
-                            onChange={e => setFormData({ ...formData, depo_durumu: e.target.value as any })}
-                            className="w-full h-10 px-3 rounded-lg border border-neutral-200 bg-white text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                        >
-                            <option value="Doldu">Tam Doldu</option>
-                            <option value="Kısmi">Kısmi Alım</option>
-                            <option value="Bilinmiyor">Bilinmiyor</option>
-                        </select>
+                        <label className="text-xs font-bold text-neutral-500">Fiş Numarası</label>
+                        <Input {...register('fis_no')} placeholder="Örn: FIS-123" error={!!errors.fis_no} />
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
-                    <Button type="button" variant="secondary" onClick={onClose}>İptal</Button>
-                    <Button type="submit" isLoading={loading}>Kaydet</Button>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500">Depo Durumu</label>
+                    <select
+                        {...register('depo_durumu')}
+                        className="w-full h-12 px-3 rounded-lg border border-neutral-200 bg-white text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    >
+                        <option value="Doldu">Tam Doldu</option>
+                        <option value="Kısmi">Kısmi Alım</option>
+                        <option value="Bilinmiyor">Bilinmiyor</option>
+                    </select>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                    <Button type="button" variant="secondary" className="flex-1 h-12" onClick={onClose}>İptal</Button>
+                    <Button type="submit" variant="glossy-green" className="flex-1 h-12" isLoading={isSubmitting}>Kaydet</Button>
                 </div>
             </form>
         </Modal>

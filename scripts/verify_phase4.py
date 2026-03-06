@@ -9,7 +9,6 @@ import sys
 import os
 import numpy as np
 import time
-from pathlib import Path
 
 # Ensure project root is in path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +16,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from app.infrastructure.verification.verify_utils import (
-    VerificationRunner, print_section, safe_db_operation
+    VerificationRunner, print_section
 )
 from app.database.db_manager import DatabaseManager
 from app.core.ml.fuel_predictor import LinearRegressionModel

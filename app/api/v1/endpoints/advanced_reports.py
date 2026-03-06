@@ -3,20 +3,21 @@ LojiNext AI - Gelişmiş Raporlama API Endpoint'leri
 PDF raporlar ve maliyet analizi
 """
 
-import io
 import asyncio
+import io
 from datetime import date, datetime, timedelta
-from typing import Optional, Annotated
+from typing import Annotated, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 
 from app.api.deps import SessionDep, get_current_user
-from app.database.models import Kullanici
-from app.core.services.export_service import get_export_service
-from app.core.services.report_service import get_report_service
 from app.core.services.cost_analyzer import get_cost_analyzer
+from app.core.services.export_service import get_export_service
 from app.core.services.report_generator import get_report_generator
-from fastapi import APIRouter, HTTPException, Query, Depends
-from fastapi.responses import StreamingResponse, FileResponse
-from pydantic import BaseModel
+from app.core.services.report_service import get_report_service
+from app.database.models import Kullanici
 
 router = APIRouter()
 
@@ -56,11 +57,11 @@ async def get_fleet_summary_pdf(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
     start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None)
+    end_date: Optional[str] = Query(None),
 ):
     """
     Filo özet raporu PDF olarak indir
-    
+
     Args:
         start_date: Başlangıç tarihi (YYYY-MM-DD)
         end_date: Bitiş tarihi (YYYY-MM-DD)
@@ -93,7 +94,7 @@ async def get_fleet_summary_pdf(
             media_type="application/pdf",
             headers={
                 "Content-Disposition": f"attachment; filename=filo_ozet_{start}_{end}.pdf"
-            }
+            },
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -105,11 +106,11 @@ async def get_vehicle_report_pdf(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
     month: int = Query(..., ge=1, le=12),
-    year: int = Query(..., ge=2020, le=2100)
+    year: int = Query(..., ge=2020, le=2100),
 ):
     """
     Araç detay raporu PDF olarak indir
-    
+
     Args:
         arac_id: Araç ID
         month: Ay (1-12)
@@ -120,7 +121,7 @@ async def get_vehicle_report_pdf(
         report_service = get_report_service()
         data = await report_service.generate_vehicle_report(arac_id, month, year)
 
-        if not data or 'error' in data:
+        if not data or "error" in data:
             raise HTTPException(status_code=404, detail="Araç bulunamadı")
 
         # PDF oluştur (Bloklayıcı işlemi thread'e taşı)
@@ -129,17 +130,15 @@ async def get_vehicle_report_pdf(
             generator.generate_vehicle_report, arac_id, month, year, data
         )
 
-        plaka = data.get('plaka', f'arac_{arac_id}')
+        plaka = data.get("plaka", f"arac_{arac_id}")
         # Sanitize filename (Header Injection Protection)
-        safe_plaka = "".join(c for c in plaka if c.isalnum() or c in ('-', '_')).strip()
+        safe_plaka = "".join(c for c in plaka if c.isalnum() or c in ("-", "_")).strip()
         filename = f"{safe_plaka}_{month:02d}_{year}.pdf"
 
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except HTTPException:
         raise
@@ -149,8 +148,7 @@ async def get_vehicle_report_pdf(
 
 @router.get("/pdf/driver-comparison")
 async def get_driver_comparison_pdf(
-    db: SessionDep,
-    current_user: Annotated[Kullanici, Depends(get_current_user)]
+    db: SessionDep, current_user: Annotated[Kullanici, Depends(get_current_user)]
 ):
     """
     Şoför performans karşılaştırma raporu PDF
@@ -164,10 +162,10 @@ async def get_driver_comparison_pdf(
         # Driver dict listesine dönüştür
         driver_data = [
             {
-                'ad_soyad': d.ad_soyad,
-                'trips': d.toplam_sefer,
-                'consumption': d.ort_tuketim,
-                'score': d.performans_puani
+                "ad_soyad": d.ad_soyad,
+                "trips": d.toplam_sefer,
+                "consumption": d.ort_tuketim,
+                "score": d.performans_puani,
             }
             for d in drivers
         ]
@@ -182,7 +180,7 @@ async def get_driver_comparison_pdf(
             media_type="application/pdf",
             headers={
                 "Content-Disposition": f"attachment; filename=sofor_karsilastirma_{date.today()}.pdf"
-            }
+            },
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -194,7 +192,7 @@ async def get_period_cost(
     current_user: Annotated[Kullanici, Depends(get_current_user)],
     start_date: str = Query(...),
     end_date: str = Query(...),
-    arac_id: Optional[int] = Query(None)
+    arac_id: Optional[int] = Query(None),
 ):
     """
     Dönemsel maliyet analizi
@@ -203,7 +201,9 @@ async def get_period_cost(
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
     except ValueError:
-        raise HTTPException(status_code=400, detail="Geçersiz tarih formatı. YYYY-MM-DD kullanın.")
+        raise HTTPException(
+            status_code=400, detail="Geçersiz tarih formatı. YYYY-MM-DD kullanın."
+        )
 
     analyzer = get_cost_analyzer()
     breakdown = await analyzer.calculate_period_cost(start, end, arac_id)
@@ -216,7 +216,7 @@ async def get_period_cost(
         total_distance=breakdown.total_distance,
         cost_per_km=float(breakdown.cost_per_km),
         period_start=breakdown.period_start.isoformat(),
-        period_end=breakdown.period_end.isoformat()
+        period_end=breakdown.period_end.isoformat(),
     )
 
 
@@ -224,7 +224,7 @@ async def get_period_cost(
 async def get_cost_trend(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
-    months: int = Query(12, ge=1, le=24)
+    months: int = Query(12, ge=1, le=24),
 ):
     """
     Aylık maliyet trendi
@@ -237,7 +237,7 @@ async def get_cost_trend(
 async def get_vehicle_cost_comparison(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
-    months: int = Query(3, ge=1, le=12)
+    months: int = Query(3, ge=1, le=12),
 ):
     """
     Araç bazlı maliyet karşılaştırması
@@ -250,7 +250,7 @@ async def get_vehicle_cost_comparison(
 async def get_savings_potential(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
-    target_consumption: float = Query(30.0, ge=20, le=45)
+    target_consumption: float = Query(30.0, ge=20, le=45),
 ):
     """
     Tasarruf potansiyeli hesaplama
@@ -266,7 +266,7 @@ async def get_roi_analysis(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
     investment: float = Query(50000, ge=0),
-    months: int = Query(12, ge=3, le=24)
+    months: int = Query(12, ge=3, le=24),
 ):
     """
     Sistem ROI analizi
@@ -274,8 +274,8 @@ async def get_roi_analysis(
     analyzer = get_cost_analyzer()
     result = analyzer.calculate_roi(investment, months)
 
-    if 'error' in result:
-        raise HTTPException(status_code=400, detail=result['error'])
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
 
     return ROIResponse(**result)
 
@@ -284,25 +284,26 @@ async def get_roi_analysis(
 async def get_excel_template(
     entity_type: str,
     db: SessionDep,
-    current_user: Annotated[Kullanici, Depends(get_current_user)]
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
 ):
     """
     Excel yükleme şablonu indir
-    
+
     Args:
         entity_type: yakit, sefer, arac, sofor
     """
     export_service = get_export_service()
     filepath = await asyncio.to_thread(export_service.generate_template, entity_type)
-    
+
     if not filepath:
         raise HTTPException(status_code=404, detail="Şablon oluşturulamadı")
-        
+
     import os
+
     filename = os.path.basename(filepath)
-    
+
     return FileResponse(
         path=filepath,
         filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )

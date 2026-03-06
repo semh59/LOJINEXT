@@ -1,0 +1,141 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: React Component Creation
+# ════════════════════════════════════════════════════════════════════════════
+# New React component workflow
+
+name: "React Component"
+version: "1.0"
+agent: "frontend"
+
+trigger_keywords:
+  - "component"
+  - "yeni component"
+  - "bileşen"
+
+# ════════════════════════════════════════════════════════════════════════════
+context_required:
+  - component_name: "Component ismi (PascalCase)"
+  - props: "Props listesi"
+  - purpose: "Ne işe yarayacak"
+
+# ════════════════════════════════════════════════════════════════════════════
+templates:
+  basic:
+    description: "Basit stateless component"
+    code: |
+      interface {ComponentName}Props {
+        className?: string;
+      }
+
+      export function {ComponentName}({ className }: {ComponentName}Props) {
+        return (
+          <div className={clsx("", className)}>
+            {/* content */}
+          </div>
+        );
+      }
+
+  with_state:
+    description: "State'li component"
+    code: |
+      interface {ComponentName}Props {
+        initialValue?: string;
+        onChange?: (value: string) => void;
+      }
+
+      export function {ComponentName}({ 
+        initialValue = "", 
+        onChange 
+      }: {ComponentName}Props) {
+        const [value, setValue] = useState(initialValue);
+        
+        const handleChange = (newValue: string) => {
+          setValue(newValue);
+          onChange?.(newValue);
+        };
+        
+        return (
+          <div>
+            {/* content */}
+          </div>
+        );
+      }
+
+  with_query:
+    description: "API data fetch eden component"
+    code: |
+      interface {ComponentName}Props {
+        id: number;
+      }
+
+      export function {ComponentName}({ id }: {ComponentName}Props) {
+        const { data, isLoading, error } = use{Entity}(id);
+        
+        if (isLoading) return <Skeleton />;
+        if (error) return <ErrorDisplay error={error} />;
+        if (!data) return <EmptyState />;
+        
+        return (
+          <div>
+            {/* render data */}
+          </div>
+        );
+      }
+
+  form:
+    description: "Form component (react-hook-form + zod)"
+    code: |
+      const schema = z.object({
+        field1: z.string().min(1, "Zorunlu"),
+        field2: z.number().optional(),
+      });
+
+      type FormData = z.infer<typeof schema>;
+
+      interface {ComponentName}FormProps {
+        onSubmit: (data: FormData) => void;
+        defaultValues?: Partial<FormData>;
+        isLoading?: boolean;
+      }
+
+      export function {ComponentName}Form({ 
+        onSubmit, 
+        defaultValues,
+        isLoading 
+      }: {ComponentName}FormProps) {
+        const form = useForm<FormData>({
+          resolver: zodResolver(schema),
+          defaultValues,
+        });
+        
+        return (
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField label="Field 1" error={form.formState.errors.field1?.message}>
+              <input {...form.register('field1')} className="input" />
+            </FormField>
+            
+            <Button type="submit" isLoading={isLoading}>
+              Kaydet
+            </Button>
+          </form>
+        );
+      }
+
+# ════════════════════════════════════════════════════════════════════════════
+checklist:
+  - "[ ] Props interface tanımlı"
+  - "[ ] TypeScript strict mode geçiyor"
+  - "[ ] Loading state var"
+  - "[ ] Error state var"
+  - "[ ] Empty state var"
+  - "[ ] Accessibility (aria labels)"
+  - "[ ] Keyboard navigation"
+
+# ════════════════════════════════════════════════════════════════════════════
+file_structure:
+  single_file: "ComponentName.tsx"
+  with_tests: |
+    ComponentName/
+    ├── ComponentName.tsx
+    ├── ComponentName.test.tsx
+    └── index.ts

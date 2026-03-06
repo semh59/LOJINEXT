@@ -1,181 +1,225 @@
-
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { MainLayout } from '../components/layout/MainLayout'
-import { fuelApi, vehiclesApi } from '../services/api'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { PremiumLayout } from '../components/layout/PremiumLayout'
 import { FuelTable } from '../components/fuel/FuelTable'
 import { FuelModal } from '../components/fuel/FuelModal'
 import { FuelStats } from '../components/fuel/FuelStats'
-import { FuelRecord, FuelStats as IFuelStats } from '../types'
+import { FuelHeader } from '../components/fuel/FuelHeader'
+import { FuelFilters } from '../components/fuel/FuelFilters'
+import { ComparisonWidget } from '../components/fuel/ComparisonWidget'
+import { FuelPagination } from '../components/fuel/FuelPagination'
+import { fuelService } from '../services/api/fuel-service'
+import { vehicleService } from '../services/api/vehicle-service'
+import { predictionService } from '../services/api/prediction-service'
+import { FuelRecord } from '../types'
 import { useNotify } from '../context/NotificationContext'
-import { Plus, Upload, Filter, Calendar } from 'lucide-react'
-import { cn } from '../lib/utils'
 
 export default function FuelPage() {
     const { notify } = useNotify()
-    const [records, setRecords] = useState<FuelRecord[]>([])
-    const [stats, setStats] = useState<IFuelStats>({ total_consumption: 0, total_cost: 0, avg_consumption: 0, avg_price: 0 })
-    const [loading, setLoading] = useState(true)
+    const queryClient = useQueryClient()
+
+    // Modaller
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [selectedRecord, setSelectedRecord] = useState<FuelRecord | null>(null)
-    const [isFilterOpen, setIsFilterOpen] = useState(false)
 
-    // Filter State
-    const [startDate, setStartDate] = useState(new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 10))
+    // Filter & Pagination State
+    const [page, setPage] = useState(1)
+    const [pageSize] = useState(20)
+    const [startDate, setStartDate] = useState(
+        new Date(new Date().setMonth(new Date().getMonth() - 1))
+            .toISOString()
+            .slice(0, 10),
+    )
     const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10))
-    const [vehicleFilter, setVehicleFilter] = useState('')
-    const [vehicles, setVehicles] = useState<any[]>([])
+    const [vehicleFilter, setVehicleFilter] = useState("")
 
-    useEffect(() => {
-        vehiclesApi.getAll({ limit: 100 }).then(setVehicles).catch(() => { })
-    }, [])
+    // React Query: Fetch Vehicles for selection
+    const { data: vehiclesData = [] } = useQuery({
+        queryKey: ['vehicles', 'minimal'],
+        queryFn: () => vehicleService.getAll({ limit: 100 }),
+    })
+    const vehicles: any[] = Array.isArray(vehiclesData) ? vehiclesData : (vehiclesData as any)?.items || []
 
-    const fetchData = async () => {
-        setLoading(true)
+    // React Query: Fetch Prediction Comparison
+    const { data: comparisonData, isLoading: isComparisonLoading } = useQuery({
+        queryKey: ['predictionComparison'],
+        queryFn: () => predictionService.getComparison(30),
+    })
+
+    // React Query: Fetch Fuel Records (Paginated)
+    const { data: recordsResult, isLoading: isRecordsLoading } = useQuery({
+        queryKey: ['fuelRecords', { startDate, endDate, vehicleFilter, page, pageSize }],
+        queryFn: () => fuelService.getAll({
+            baslangic_tarih: startDate,
+            bitis_tarih: endDate,
+            arac_id: vehicleFilter ? Number(vehicleFilter) : undefined,
+            skip: (page - 1) * pageSize,
+            limit: pageSize,
+        }),
+    })
+    const records = recordsResult?.items || []
+    const totalRecords = recordsResult?.total || 0
+
+    // React Query: Fetch Fuel Stats
+    const { data: stats = { 
+        total_consumption: 0, total_cost: 0, avg_consumption: 0, total_distance: 0, avg_price: 0 
+    } as any, isLoading: isStatsLoading } = useQuery({
+        queryKey: ['fuelStats', { startDate, endDate, vehicleFilter }],
+        queryFn: () => fuelService.getStats({
+            baslangic_tarih: startDate,
+            bitis_tarih: endDate,
+            arac_id: vehicleFilter ? Number(vehicleFilter) : undefined,
+        }),
+    })
+
+    // Mutations
+    const handleSave = async (data: Partial<FuelRecord>) => {
         try {
-            const [data, statsData] = await Promise.all([
-                fuelApi.getAll({
-                    baslangic_tarih: startDate,
-                    bitis_tarih: endDate,
-                    arac_id: vehicleFilter ? Number(vehicleFilter) : undefined,
-                    limit: 100
-                }),
-                fuelApi.getStats({
-                    baslangic_tarih: startDate,
-                    bitis_tarih: endDate
-                })
-            ])
-            setRecords(Array.isArray(data) ? data : [])
-            setStats(statsData)
-        } catch (error) {
-            console.error(error)
-            notify('error', 'Hata', 'Veriler yüklenemedi.')
-            // Fallback mock data
-            if (records.length === 0) {
-                const mock: FuelRecord[] = [
-                    { id: 1, tarih: '2026-01-25', arac_id: 1, plaka: '34ABC123', istasyon: 'Shell Maslak', litre: 450, birim_fiyat: 42.50, toplam_tutar: 19125, km_sayac: 45000, depo_durumu: 'Doldu', durum: 'Bekliyor' },
-                    { id: 2, tarih: '2026-01-24', arac_id: 2, plaka: '06DEF456', istasyon: 'Opet Ankara', litre: 380, birim_fiyat: 41.80, toplam_tutar: 15884, km_sayac: 62000, depo_durumu: 'Kısmi', durum: 'Onaylandı' },
-                ]
-                setRecords(mock)
-                setStats({ total_consumption: 24500, total_cost: 896500, avg_consumption: 28.5, avg_price: 41.90 })
+            const payload = {
+                ...data,
+                fiyat_tl: data.birim_fiyat || (data as any).fiyat_tl,
             }
-        } finally {
-            setLoading(false)
+            
+            if (selectedRecord?.id) {
+                await fuelService.update(selectedRecord.id, payload)
+                notify("success", "Güncellendi", "Kayıt başarıyla güncellendi.")
+            } else {
+                await fuelService.create(payload)
+                notify("success", "Eklendi", "Yeni yakıt kaydı eklendi.")
+                setPage(1) // Yeni kayıt eklendiğinde başa dön
+            }
+            
+            // Otomatik tarih genişletme (Visibility fix)
+            if (data.tarih) {
+                if (data.tarih > endDate) setEndDate(data.tarih)
+                if (data.tarih < startDate) setStartDate(data.tarih)
+            }
+
+            queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
+            queryClient.invalidateQueries({ queryKey: ['fuelStats'] })
+            setIsModalOpen(false)
+        } catch (error: any) {
+            notify("error", "Hata", "İşlem başarısız.")
         }
     }
 
-    useEffect(() => {
-        fetchData()
-    }, [startDate, endDate, vehicleFilter])
+    const handleDelete = async (record: FuelRecord) => {
+        if (!window.confirm("Bu kaydı silmek istediğinize emin misiniz?")) return
+        try {
+            await fuelService.delete(record.id!)
+            notify("success", "Başarılı", "Kayıt silindi")
+            queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
+            queryClient.invalidateQueries({ queryKey: ['fuelStats'] })
+        } catch (error: any) {
+            notify("error", "Hata", error.response?.data?.detail || "Silinemedi")
+        }
+    }
+
+    const handleExport = async () => {
+        try {
+            const blob = await fuelService.exportExcel({ 
+                baslangic_tarih: startDate, 
+                bitis_tarih: endDate, 
+                arac_id: vehicleFilter ? parseInt(vehicleFilter) : undefined 
+            })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = `yakit_takip_${new Date().toISOString().split('T')[0]}.xlsx`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            window.URL.revokeObjectURL(url)
+            notify("success", "Başarılı", "Yakıt verileri Excel olarak indirildi.")
+        } catch (error) {
+            notify("error", "Hata", "Dışa aktarma başarısız.")
+        }
+    }
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const blob = await fuelService.downloadTemplate()
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = "yakit_import_sablonu.xlsx"
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            window.URL.revokeObjectURL(url)
+        } catch (error) {
+            notify("error", "Hata", "Şablon indirilemedi.")
+        }
+    }
+
+    const handleImport = async (file: File) => {
+        try {
+            await fuelService.uploadExcel(file)
+            notify("success", "Başarılı", "Yakıt verileri içe aktarıldı.")
+            queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
+            queryClient.invalidateQueries({ queryKey: ['fuelStats'] })
+        } catch (error) {
+            notify("error", "Hata", "İçe aktarma başarısız.")
+        }
+    }
 
     return (
-        <MainLayout title="Yakıt Yönetimi" breadcrumb="Sistem / Yakıt">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
-                    <div>
-                        <motion.h1 className="text-3xl font-black text-brand-dark tracking-tighter mb-2">
-                            Yakıt Takibi
-                        </motion.h1>
-                        <p className="text-neutral-500 font-medium">Filo yakıt tüketimi ve maliyet analizi.</p>
-                    </div>
+        <PremiumLayout title="Yakıt Kayıtları" primaryColor="#0df259">
+            <div className="flex-1 w-full h-full p-6 animate-stagger-fade overflow-y-auto custom-scrollbar">
+                <FuelHeader 
+                    onAdd={() => { setSelectedRecord(null); setIsModalOpen(true); }}
+                    onExport={handleExport}
+                    onDownloadTemplate={handleDownloadTemplate}
+                    onImport={handleImport}
+                />
 
-                    <div className="flex items-center gap-3">
-                        <button className="btn btn-secondary shadow-soft">
-                            <Upload className="w-4 h-4 rotate-180" />
-                            Dışa Aktar
-                        </button>
-                        <button
-                            onClick={() => { setSelectedRecord(null); setIsModalOpen(true) }}
-                            className="btn btn-primary"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Yeni Yakıt Kaydı
-                        </button>
-                    </div>
-                </div>
+                <FuelStats stats={stats as any} loading={isStatsLoading} />
 
-                {/* Stats Cards */}
-                <FuelStats stats={stats} loading={loading} />
+                {comparisonData && (
+                    <ComparisonWidget data={comparisonData} isLoading={isComparisonLoading} />
+                )}
 
-                {/* Filters */}
-                <div className="glass p-2 rounded-2xl flex flex-wrap gap-2 items-center border border-white/50 relative z-10">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-xl">
-                        <Calendar className="w-4 h-4 text-neutral-400" />
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={e => setStartDate(e.target.value)}
-                            className="text-xs font-bold text-neutral-600 bg-transparent outline-none"
-                        />
-                        <span className="text-neutral-300">-</span>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={e => setEndDate(e.target.value)}
-                            className="text-xs font-bold text-neutral-600 bg-transparent outline-none"
-                        />
-                    </div>
+                <FuelFilters 
+                    startDate={startDate}
+                    setStartDate={setStartDate}
+                    endDate={endDate}
+                    setEndDate={setEndDate}
+                    vehicleFilter={vehicleFilter}
+                    setVehicleFilter={setVehicleFilter}
+                    vehicles={vehicles}
+                    onFilter={() => {
+                        setPage(1) // Filtre değişince başa dön
+                        queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
+                        queryClient.invalidateQueries({ queryKey: ['fuelStats'] })
+                    }}
+                />
 
-                    <div className="h-8 w-px bg-neutral-200/50 mx-2" />
-
-                    <select
-                        value={vehicleFilter}
-                        onChange={e => setVehicleFilter(e.target.value)}
-                        className="h-10 px-4 rounded-xl bg-white/50 text-xs font-bold text-neutral-600 outline-none hover:bg-white transition-colors cursor-pointer border-transparent focus:border-primary/20 border"
-                    >
-                        <option value="">Tüm Araçlar</option>
-                        {vehicles.map(v => (
-                            <option key={v.id} value={v.id}>{v.plaka}</option>
-                        ))}
-                    </select>
-
-                    <div className="ml-auto">
-                        <button
-                            onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className={cn(
-                                "p-2 rounded-xl transition-all",
-                                isFilterOpen ? "bg-brand-dark text-white" : "hover:bg-neutral-100 text-neutral-500"
-                            )}
-                        >
-                            <Filter className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="glass rounded-[32px] border border-white/50 overflow-hidden shadow-xl shadow-black/5 relative z-0">
+                <div className="mt-6 border border-[#22492f] rounded-2xl bg-[#1a3825] overflow-hidden">
                     <FuelTable
                         records={records}
-                        loading={loading}
-                        onEdit={(r) => { setSelectedRecord(r); setIsModalOpen(true) }}
-                        onDelete={async (r) => {
-                            if (!window.confirm('Bu kaydı silmek istediğinize emin misiniz?')) return
-                            try {
-                                await fuelApi.delete(r.id!)
-                                notify('success', 'Başarılı', 'Kayıt silindi')
-                                fetchData()
-                            } catch { notify('error', 'Hata', 'Silinemedi') }
+                        loading={isRecordsLoading}
+                        onEdit={(r) => {
+                            setSelectedRecord(r)
+                            setIsModalOpen(true)
                         }}
+                        onDelete={handleDelete}
+                    />
+                    
+                    <FuelPagination
+                        currentPage={page}
+                        totalCount={totalRecords}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
                     />
                 </div>
-            </motion.div>
+            </div>
 
             <FuelModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 record={selectedRecord}
-                onSave={async (data) => {
-                    if (selectedRecord?.id) {
-                        await fuelApi.update(selectedRecord.id, data)
-                        notify('success', 'Güncellendi', 'Kayıt başarıyla güncellendi.')
-                    } else {
-                        await fuelApi.create(data)
-                        notify('success', 'Eklendi', 'Yeni yakıt kaydı eklendi.')
-                    }
-                    fetchData()
-                }}
+                onSave={handleSave}
             />
-        </MainLayout>
+        </PremiumLayout>
     )
 }

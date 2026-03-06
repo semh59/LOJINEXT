@@ -20,7 +20,7 @@ export default defineConfig({
         port: 3000,
         proxy: {
             '/api': {
-                target: 'http://127.0.0.1:8000',
+                target: 'http://127.0.0.1:8080',
                 changeOrigin: true,
                 secure: false,
             }
@@ -28,6 +28,19 @@ export default defineConfig({
         watch: {
             usePolling: true,
         },
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+                    'vendor-ui': ['framer-motion', 'lucide-react', '@radix-ui/react-toggle', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+                    'vendor-data': ['@tanstack/react-query', '@tanstack/react-virtual', 'recharts', 'axios', 'zustand'],
+                    'vendor-utils': ['date-fns', 'zod', 'sonner', 'react-countup', 'react-hook-form', '@hookform/resolvers'],
+                },
+            },
+        },
+        chunkSizeWarningLimit: 600,
     },
     test: {
         globals: true,

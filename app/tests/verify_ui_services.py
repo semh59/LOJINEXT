@@ -2,12 +2,13 @@
 UI Backend Verification Script
 Mimics the calls made by Dashboard and Vehicle Pages to ensure backend readiness.
 """
+
 import os
 import sys
 import traceback
 
 # Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.core.entities.models import AracCreate, AracUpdate
 from app.core.services.arac_service import get_arac_service
@@ -23,8 +24,8 @@ def test_dashboard_flow():
         # 1. Dashboard Summary
         summary = report_service.get_dashboard_summary()
         print(f"✅ Dashboard Summary Retrieved: {summary.keys()}")
-        assert 'aktif_arac' in summary
-        assert 'filo_ortalama' in summary
+        assert "aktif_arac" in summary
+        assert "filo_ortalama" in summary
 
         # 2. Daily Trend (Chart Data)
         trend = report_service.get_daily_consumption_trend(days=7)
@@ -39,6 +40,7 @@ def test_dashboard_flow():
         print(f"❌ Dashboard Flow Failed: {e}")
         traceback.print_exc()
         raise
+
 
 def test_vehicles_page_flow():
     print("\n--- Testing Vehicles Page Flow ---")
@@ -55,7 +57,7 @@ def test_vehicles_page_flow():
         # Cleanup if exists
         existing = arac_service.repo.get_by_plaka(test_plaka)
         if existing:
-            arac_service.delete_arac(existing['id'])
+            arac_service.delete_arac(existing["id"])
 
         new_vehicle = AracCreate(
             plaka=test_plaka,
@@ -63,7 +65,7 @@ def test_vehicles_page_flow():
             model="UI Tester",
             yil=2024,
             tank_kapasitesi=500,
-            hedef_tuketim=28.5
+            hedef_tuketim=28.5,
         )
 
         arac_id = arac_service.create_arac(new_vehicle)
@@ -88,6 +90,7 @@ def test_vehicles_page_flow():
         print(f"❌ Vehicles Page Flow Failed: {e}")
         traceback.print_exc()
         raise
+
 
 if __name__ == "__main__":
     try:

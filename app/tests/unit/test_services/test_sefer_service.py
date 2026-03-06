@@ -1,6 +1,7 @@
 """
 Unit Tests - SeferService
 """
+
 from datetime import date, timedelta
 
 import pytest
@@ -13,6 +14,7 @@ class TestSeferService:
     def test_service_singleton(self, sefer_service):
         """Service should return singleton instance."""
         from app.core.services.sefer_service import get_sefer_service
+
         service2 = get_sefer_service()
         assert sefer_service is service2
 
@@ -35,10 +37,7 @@ class TestSeferService:
         yesterday = today - timedelta(days=1)
 
         # Pass date objects, not strings (isoformat removed)
-        trips = await sefer_service.get_all_trips(
-            start_date=yesterday,
-            end_date=today
-        )
+        trips = await sefer_service.get_all_trips(start_date=yesterday, end_date=today)
         assert isinstance(trips, list)
 
     @pytest.mark.asyncio
@@ -56,8 +55,9 @@ class TestSeferServiceValidation:
         """Adding a trip without arac_id should fail."""
         # SeferCreate validation handles this, so we expect ValidationError
         from app.core.entities.models import SeferCreate
+
         data = sample_sefer_data.copy()
-        data.pop('arac_id')
+        data.pop("arac_id")
 
         with pytest.raises(ValidationError):
             SeferCreate(**data)
@@ -65,20 +65,22 @@ class TestSeferServiceValidation:
     def test_add_sefer_requires_locations(self, sefer_service, sample_sefer_data):
         """Adding a trip without locations should fail."""
         from app.core.entities.models import SeferCreate
+
         data = sample_sefer_data.copy()
-        data['cikis_yeri'] = ''
-        data['varis_yeri'] = ''
+        data["cikis_yeri"] = ""
+        data["varis_yeri"] = ""
 
         with pytest.raises(ValidationError):
-             SeferCreate(**data)
+            SeferCreate(**data)
 
     @pytest.mark.asyncio
     async def test_add_sefer_same_locations(self, sefer_service, sample_sefer_data):
         """Start and end location cannot be the same."""
         from app.core.entities.models import SeferCreate
+
         data = sample_sefer_data.copy()
-        data['cikis_yeri'] = 'İstanbul'
-        data['varis_yeri'] = 'İstanbul'
+        data["cikis_yeri"] = "İstanbul"
+        data["varis_yeri"] = "İstanbul"
 
         # This is a business rule in service, not necessarily model validation (unless model validtor exists)
         # Service throws ValueError
@@ -102,5 +104,5 @@ class TestSeferServiceStats:
         # All trips should have today's date
         today = date.today().isoformat()
         for trip in trips:
-            trip_date = trip.get('tarih') if isinstance(trip, dict) else trip.tarih
+            trip_date = trip.get("tarih") if isinstance(trip, dict) else trip.tarih
             assert str(trip_date) == today

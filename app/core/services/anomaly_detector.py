@@ -1,13 +1,14 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
 # sklearn lazy import
 try:
     from sklearn.ensemble import IsolationForest
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -15,21 +16,23 @@ except ImportError:
 # LightGBM lazy import
 try:
     import lightgbm as lgb
+
     LIGHTGBM_AVAILABLE = True
 except ImportError:
     lgb = None
     LIGHTGBM_AVAILABLE = False
 
-from app.database.unit_of_work import get_uow
-from app.services.prediction_service import get_prediction_service
-from app.infrastructure.logging.logger import get_logger
 from app.config import settings
+from app.database.unit_of_work import UnitOfWork
+from app.infrastructure.logging.logger import get_logger
+from app.services.prediction_service import get_prediction_service
 
 logger = get_logger(__name__)
 
 
 class SeverityEnum(str, Enum):
     """Anomali ciddiyeti"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -38,6 +41,7 @@ class SeverityEnum(str, Enum):
 
 class AnomalyType(str, Enum):
     """Anomali tipleri"""
+
     TUKETIM = "tuketim"
     MALIYET = "maliyet"
     SEFER = "sefer"
@@ -46,6 +50,7 @@ class AnomalyType(str, Enum):
 @dataclass
 class AnomalyResult:
     """Anomali sonucu"""
+
     tip: AnomalyType
     kaynak_tip: str  # 'arac', 'sofor', 'sefer', 'yakit'
     kaynak_id: int
@@ -54,6 +59,8 @@ class AnomalyResult:
     sapma_yuzde: float
     severity: SeverityEnum
     aciklama: str
+    rca_summary: Optional[str] = "Analiz ediliyor..."
+    suggested_action: Optional[str] = "İncelenmeli"
     tarih: date = None
 
     def __post_init__(self):
@@ -64,7 +71,7 @@ class AnomalyResult:
 class AnomalyDetector:
     """
     Elite Hibrit Anomali Tespit Sistemi (Async + SQLAlchemy)
-    
+
     Modeller:
     1. IsolationForest (Unsupervised) - sklearn
     2. LightGBM Classifier (Supervised) - lightgbm
@@ -78,11 +85,11 @@ class AnomalyDetector:
 
     # LightGBM severity label mapping
     SEVERITY_MAP = {
-        'normal': 0,
+        "normal": 0,
         SeverityEnum.LOW.value: 1,
         SeverityEnum.MEDIUM.value: 2,
         SeverityEnum.HIGH.value: 3,
-        SeverityEnum.CRITICAL.value: 4
+        SeverityEnum.CRITICAL.value: 4,
     }
     REVERSE_SEVERITY_MAP = {v: k for k, v in SEVERITY_MAP.items()}
 
@@ -90,9 +97,7 @@ class AnomalyDetector:
         # IsolationForest (unsupervised)
         if SKLEARN_AVAILABLE:
             self.isolation_forest = IsolationForest(
-                n_estimators=100,
-                contamination=0.1,
-                random_state=42
+                n_estimators=100, contamination=0.1, random_state=42
             )
         else:
             self.isolation_forest = None
@@ -101,14 +106,14 @@ class AnomalyDetector:
         # LightGBM Classifier (supervised)
         if LIGHTGBM_AVAILABLE:
             self.lgb_classifier = lgb.LGBMClassifier(
-                objective='multiclass',
+                objective="multiclass",
                 num_class=5,
-                class_weight='balanced',
+                class_weight="balanced",
                 num_leaves=15,
                 learning_rate=0.05,
                 n_estimators=100,
                 verbose=-1,
-                random_state=42
+                random_state=42,
             )
             self.lgb_trained = False
             logger.info("LightGBM Classifier initialized for anomaly detection")
@@ -118,10 +123,7 @@ class AnomalyDetector:
             logger.warning("lightgbm not available, ML classifier disabled")
 
     async def detect_consumption_anomalies(
-        self,
-        consumptions: List[float],
-        arac_id: int = None,
-        use_ml: bool = True
+        self, consumptions: List[float], arac_id: int = None, use_ml: bool = True
     ) -> List[AnomalyResult]:
         """Tüketim verilerinde anomali tespit et (İstatistiksel)"""
         if len(consumptions) < 5:
@@ -150,55 +152,56 @@ class AnomalyDetector:
                 deviation = ((value - mean_val) / mean_val) * 100 if mean_val > 0 else 0
                 severity = self._calculate_severity(abs(deviation))
 
-                anomalies.append(AnomalyResult(
-                    tip=AnomalyType.TUKETIM,
-                    kaynak_tip='arac' if arac_id else 'sefer',
-                    kaynak_id=arac_id or i,
-                    deger=round(value, 2),
-                    beklenen_deger=round(mean_val, 2),
-                    sapma_yuzde=round(deviation, 1),
-                    severity=severity,
-                    aciklama=f"Tüketim {'+' if deviation > 0 else ''}{deviation:.1f}% sapma"
-                ))
+                anomalies.append(
+                    AnomalyResult(
+                        tip=AnomalyType.TUKETIM,
+                        kaynak_tip="arac" if arac_id else "sefer",
+                        kaynak_id=arac_id or i,
+                        deger=round(value, 2),
+                        beklenen_deger=round(mean_val, 2),
+                        sapma_yuzde=round(deviation, 1),
+                        severity=severity,
+                        aciklama=f"Tüketim {'+' if deviation > 0 else ''}{deviation:.1f}% sapma",
+                    )
+                )
 
         return anomalies
 
     async def detect_trip_anomaly_elite(
-        self,
-        trip_data: Dict
+        self, trip_data: Dict
     ) -> Optional[AnomalyResult]:
         """
         Elite Sefer Anomalisi: Statik değer yerine PredictionService kullanır.
         """
-        consumption = trip_data.get('tuketim')
+        consumption = trip_data.get("tuketim")
         if not consumption:
             return None
 
         pred_service = get_prediction_service()
         prediction = await pred_service.predict_consumption(
-            arac_id=trip_data['arac_id'],
-            mesafe_km=trip_data['mesafe_km'],
-            ton=trip_data.get('ton', 20.0),
-            ascent_m=trip_data.get('ascent_m', 0),
-            descent_m=trip_data.get('descent_m', 0),
-            sofor_id=trip_data.get('sofor_id')
+            arac_id=trip_data["arac_id"],
+            mesafe_km=trip_data["mesafe_km"],
+            ton=trip_data.get("ton", 20.0),
+            ascent_m=trip_data.get("ascent_m", 0),
+            descent_m=trip_data.get("descent_m", 0),
+            sofor_id=trip_data.get("sofor_id"),
         )
 
-        expected = prediction['prediction_l_100km']
+        expected = prediction["prediction_l_100km"]
         deviation = ((consumption - expected) / expected) * 100 if expected > 0 else 0
 
-        if abs(deviation) > 20: # %20 sapma Elite anomali kabul edilir
+        if abs(deviation) > 20:  # %20 sapma Elite anomali kabul edilir
             severity = self._calculate_severity(abs(deviation))
             return AnomalyResult(
                 tip=AnomalyType.SEFER,
-                kaynak_tip='sefer',
-                kaynak_id=trip_data.get('id', 0),
+                kaynak_tip="sefer",
+                kaynak_id=trip_data.get("id", 0),
                 deger=round(consumption, 2),
                 beklenen_deger=round(expected, 2),
                 sapma_yuzde=round(deviation, 1),
                 severity=severity,
                 aciklama=f"Elite Tahminden Şaşma: {deviation:+.1f}% ({prediction['method']})",
-                tarih=trip_data.get('tarih')
+                tarih=trip_data.get("tarih"),
             )
         return None
 
@@ -211,56 +214,102 @@ class AnomalyDetector:
             return SeverityEnum.MEDIUM
         return SeverityEnum.LOW
 
+    def _generate_heuristic_rca(self, result: AnomalyResult) -> Tuple[str, str]:
+        """Anomali için hızlı, kural tabanlı kök neden analizi."""
+        tip = result.tip
+
+        rca = "Bilinmeyen Neden"
+        action = "Detaylı inceleme yapın"
+
+        if tip == AnomalyType.TUKETIM or tip == AnomalyType.SEFER:
+            if result.sapma_yuzde > 50:
+                rca = "Olası Yakıt Hırsızlığı veya Sensör Kaybı"
+                action = "Yakıt deposunu ve sensör verilerini acilen kontrol edin"
+            elif result.sapma_yuzde > 25:
+                rca = "Agresif Sürüş veya Hatalı Rota"
+                action = "Sürücü sürüş skorlarını ve rota ihlallerini inceleyin"
+            elif result.sapma_yuzde > 15:
+                rca = "Ağır Yük / Trafik / Olumsuz Hava"
+                action = "Sefer yükü ve güzergah koşullarını teyit edin"
+            elif result.sapma_yuzde < -20:
+                rca = "Sensör Kalibrasyon Sapması"
+                action = "Cihazın son kalibrasyon tarihini kontrol edin"
+
+        return rca, action
+
     async def save_anomalies(self, anomalies: List[AnomalyResult]) -> int:
         """Anomalileri PostgreSQL'e kaydet (UoW - Bulk Insert)"""
         if not anomalies:
             return 0
-            
-        async with get_uow() as uow:
+
+        async with UnitOfWork() as uow:
             query = """
-                INSERT INTO alerts 
-                (tarih, type, source_type, source_id, value, expected_value, deviation_pct, severity, message)
-                VALUES (:tarih, :tip, :kaynak_tip, :kaynak_id, :deger, :beklenen_deger, :sapma_yuzde, :severity, :aciklama)
+                INSERT INTO anomalies 
+                (tarih, tip, kaynak_tip, kaynak_id, deger, beklenen_deger, sapma_yuzde, severity, aciklama, rca_summary, suggested_action)
+                VALUES (:tarih, :tip, :kaynak_tip, :kaynak_id, :deger, :beklenen_deger, :sapma_yuzde, :severity, :aciklama, :rca, :action)
             """
-            
+
+            # RCA'ları önceden hesapla (Pre-calculated)
+            for a in anomalies:
+                rca, action = self._generate_heuristic_rca(a)
+                a.rca_summary = rca
+                a.suggested_action = action
+
             # Toplu kayıt için parametre listesi hazırla
-            params_list = [{
-                "tarih": a.tarih or date.today(),
-                "tip": a.tip.value,
-                "kaynak_tip": a.kaynak_tip,
-                "kaynak_id": a.kaynak_id,
-                "deger": a.deger,
-                "beklenen_deger": a.beklenen_deger,
-                "sapma_yuzde": a.sapma_yuzde,
-                "severity": a.severity.value,
-                "aciklama": a.aciklama
-            } for a in anomalies]
-            
+            params_list = [
+                {
+                    "tarih": a.tarih or date.today(),
+                    "tip": a.tip.value,
+                    "kaynak_tip": a.kaynak_tip,
+                    "kaynak_id": a.kaynak_id,
+                    "deger": a.deger,
+                    "beklenen_deger": a.beklenen_deger,
+                    "sapma_yuzde": a.sapma_yuzde,
+                    "severity": a.severity.value,
+                    "aciklama": a.aciklama,
+                    "rca": a.rca_summary,
+                    "action": a.suggested_action,
+                }
+                for a in anomalies
+            ]
+
             from sqlalchemy import text
+
             await uow.session.execute(text(query), params_list)
             await uow.commit()
-            
+
         logger.info(f"Saved {len(anomalies)} anomalies to PostgreSQL (bulk)")
         return len(anomalies)
 
-    async def get_recent_anomalies(self, days: int = 30, severity: SeverityEnum = None) -> List[Dict]:
+    async def get_recent_anomalies(
+        self, days: int = 30, severity: SeverityEnum = None
+    ) -> List[Dict]:
         """Geçmiş anomalileri getir (Güvenli & Parametreli)"""
         # Güvenlik: days ve severity kısıtlamaları
         days_val = max(1, min(int(days), 365))
-        
-        from sqlalchemy import text
-        
-        # PostgreSQL için tarih aritmetiği kullanımı
-        sql = "SELECT * FROM alerts WHERE tarih >= current_date - (:days || ' days')::interval"
-        params = {"days": str(days_val)}
-        
-        if severity:
-            sql += " AND severity = :sev"
-            params["sev"] = severity.value
-            
-        sql += " ORDER BY tarih DESC"
-        
-        async with get_uow() as uow:
+
+        async with UnitOfWork() as uow:
+            from sqlalchemy import text
+
+            sql = """
+                SELECT 
+                    a.*,
+                    COALESCE(s.ad_soyad, 'Bilinmiyor') as sofor_adi,
+                    COALESCE(v.plaka, 'Bilinmiyor') as plaka
+                FROM anomalies a
+                LEFT JOIN seferler sf ON a.kaynak_tip = 'sefer' AND a.kaynak_id = sf.id
+                LEFT JOIN soforler s ON sf.sofor_id = s.id
+                LEFT JOIN araclar v ON (a.kaynak_tip = 'arac' AND a.kaynak_id = v.id) OR (a.kaynak_tip = 'sefer' AND sf.arac_id = v.id)
+                WHERE a.tarih >= CURRENT_DATE - (:days || ' days')::interval
+            """
+            params = {"days": str(days_val)}
+
+            if severity:
+                sql += " AND a.severity = :sev"
+                params["sev"] = severity.value
+
+            sql += " ORDER BY a.tarih DESC"
+
             result = await uow.session.execute(text(sql), params)
             return [dict(row._mapping) for row in result.fetchall()]
 
@@ -270,52 +319,53 @@ class AnomalyDetector:
         """Modeli diske kaydet (Native format - Güvenli)"""
         if not self.lgb_trained or self.lgb_classifier is None:
             raise RuntimeError("Model eğitilmedi")
-            
+
         import json
         from pathlib import Path
 
-        base_path = Path(filepath).with_suffix('')
-        
+        base_path = Path(filepath).with_suffix("")
+
         # 1. Native LightGBM (Güvenli JSON/Text)
         self.lgb_classifier.booster_.save_model(f"{base_path}_lgb.json")
-        
+
         # 2. Metadata
         metadata = {
-            'lgb_trained': self.lgb_trained,
-            'last_updated': datetime.now().isoformat()
+            "lgb_trained": self.lgb_trained,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
-        with open(f"{base_path}_meta.json", 'w', encoding='utf-8') as f:
+        with open(f"{base_path}_meta.json", "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
-            
+
         logger.info(f"Anomaly classifier saved to {base_path}")
 
     def load_model(self, filepath: str):
         """Modeli diskten yükle (Native format - Güvenli)"""
         if not LIGHTGBM_AVAILABLE:
             raise RuntimeError("LightGBM not available")
-            
+
         import json
         from pathlib import Path
 
-        base_path = Path(filepath).with_suffix('')
+        base_path = Path(filepath).with_suffix("")
         meta_file = Path(f"{base_path}_meta.json")
         lgb_file = Path(f"{base_path}_lgb.json")
-        
+
         if not meta_file.exists() or not lgb_file.exists():
             raise FileNotFoundError("Model dosyaları bulunamadı")
-            
+
         # 1. Metadata
-        with open(meta_file, encoding='utf-8') as f:
+        with open(meta_file, encoding="utf-8") as f:
             metadata = json.load(f)
-        self.lgb_trained = metadata['lgb_trained']
-        
+        self.lgb_trained = metadata["lgb_trained"]
+
         # 2. Native Model
         if self.lgb_classifier is None:
             import lightgbm as lgb_lib
+
             self.lgb_classifier = lgb_lib.LGBMClassifier()
-            
+
         self.lgb_classifier.booster_ = lgb.Booster(model_file=str(lgb_file))
-        
+
         logger.info(f"Anomaly classifier loaded from {base_path}")
 
     # ============== LightGBM Classifier Methods ==============
@@ -323,186 +373,191 @@ class AnomalyDetector:
     async def train_lgb_classifier(self) -> Dict:
         """
         LightGBM sınıflandırıcıyı geçmiş anomalilerden eğit.
-        
+
         Features:
         - value: Gerçek tüketim değeri
         - expected_value: Beklenen değer
         - deviation_pct: Sapma yüzdesi
         - abs_deviation: Mutlak sapma
-        
+
         Target: severity (0-4)
         """
         if not LIGHTGBM_AVAILABLE or self.lgb_classifier is None:
-            return {'success': False, 'error': 'LightGBM not available'}
-        
+            return {"success": False, "error": "LightGBM not available"}
+
         # Geçmiş anomalileri çek
         anomalies = await self.get_recent_anomalies(days=365)
-        
+
         if len(anomalies) < 20:
             return {
-                'success': False,
-                'error': f'Yetersiz veri: {len(anomalies)} anomali. En az 20 gerekli.'
+                "success": False,
+                "error": f"Yetersiz veri: {len(anomalies)} anomali. En az 20 gerekli.",
             }
-        
+
         try:
             # Feature matrisi oluştur
             X = []
             y = []
-            
+
             for a in anomalies:
                 from app.config import settings
-                value = float(a.get('value', 0) or 0)
-                expected = float(a.get('expected_value') or settings.DEFAULT_FILO_HEDEF_TUKETIM)
-                deviation = float(a.get('deviation_pct', 0) or 0)
 
-                severity_str = a.get('severity', 'low')
-                
-                X.append([
-                    value,
-                    expected,
-                    deviation,
-                    abs(deviation),
-                    value / expected if expected > 0 else 1.0
-                ])
-                
+                value = float(a.get("value", 0) or 0)
+                expected = float(
+                    a.get("expected_value") or settings.DEFAULT_FILO_HEDEF_TUKETIM
+                )
+                deviation = float(a.get("deviation_pct", 0) or 0)
+
+                severity_str = a.get("severity", "low")
+
+                X.append(
+                    [
+                        value,
+                        expected,
+                        deviation,
+                        abs(deviation),
+                        value / expected if expected > 0 else 1.0,
+                    ]
+                )
+
                 y.append(self.SEVERITY_MAP.get(severity_str, 1))
-            
+
             X = np.array(X)
             y = np.array(y)
-            
+
             import asyncio
+
             # FAZ 2.1: Model eğitimini thread pool'a al (Event loop blocking önlemi)
             await asyncio.to_thread(self.lgb_classifier.fit, X, y)
             self.lgb_trained = True
-            
+
             # Metrikleri de thread'de hesapla
             from sklearn.metrics import accuracy_score
+
             y_pred = await asyncio.to_thread(self.lgb_classifier.predict, X)
             accuracy = await asyncio.to_thread(accuracy_score, y, y_pred)
-            
+
             logger.info(f"LightGBM anomaly classifier trained: accuracy={accuracy:.3f}")
 
-            
             return {
-                'success': True,
-                'accuracy': round(accuracy, 4),
-                'sample_count': len(y),
-                'class_distribution': {
-                    self.REVERSE_SEVERITY_MAP.get(i, 'unknown'): int(np.sum(y == i))
+                "success": True,
+                "accuracy": round(accuracy, 4),
+                "sample_count": len(y),
+                "class_distribution": {
+                    self.REVERSE_SEVERITY_MAP.get(i, "unknown"): int(np.sum(y == i))
                     for i in range(5)
-                }
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"LightGBM classifier training error: {e}", exc_info=True)
-            return {'success': False, 'error': str(e)}
+            return {"success": False, "error": str(e)}
 
     def predict_severity_lgb(
-        self,
-        value: float,
-        expected_value: float,
-        deviation_pct: float
+        self, value: float, expected_value: float, deviation_pct: float
     ) -> SeverityEnum:
         """
         LightGBM ile anomali ciddiyeti tahmin et.
-        
+
         Args:
             value: Gerçek tüketim değeri
             expected_value: Beklenen değer
             deviation_pct: Sapma yüzdesi
-            
+
         Returns:
             SeverityEnum: Tahmin edilen ciddiyet
         """
         if not self.lgb_trained or self.lgb_classifier is None:
             # Fallback to rule-based
             return self._calculate_severity(abs(deviation_pct))
-        
+
         try:
-            X = np.array([[
-                value,
-                expected_value,
-                deviation_pct,
-                abs(deviation_pct),
-                value / expected_value if expected_value > 0 else 1.0
-            ]])
-            
+            X = np.array(
+                [
+                    [
+                        value,
+                        expected_value,
+                        deviation_pct,
+                        abs(deviation_pct),
+                        value / expected_value if expected_value > 0 else 1.0,
+                    ]
+                ]
+            )
+
             y_pred = self.lgb_classifier.predict(X)[0]
-            severity_str = self.REVERSE_SEVERITY_MAP.get(y_pred, 'low')
-            
-            if severity_str == 'normal':
+            severity_str = self.REVERSE_SEVERITY_MAP.get(y_pred, "low")
+
+            if severity_str == "normal":
                 return SeverityEnum.LOW
-            
+
             return SeverityEnum(severity_str)
-            
+
         except Exception as e:
             logger.warning(f"LightGBM prediction failed: {e}")
             return self._calculate_severity(abs(deviation_pct))
 
     async def detect_anomaly_hybrid(
-        self,
-        trip_data: Dict,
-        use_ml: bool = True
+        self, trip_data: Dict, use_ml: bool = True
     ) -> Optional[AnomalyResult]:
         """
         Hibrit anomali tespiti: İstatistiksel + ML.
-        
+
         1. Elite prediction ile beklenen değeri hesapla
         2. Sapma kontrolü
         3. LightGBM ile ciddiyet tahmini (eğitilmişse)
         """
-        consumption = trip_data.get('tuketim')
+        consumption = trip_data.get("tuketim")
         if not consumption:
             return None
-        
+
         # Elite prediction
         pred_service = get_prediction_service()
         prediction = await pred_service.predict_consumption(
-            arac_id=trip_data['arac_id'],
-            mesafe_km=trip_data['mesafe_km'],
-            ton=trip_data.get('ton', 20.0),
-            ascent_m=trip_data.get('ascent_m', 0),
-            descent_m=trip_data.get('descent_m', 0),
-            sofor_id=trip_data.get('sofor_id')
+            arac_id=trip_data["arac_id"],
+            mesafe_km=trip_data["mesafe_km"],
+            ton=trip_data.get("ton", 20.0),
+            ascent_m=trip_data.get("ascent_m", 0),
+            descent_m=trip_data.get("descent_m", 0),
+            sofor_id=trip_data.get("sofor_id"),
         )
-        
-        expected = prediction['prediction_l_100km']
+
+        expected = prediction["prediction_l_100km"]
         deviation = ((consumption - expected) / expected) * 100 if expected > 0 else 0
-        
+
         # Anomali eşiği: %20
         if abs(deviation) <= 20:
             return None
-        
+
         # Ciddiyet belirle (ML veya rule-based)
         if use_ml and self.lgb_trained:
             severity = self.predict_severity_lgb(consumption, expected, deviation)
         else:
             severity = self._calculate_severity(abs(deviation))
-        
+
         return AnomalyResult(
             tip=AnomalyType.SEFER,
-            kaynak_tip='sefer',
-            kaynak_id=trip_data.get('id', 0),
+            kaynak_tip="sefer",
+            kaynak_id=trip_data.get("id", 0),
             deger=round(consumption, 2),
             beklenen_deger=round(expected, 2),
             sapma_yuzde=round(deviation, 1),
             severity=severity,
             aciklama=f"Hibrit Tespit: {deviation:+.1f}% sapma (ML: {self.lgb_trained})",
-            tarih=trip_data.get('tarih')
+            tarih=trip_data.get("tarih"),
         )
 
     def get_detector_status(self) -> Dict:
         """Detector durumu."""
         return {
-            'sklearn_available': SKLEARN_AVAILABLE,
-            'lightgbm_available': LIGHTGBM_AVAILABLE,
-            'isolation_forest_ready': self.isolation_forest is not None,
-            'lgb_classifier_ready': self.lgb_classifier is not None,
-            'lgb_trained': self.lgb_trained
+            "sklearn_available": SKLEARN_AVAILABLE,
+            "lightgbm_available": LIGHTGBM_AVAILABLE,
+            "isolation_forest_ready": self.isolation_forest is not None,
+            "lgb_classifier_ready": self.lgb_classifier is not None,
+            "lgb_trained": self.lgb_trained,
         }
 
 
 def get_anomaly_detector() -> AnomalyDetector:
     from app.core.container import get_container
-    return get_container().anomaly_detector
 
+    return get_container().anomaly_detector

@@ -1,0 +1,86 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Alembic Migration
+# ════════════════════════════════════════════════════════════════════════════
+# Database migration workflow
+
+name: "Alembic Migration"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "migration"
+  - "alembic"
+  - "database change"
+  - "add column"
+  - "new table"
+
+# ════════════════════════════════════════════════════════════════════════════
+workflows:
+  add_column:
+    description: "Mevcut tabloya kolon ekleme"
+    steps:
+      1: "models.py'de Column ekle"
+      2: "alembic revision --autogenerate -m 'Add {column} to {table}'"
+      3: "Migration dosyasını review et (upgrade + downgrade)"
+      4: "alembic upgrade head"
+      5: "İlgili schema'ları güncelle"
+    review_points:
+      - "Nullable mı, default var mı?"
+      - "Index gerekli mi?"
+      - "Mevcut data etkilenecek mi?"
+
+  create_table:
+    description: "Yeni tablo oluşturma"
+    steps:
+      1: "Model class'ı tanımla (models.py)"
+      2: "Relationship'leri ekle (varsa)"
+      3: "alembic revision --autogenerate -m 'Create {table} table'"
+      4: "Migration review"
+      5: "alembic upgrade head"
+    review_points:
+      - "Primary key doğru mu?"
+      - "Foreign key'ler var mı?"
+      - "Index'ler düşünüldü mü?"
+
+  modify_column:
+    description: "Mevcut kolonu değiştirme"
+    steps:
+      1: "Model'de değişiklik yap"
+      2: "alembic revision --autogenerate -m 'Modify {column} in {table}'"
+      3: "⚠️ DİKKAT: Data migration gerekebilir"
+      4: "Review: ALTER TABLE etkisi"
+      5: "alembic upgrade head"
+    warning: |
+      Kolon tipi değiştirme VERİ KAYBI yapabilir!
+      - Staging'de test et
+      - Backup al
+      - Data migration planla
+
+# ════════════════════════════════════════════════════════════════════════════
+commands:
+  check_status: "alembic current"
+  show_history: "alembic history --verbose"
+  upgrade: "alembic upgrade head"
+  downgrade_one: "alembic downgrade -1"
+  autogenerate: "alembic revision --autogenerate -m '{message}'"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "⚠️ Migration message açıklayıcı olsun"
+  - "✅ Her migration reversible olsun (downgrade)"
+  - "✅ Staging'de önce test et"
+  - "❌ Production'da autogenerate kullanma, review edilmiş migration kullan"
+
+# ════════════════════════════════════════════════════════════════════════════
+common_issues:
+  target_metadata_import:
+    problem: "alembic revision çalışmıyor"
+    solution: "env.py'de models import edilmiş mi kontrol et"
+
+  circular_import:
+    problem: "ImportError: circular import"
+    solution: "TYPE_CHECKING bloğu kullan"
+
+  multiple_heads:
+    problem: "Multiple heads detected"
+    solution: "alembic merge heads -m 'merge'"

@@ -7,10 +7,10 @@ class LinearRegressionModel:
     """
     NumPy tabanlı basit çoklu lineer regresyon modeli.
     Scikit-learn bağımlılığı olmadan çalışır.
-    
+
     Model: y = Xβ + ε
     Çözüm: β = (X'X)⁻¹X'y
-    
+
     Feature Scaling: Z-Score normalization uygulanır.
     """
 
@@ -27,11 +27,11 @@ class LinearRegressionModel:
     def fit(self, X: np.ndarray, y: np.ndarray) -> Dict:
         """
         Modeli eğit.
-        
+
         Args:
             X: Özellik matrisi (n_samples, n_features)
             y: Hedef vektörü (n_samples,)
-            
+
         Returns:
             Dict: Eğitim sonuçları
         """
@@ -76,32 +76,29 @@ class LinearRegressionModel:
             self._is_fitted = True
 
             return {
-                'success': True,
-                'coefficients': {
-                    'intercept': float(self.intercept),
-                    'weights': [float(c) for c in self.coefficients]
+                "success": True,
+                "coefficients": {
+                    "intercept": float(self.intercept),
+                    "weights": [float(c) for c in self.coefficients],
                 },
-                'r_squared': float(self.r_squared_score),
-                'sample_count': int(self.n_samples),
-                'scaling': {
-                    'mean': [float(m) for m in self._mean],
-                    'std': [float(s) for s in self._std]
-                }
+                "r_squared": float(self.r_squared_score),
+                "sample_count": int(self.n_samples),
+                "scaling": {
+                    "mean": [float(m) for m in self._mean],
+                    "std": [float(s) for s in self._std],
+                },
             }
 
         except np.linalg.LinAlgError as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def predict(self, X: np.ndarray) -> Tuple[np.ndarray, Dict]:
         """
         Tahmin yap.
-        
+
         Args:
             X: Özellik matrisi (n_samples, n_features)
-            
+
         Returns:
             Tuple[np.ndarray, Dict]: (Tahminler, Metadata)
         """
@@ -120,21 +117,15 @@ class LinearRegressionModel:
 
         y_pred = X_b.dot(beta)
 
-        return y_pred, {
-            'r_squared': self.r_squared_score,
-            'scaled': True
-        }
+        return y_pred, {"r_squared": self.r_squared_score, "scaled": True}
 
     def get_scaling_params(self) -> Optional[Dict]:
         """Scaling parametrelerini döndür (model persistence için)"""
         if not self._is_fitted:
             return None
-        return {
-            'mean': self._mean.tolist(),
-            'std': self._std.tolist()
-        }
+        return {"mean": self._mean.tolist(), "std": self._std.tolist()}
 
     def set_scaling_params(self, params: Dict):
         """Scaling parametrelerini ayarla (model loading için)"""
-        self._mean = np.array(params['mean'])
-        self._std = np.array(params['std'])
+        self._mean = np.array(params["mean"])
+        self._std = np.array(params["std"])

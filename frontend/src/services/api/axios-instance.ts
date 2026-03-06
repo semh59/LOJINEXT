@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
+import { tokenStorage } from './legacy';
 
 /**
  * Kurumsal seviyede Axios örneği
@@ -13,7 +14,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const axiosInstance: AxiosInstance = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 30000, // 30 saniye
+    timeout: 120000, // 120 saniye (Yerel AI için yeterli pay)
     headers: {
         'Content-Type': 'application/json',
     },
@@ -22,7 +23,7 @@ const axiosInstance: AxiosInstance = axios.create({
 // Request Interceptor: Token ekle
 axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('access_token');
+        const token = tokenStorage.get();
         if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -42,7 +43,29 @@ axiosInstance.interceptors.response.use(
 
             // 401: Oturum süresi dolmuş veya geçersiz
             if (status === 401 && !originalRequest?.url?.includes('/auth/token')) {
+                const refreshToken = localStorage.getItem('refresh_token');
+
+                if (refreshToken && !(originalRequest as any)?._retry) {
+                    (originalRequest as any)._retry = true;
+                    try {
+                        const response = await axios.post(`${API_BASE_URL}/auth/refresh?refresh_token=${refreshToken}`);
+                        const { access_token, refresh_token } = response.data;
+
+                        localStorage.setItem('access_token', access_token);
+                        if (refresh_token) localStorage.setItem('refresh_token', refresh_token);
+
+                        if (originalRequest && originalRequest.headers) {
+                            originalRequest.headers.Authorization = `Bearer ${access_token}`;
+                            return axiosInstance(originalRequest);
+                        }
+                    } catch (refreshError) {
+                        console.error('Refresh token failed', refreshError);
+                        // Refresh de patlarsa logout yap
+                    }
+                }
+
                 localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
                 if (window.location.pathname !== '/login') {
                     window.location.href = '/login';
                 }
@@ -54,13 +77,24 @@ axiosInstance.interceptors.response.use(
                 toast.error('Bu işlemi yapmak için yetkiniz bulunmamaktadır.');
             }
 
+            // 400: Bad Request (İş mantığı hataları)
+            if (status === 400) {
+                const message = (data as any)?.error?.message || (data as any)?.detail || 'Geçersiz işlem';
+                toast.error(message);
+            }
+
             // 422: Validasyon hataları
             if (status === 422) {
-                const detail = (data as any)?.detail;
-                if (Array.isArray(detail)) {
-                    toast.error(detail[0]?.msg || 'Geçersiz veri girişi');
+                const error = (data as any)?.error;
+                if (error && error.message) {
+                    toast.error(error.message);
                 } else {
-                    toast.error(detail || 'Doğrulama hatası');
+                    const detail = (data as any)?.detail;
+                    if (Array.isArray(detail)) {
+                        toast.error(detail[0]?.msg || 'Geçersiz veri girişi');
+                    } else {
+                        toast.error(detail || 'Doğrulama hatası');
+                    }
                 }
             }
 

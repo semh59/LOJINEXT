@@ -2,7 +2,6 @@
 import requests
 import pandas as pd
 import io
-import sys
 
 API_URL = "http://127.0.0.1:8000/api/v1"
 # Admin token mechanism might be needed if auth is strict, 

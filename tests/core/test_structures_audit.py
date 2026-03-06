@@ -2,15 +2,13 @@
 Temel yapılar için kapsamlı test suite ve Audit Doğrulaması
 """
 import pytest
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import MagicMock
 import time
 
 from app.core.container import get_container, reset_container
-from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.security import get_password_hash, verify_password
 from app.core.validators import sanitize_input
-from app.core.entities.models import Arac, AracCreate
+from app.core.entities.models import AracCreate
 from app.core.entities.sofor_degerlendirme import SoforDegerlendirmeService
 
 class TestDependencyContainer:

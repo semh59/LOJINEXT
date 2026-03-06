@@ -3,7 +3,9 @@ Redis Cache Service - Yakıt Yönetim Sistemi
 Tekrar eden sorgular için önbellekleme
 """
 
+import functools
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -12,12 +14,13 @@ from typing import Any, Optional
 
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
 
-from app.infrastructure.logging.logger import get_logger
 from app.infrastructure.cache.cache_manager import get_cache_manager
+from app.infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -25,16 +28,16 @@ logger = get_logger(__name__)
 class RedisCache:
     """
     Redis tabanlı cache sistemi.
-    
+
     Redis yoksa veya bağlantı başarısızsa,
     in-memory fallback kullanır.
     """
 
     _instance = None
     _lock = threading.Lock()  # Thread-safe singleton için
-    
+
     # Key'de izin verilmeyen karakterler
-    _KEY_PATTERN = re.compile(r'^[a-zA-Z0-9_:.\-]+$')
+    _KEY_PATTERN = re.compile(r"^[a-zA-Z0-9_:.\-]+$")
 
     def __new__(cls):
         if cls._instance is None:
@@ -60,7 +63,17 @@ class RedisCache:
     def _connect(self):
         """Redis bağlantısı kur"""
         if not REDIS_AVAILABLE:
-            logger.warning("Redis kütüphanesi yüklü değil. In-memory cache kullanılacak.")
+            logger.warning(
+                "Redis kütüphanesi yüklü değil. In-memory cache kullanılacak."
+            )
+            return
+
+        import sys
+
+        is_testing = "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST")
+
+        if is_testing and not os.getenv("REDIS_HOST"):
+            logger.info("Test environment detected, bypassing Redis connection.")
             return
 
         redis_host = os.getenv("REDIS_HOST", "localhost")
@@ -69,6 +82,12 @@ class RedisCache:
         redis_password = os.getenv("REDIS_PASSWORD", None)
         redis_ssl = os.getenv("REDIS_SSL", "false").lower() == "true"
 
+        import sys
+
+        is_testing = "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST")
+        # Test ortamında timeout'u çok düşük tut
+        connect_timeout = 0.1 if is_testing else 2.0
+
         try:
             self._redis_client = redis.Redis(
                 host=redis_host,
@@ -76,17 +95,21 @@ class RedisCache:
                 db=redis_db,
                 password=redis_password,
                 decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
+                socket_connect_timeout=connect_timeout,
+                socket_timeout=connect_timeout,
                 ssl=redis_ssl,  # SSL/TLS desteği
-                ssl_cert_reqs='required' if redis_ssl else None
+                ssl_cert_reqs="required" if redis_ssl else None,
             )
             # Bağlantı testi
             self._redis_client.ping()
             ssl_status = " (SSL)" if redis_ssl else ""
-            logger.info(f"Redis bağlantısı kuruldu: {redis_host}:{redis_port}{ssl_status}")
+            logger.info(
+                f"Redis bağlantısı kuruldu: {redis_host}:{redis_port}{ssl_status}"
+            )
         except Exception as e:
-            logger.warning(f"Redis bağlantısı kurulamadı: {e}. In-memory cache kullanılacak.")
+            logger.warning(
+                f"Redis bağlantısı kurulamadı: {e}. In-memory cache kullanılacak."
+            )
             self._redis_client = None
 
     @property
@@ -97,23 +120,23 @@ class RedisCache:
     def _validate_key(self, key: str):
         """Cache key güvenliği kontrolü"""
         # Redis key length limit is 512MB technically but we want sane limits
-        if not key or len(key) > 512: 
+        if not key or len(key) > 512:
             raise ValueError("Cache key too long (max 512 chars)")
-        
+
         # Karakter kontrolü - sadece güvenli karakterler
         if not self._KEY_PATTERN.match(key):
             raise ValueError(f"Invalid cache key characters: {key[:50]}")
-        
+
         # Directory traversal koruması
         if "../" in key or "..\\" in key:
             raise ValueError("Invalid cache key: Directory traversal attempt")
-        
+
     def _evict_fallback_if_needed(self):
         """Fallback cache dolarsa yer aç"""
         if len(self._fallback_cache) >= self.MAX_FALLBACK_SIZE:
-             # %10 temizle
+            # %10 temizle
             keys = list(self._fallback_cache.keys())
-            to_remove = keys[:int(self.MAX_FALLBACK_SIZE * 0.1)]
+            to_remove = keys[: int(self.MAX_FALLBACK_SIZE * 0.1)]
             for k in to_remove:
                 self._fallback_cache.pop(k, None)
                 self._fallback_expiry.pop(k, None)
@@ -127,15 +150,15 @@ class RedisCache:
     def get(self, key: str) -> Optional[Any]:
         """
         Cache'den değer al.
-        
+
         Args:
             key: Cache anahtarı
-            
+
         Returns:
             Cache değeri veya None
         """
         self._validate_key(key)
-        
+
         try:
             if self._redis_client:
                 cached = self._redis_client.get(key)
@@ -154,12 +177,12 @@ class RedisCache:
     def set(self, key: str, value: Any, ttl: int = None) -> bool:
         """
         Cache'e değer yaz.
-        
+
         Args:
             key: Cache anahtarı
             value: Saklanacak değer
             ttl: Time-to-live (saniye)
-            
+
         Returns:
             Başarılı mı
         """
@@ -221,7 +244,7 @@ class RedisCache:
         """Cache istatistikleri"""
         stats = {
             "backend": "redis" if self._redis_client else "memory",
-            "connected": self.is_redis_available
+            "connected": self.is_redis_available,
         }
 
         if self._redis_client:
@@ -229,7 +252,7 @@ class RedisCache:
                 info = self._redis_client.info("memory")
                 stats["used_memory"] = info.get("used_memory_human", "N/A")
                 stats["keys"] = self._redis_client.dbsize()
-            except:
+            except Exception:
                 pass
         else:
             stats["keys"] = len(self._fallback_cache)
@@ -243,33 +266,47 @@ def get_redis_cache() -> RedisCache:
     return RedisCache()
 
 
+# Decorator implementation moved to top
+
+
 # Decorator for caching function results
 def cached(ttl: int = 3600, prefix: str = "fn"):
     """
-    Fonksiyon sonuçlarını cache'leyen decorator.
-    
-    Kullanım:
-        @cached(ttl=600)
-        def expensive_calculation(param):
-            ...
+    Fonksiyon sonuçlarını cache'leyen decorator (Sync & Async destekli).
     """
+
     def decorator(func):
-        def wrapper(*args, **kwargs):
-            cache = get_redis_cache()
+        if inspect.iscoroutinefunction(func):
 
-            # Key oluştur
-            key_data = f"{func.__name__}:{str(args)}:{str(kwargs)}"
-            key = cache._generate_key(key_data, prefix)
+            @functools.wraps(func)
+            async def wrapper(*args, **kwargs):
+                cache = get_redis_cache()
+                key_data = f"{func.__name__}:{args!s}:{kwargs!s}"
+                key = cache._generate_key(key_data, prefix)
 
-            # Cache kontrol
-            cached_result = cache.get(key)
-            if cached_result is not None:
-                return cached_result
+                cached_result = cache.get(key)
+                if cached_result is not None:
+                    return cached_result
 
-            # Hesapla ve cache'le
-            result = func(*args, **kwargs)
-            cache.set(key, result, ttl)
+                result = await func(*args, **kwargs)
+                cache.set(key, result, ttl)
+                return result
+        else:
 
-            return result
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                cache = get_redis_cache()
+                key_data = f"{func.__name__}:{args!s}:{kwargs!s}"
+                key = cache._generate_key(key_data, prefix)
+
+                cached_result = cache.get(key)
+                if cached_result is not None:
+                    return cached_result
+
+                result = func(*args, **kwargs)
+                cache.set(key, result, ttl)
+                return result
+
         return wrapper
+
     return decorator

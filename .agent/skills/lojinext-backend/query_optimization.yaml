@@ -1,0 +1,133 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Query Optimization
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Query Optimization"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "query"
+  - "n+1"
+  - "slow"
+  - "optimize"
+  - "index"
+  - "join"
+
+# ════════════════════════════════════════════════════════════════════════════
+n_plus_1:
+  problem: |
+    # N+1 Problem - KÖTÜ
+    trips = await db.execute(select(Trip))
+    for trip in trips:
+        # Her trip için ayrı query!
+        driver = trip.driver  # Lazy load → query
+
+  solution: |
+    # Joinedload ile tek query - İYİ
+    from sqlalchemy.orm import joinedload
+
+    query = select(Trip).options(
+        joinedload(Trip.driver),
+        joinedload(Trip.vehicle)
+    )
+    result = await db.execute(query)
+    trips = result.unique().scalars().all()
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  eager_loading:
+    description: "Eager loading strategies"
+    code: |
+      from sqlalchemy.orm import joinedload, selectinload, subqueryload
+
+      # joinedload: LEFT JOIN ile tek query (to-one relationships)
+      query = select(Trip).options(joinedload(Trip.driver))
+
+      # selectinload: Ayrı IN query (to-many relationships)
+      query = select(Driver).options(selectinload(Driver.trips))
+
+      # subqueryload: Subquery ile (büyük collections)
+      query = select(Vehicle).options(subqueryload(Vehicle.fuel_records))
+
+  select_specific_columns:
+    description: "Sadece gerekli kolonları seç"
+    code: |
+      # Tüm kolonlar yerine sadece gerekli olanlar
+      query = select(Trip.id, Trip.mesafe_km, Trip.tarih)
+
+      # Veya model ile .load_only()
+      from sqlalchemy.orm import load_only
+      query = select(Trip).options(
+          load_only(Trip.id, Trip.mesafe_km)
+      )
+
+  indexed_queries:
+    description: "Index kullanımı"
+    code: |
+      # Model'de index tanımla
+      class Trip(Base):
+          __tablename__ = "seferler"
+          
+          id = Column(Integer, primary_key=True)
+          tarih = Column(Date, index=True)  # Tek kolon index
+          
+          __table_args__ = (
+              Index('ix_trip_vehicle_date', 'arac_id', 'tarih'),  # Composite
+          )
+
+  pagination:
+    description: "Verimli pagination"
+    code: |
+      # Offset pagination (basit ama büyük offset'te yavaş)
+      query = select(Trip).offset(skip).limit(limit)
+
+      # Cursor/Keyset pagination (büyük veri için)
+      query = select(Trip).where(
+          Trip.id > last_id
+      ).order_by(Trip.id).limit(limit)
+
+  count_optimization:
+    description: "Sayım optimizasyonu"
+    code: |
+      from sqlalchemy import func
+
+      # Basit count
+      count_query = select(func.count()).select_from(Trip)
+
+      # Filter ile count
+      count_query = select(func.count()).where(Trip.is_active == True)
+
+  bulk_operations:
+    description: "Toplu işlemler"
+    code: |
+      # Bulk insert
+      await db.execute(
+          insert(Trip),
+          [{"mesafe_km": 100}, {"mesafe_km": 200}, ...]
+      )
+
+      # Bulk update
+      await db.execute(
+          update(Trip).where(Trip.tarih < old_date).values(is_active=False)
+      )
+
+# ════════════════════════════════════════════════════════════════════════════
+diagnosis:
+  query_logging: |
+    # SQLAlchemy query logging
+    import logging
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
+  explain_analyze: |
+    # PostgreSQL EXPLAIN ANALYZE
+    EXPLAIN ANALYZE SELECT * FROM trips WHERE tarih > '2024-01-01';
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Relationship'ler için joinedload/selectinload kullan"
+  - "Filter kolonlarına index ekle"
+  - "Sadece gerekli kolonları seç"
+  - "Büyük listeler için pagination zorunlu"
+  - "Bulk işlemler için loop yerine toplu sorgu"
+  - "EXPLAIN ANALYZE ile query planını kontrol et"

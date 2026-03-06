@@ -1,4 +1,5 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "../../lib/utils"
 
@@ -12,6 +13,23 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, size = 'md', className }: ModalProps) {
+    // Esc tuşu ve body scroll lock için effect her zaman çalışmalı (isOpen kontrolü içeride)
+    React.useEffect(() => {
+        if (!isOpen) return;
+
+        document.body.style.overflow = 'hidden';
+
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose()
+        }
+        document.addEventListener('keydown', handleEscape)
+        
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'unset';
+        }
+    }, [isOpen, onClose])
+
     if (!isOpen) return null
 
     const sizeClasses = {
@@ -21,18 +39,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
         xl: 'max-w-5xl'
     }
 
-    // ESC tuşu ile kapatma
-    React.useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose()
-        }
-        document.addEventListener('keydown', handleEscape)
-        return () => document.removeEventListener('keydown', handleEscape)
-    }, [onClose])
-
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
             <div
@@ -63,7 +72,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
                     {children}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }
 

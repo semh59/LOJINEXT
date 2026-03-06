@@ -12,10 +12,9 @@ Bu modül, audit kapsamında tespit edilen eksik test senaryolarını içerir:
 """
 
 import pytest
-import math
 from datetime import date, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from pydantic import ValidationError
 
 
@@ -239,7 +238,6 @@ class TestNaNInfinity:
     async def test_nan_consumption_detected(self):
         """NaN tüketim değeri anomali olarak tespit edilmeli."""
         from app.core.services.analiz_service import AnalizService
-        import math
         
         service = AnalizService(yakit_repo=MagicMock(), sefer_repo=MagicMock())
         
@@ -400,7 +398,6 @@ class TestConcurrentAccess:
     def test_singleton_thread_safety(self):
         """Singleton pattern thread-safe olmalı."""
         from app.core.container import get_container, reset_container
-        import threading
         from concurrent.futures import ThreadPoolExecutor
         
         reset_container()
@@ -503,7 +500,6 @@ class TestErrorMessageClarity:
     def test_service_error_is_descriptive(self):
         """Service hataları açıklayıcı olmalı."""
         from app.core.services.yakit_service import YakitService
-        from app.core.entities import YakitAlimiCreate
         
         service = YakitService(repo=MagicMock(), event_bus=MagicMock())
         

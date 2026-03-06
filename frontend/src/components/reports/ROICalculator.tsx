@@ -8,19 +8,25 @@ export function ROICalculator() {
     const [investment, setInvestment] = useState(50000)
     const [stats, setStats] = useState<RoiStats | null>(null)
     const [loading, setLoading] = useState(false)
+    const [savings, setSavings] = useState<{ potential_savings: number; savings_percentage: number } | null>(null)
 
     useEffect(() => {
         const fetchRoi = async () => {
             setLoading(true)
             try {
-                const data = await reportsApi.getRoiStats(investment)
-                setStats(data)
+                const [roiData, savingsData] = await Promise.all([
+                    reportsApi.getRoiStats(investment),
+                    reportsApi.getSavingsPotential(28) // Target 28 L/100km
+                ])
+                setStats(roiData)
+                setSavings(savingsData)
             } catch (error) {
                 console.error(error)
             } finally {
                 setLoading(false)
             }
         }
+        // ... (rest of the debounce)
         // Debounce simple implementation
         const timer = setTimeout(fetchRoi, 500)
         return () => clearTimeout(timer)
@@ -82,6 +88,19 @@ export function ROICalculator() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-6"
             >
+                <div className="glass p-8 rounded-[32px] border border-white/50 flex items-center justify-between relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative z-10">
+                        <p className="text-xs font-black uppercase text-neutral-400 mb-1">Aylık Potansiyel</p>
+                        <h3 className="text-3xl font-black text-blue-600">
+                            {savings ? formatCurrency(savings.potential_savings / 12) : '-'}
+                        </h3>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                        <TrendingUp className="w-6 h-6" />
+                    </div>
+                </div>
+
                 <div className="glass p-8 rounded-[32px] border border-white/50 flex items-center justify-between relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10">

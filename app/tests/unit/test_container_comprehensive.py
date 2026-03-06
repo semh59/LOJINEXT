@@ -36,15 +36,18 @@ sys.path.insert(0, str(APP_DIR))
 # NOT: pytest_configure ile modül seviyesinde container reset yapıyoruz
 # Bu sadece bu dosya için geçerli, diğer test dosyalarını etkilemez
 
+
 def setup_module(module):
     """Modül başlangıcında container'ı sıfırla."""
     from app.core.container import reset_container
+
     reset_container()
 
 
 def teardown_module(module):
     """Modül sonunda container'ı sıfırla."""
     from app.core.container import reset_container
+
     reset_container()
 
 
@@ -52,6 +55,7 @@ def teardown_module(module):
 def fresh_container():
     """Her test için temiz container sağlar."""
     from app.core.container import get_container, reset_container
+
     reset_container()
     container = get_container()
     yield container
@@ -109,6 +113,7 @@ def mock_yakit_repo():
 # 1. SINGLETON PATTERN TESTS
 # =============================================================================
 
+
 class TestContainerSingleton:
     """Container singleton pattern testleri."""
 
@@ -154,6 +159,7 @@ class TestContainerSingleton:
 # =============================================================================
 # 2. CONTAINER INITIALIZATION TESTS
 # =============================================================================
+
 
 class TestContainerInitialization:
     """Container initialization testleri."""
@@ -203,6 +209,7 @@ class TestContainerInitialization:
 # =============================================================================
 # 3. DEPENDENCY INJECTION VERIFICATION TESTS
 # =============================================================================
+
 
 class TestDependencyInjection:
     """Bağımlılık enjeksiyonu doğrulama testleri."""
@@ -292,6 +299,7 @@ class TestDependencyInjection:
 # 4. MOCK INJECTION TESTS (Test Isolation)
 # =============================================================================
 
+
 class TestMockInjection:
     """Mock injection testleri - Test isolation için kritik."""
 
@@ -340,7 +348,7 @@ class TestMockInjection:
         service = AnalizService(
             arac_repo=mock_arac_repo,
             sefer_repo=mock_sefer_repo,
-            yakit_repo=mock_yakit_repo
+            yakit_repo=mock_yakit_repo,
         )
 
         assert service.arac_repo is mock_arac_repo
@@ -362,7 +370,7 @@ class TestMockInjection:
             arac_repo=mock_arac_repo,
             sofor_repo=mock_sofor_repo,
             sefer_service=mock_sefer_service,
-            yakit_service=mock_yakit_service
+            yakit_service=mock_yakit_service,
         )
 
         assert service.arac_repo is mock_arac_repo
@@ -374,6 +382,7 @@ class TestMockInjection:
 # =============================================================================
 # 5. FACTORY FUNCTION BINDING TESTS
 # =============================================================================
+
 
 class TestFactoryFunctions:
     """Factory fonksiyonlarının Container ile bağlantısı."""
@@ -443,6 +452,7 @@ class TestFactoryFunctions:
 # 6. THREAD-SAFETY TESTS
 # =============================================================================
 
+
 class TestThreadSafety:
     """Thread-safety testleri."""
 
@@ -458,11 +468,15 @@ class TestThreadSafety:
             return id(container)
 
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures = [executor.submit(get_container_thread) for _ in range(num_threads)]
+            futures = [
+                executor.submit(get_container_thread) for _ in range(num_threads)
+            ]
             results = [f.result() for f in as_completed(futures)]
 
         # Tüm thread'ler aynı instance ID'yi almalı
-        assert len(set(results)) == 1, f"Farklı instance ID'leri bulundu: {set(results)}"
+        assert len(set(results)) == 1, (
+            f"Farklı instance ID'leri bulundu: {set(results)}"
+        )
 
     def test_concurrent_service_access(self):
         """Concurrent servis erişimi thread-safe olmalı."""
@@ -497,6 +511,7 @@ class TestThreadSafety:
 # =============================================================================
 # 7. RESET/CLEANUP TESTS
 # =============================================================================
+
 
 class TestContainerReset:
     """Container reset mekanizması testleri."""
@@ -546,6 +561,7 @@ class TestContainerReset:
 # 8. EDGE CASE & ERROR TESTS
 # =============================================================================
 
+
 class TestEdgeCases:
     """Edge case ve hata durumu testleri."""
 
@@ -587,7 +603,9 @@ class TestEdgeCases:
         # ancak bunlara karşılık gelen property'ler erişildiğinde initialize edilmeli.
         for attr_name in dir(container):
             # Sadece property'leri ve public attribute'ları kontrol et
-            if (attr_name.endswith('_service') or attr_name.endswith('_repo')) and not attr_name.startswith('_'):
+            if (
+                attr_name.endswith("_service") or attr_name.endswith("_repo")
+            ) and not attr_name.startswith("_"):
                 attr_value = getattr(container, attr_name)
                 assert attr_value is not None, f"{attr_name} is None!"
 
@@ -595,6 +613,7 @@ class TestEdgeCases:
 # =============================================================================
 # INTEGRATION SANITY CHECK
 # =============================================================================
+
 
 class TestContainerIntegration:
     """Container entegrasyon testleri."""
@@ -634,5 +653,5 @@ class TestContainerIntegration:
             assert bus is first_bus
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '--tb=short'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--tb=short"])

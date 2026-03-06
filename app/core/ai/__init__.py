@@ -1,14 +1,9 @@
 """
 TIR Yakıt Takip - AI Modül
-Qwen2.5 gömülü chatbot
+Groq Cloud tabanlı AI entegrasyonu
 """
 
 from app.core.ai.context_builder import ContextBuilder, get_context_builder
-from app.core.ai.qwen_chatbot import QwenChatbot, get_chatbot
+from app.core.ai.groq_service import GroqService, get_groq_service
 
-__all__ = [
-    'QwenChatbot',
-    'get_chatbot',
-    'ContextBuilder',
-    'get_context_builder'
-]
+__all__ = ["ContextBuilder", "GroqService", "get_groq_service", "get_context_builder"]

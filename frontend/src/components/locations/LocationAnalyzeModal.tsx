@@ -7,10 +7,10 @@ import {
 } from 'recharts';
 import {
     Activity, Mountain, Info, Compass,
-    Clock, MapPin, CheckCircle2
+    Clock, MapPin, CheckCircle2, Navigation, Car, Database
 } from 'lucide-react';
 import { useLocations } from '../../hooks/use-locations';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface LocationAnalyzeModalProps {
     isOpen: boolean;
@@ -23,15 +23,21 @@ export const LocationAnalyzeModal = ({ isOpen, onClose, location }: LocationAnal
     const analyzeMutation = useAnalyzeLocation();
     const [result, setResult] = useState<AnalysisResponse | null>(null);
 
+    const triggerRef = useRef(false);
+
     useEffect(() => {
-        if (isOpen && location?.id && !result) {
+        if (isOpen && location?.id && !result && !triggerRef.current) {
+            triggerRef.current = true;
             analyzeMutation.mutate(location.id, {
                 onSuccess: (data) => {
                     setResult(data);
                 }
             });
         }
-    }, [isOpen, location, analyzeMutation, result]);
+        if (!isOpen) {
+            triggerRef.current = false;
+        }
+    }, [isOpen, location, result]);
 
     // Re-trigger analysis if user wants
     const handleReAnalyze = () => {
@@ -127,6 +133,55 @@ export const LocationAnalyzeModal = ({ isOpen, onClose, location }: LocationAnal
                             </div>
                         </div>
 
+                        {/* Distance Distribution (Highway vs Urban) */}
+                        <div className="bg-white p-6 rounded-[32px] border border-neutral-200 shadow-sm space-y-4">
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <h4 className="text-sm font-black text-neutral-400 uppercase tracking-widest mb-1">Yol Tipi Dağılımı</h4>
+                                    <p className="text-xs text-neutral-500">Güzergahın otoban ve şehiriçi/kırsal mesafe oranı</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs font-bold text-neutral-900 bg-neutral-100 px-3 py-1 rounded-full border border-neutral-200">
+                                        Toplam: {result.api_mesafe_km} km
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="relative h-6 bg-neutral-100 rounded-full overflow-hidden flex shadow-inner">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-neutral-800 to-neutral-700 relative group cursor-help transition-all duration-1000 ease-out"
+                                    style={{ width: `${(result.otoban_mesafe_km / result.api_mesafe_km) * 100}%` }}
+                                >
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                                <div 
+                                    className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-1000 ease-out"
+                                    style={{ width: `${(result.sehir_ici_mesafe_km / result.api_mesafe_km) * 100}%` }}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-center gap-3 p-3 bg-neutral-50 rounded-2xl border border-neutral-100">
+                                    <div className="w-8 h-8 rounded-xl bg-neutral-900 flex items-center justify-center text-white">
+                                        <Navigation className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-black text-neutral-400 uppercase">Otoban</div>
+                                        <div className="text-lg font-black text-neutral-900">{result.otoban_mesafe_km} <span className="text-xs">km</span></div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-2xl border border-primary/10">
+                                    <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-white">
+                                        <Car className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-black text-neutral-400 uppercase">Şehiriçi / Kırsal</div>
+                                        <div className="text-lg font-black text-neutral-900">{result.sehir_ici_mesafe_km} <span className="text-xs">km</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Chart Area */}
                         <div className="bg-neutral-900 rounded-[40px] p-8 shadow-2xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[120px] rounded-full -mr-32 -mt-32" />
@@ -192,12 +247,33 @@ export const LocationAnalyzeModal = ({ isOpen, onClose, location }: LocationAnal
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
-                            <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                            <p className="text-xs font-medium text-blue-700 leading-relaxed">
-                                <strong>Smart Tip:</strong> Bu analiz OpenRouteService tarafından sağlanan topografik veriler kullanılarak yapılmıştır.
-                                Toplam tırmanış ({result.ascent_m}m), yakıt tüketimini doğrudan etkileyen bir faktördür.
-                            </p>
+                        <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-2xl border border-blue-100 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity">
+                                <Database className="w-12 h-12 text-blue-900" />
+                            </div>
+                            <div className="relative z-10 flex gap-4">
+                                <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <p className="text-sm font-bold text-blue-900">
+                                        Veri Kaynağı: <span className="text-primary uppercase tracking-tighter">{result.source || 'OpenRouteService'}</span>
+                                    </p>
+                                    <p className="text-xs font-medium text-blue-700 leading-relaxed">
+                                        Bu analiz <strong>{result.source?.includes('mapbox') ? 'Mapbox Directions' : 'OpenRouteService'}</strong> tarafından sağlanan veriler kullanılarak yapılmıştır.
+                                        Toplam tırmanış ({result.ascent_m}m), yakıt tüketimini doğrudan etkileyen bir faktördür.
+                                    </p>
+                                    {result.is_corrected && (
+                                        <div className="mt-3 p-3 bg-amber-100/50 border border-amber-200 rounded-xl flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-white shrink-0">
+                                                <TrendingUpIcon size={18} />
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Akıllı Düzeltme Uygulandı</div>
+                                                <div className="text-xs font-bold text-amber-900">{result.correction_reason}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : (

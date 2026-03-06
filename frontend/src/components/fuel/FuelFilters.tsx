@@ -1,0 +1,70 @@
+import { Calendar, Search, Filter } from 'lucide-react'
+
+interface FuelFiltersProps {
+    startDate: string
+    setStartDate: (v: string) => void
+    endDate: string
+    setEndDate: (v: string) => void
+    vehicleFilter: string
+    setVehicleFilter: (v: string) => void
+    vehicles: { id: number; plaka: string }[]
+    onFilter: () => void
+}
+
+export function FuelFilters({
+    startDate, setStartDate,
+    endDate, setEndDate,
+    vehicleFilter, setVehicleFilter,
+    vehicles,
+    onFilter
+}: FuelFiltersProps) {
+    return (
+        <div className="glass-card p-4 flex flex-col md:flex-row gap-4 items-center justify-between border border-white/5 shadow-[0_0_50px_rgba(13,242,89,0.02)]">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="relative w-full md:w-64">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="w-4 h-4 text-slate-500" />
+                    </div>
+                    <select
+                        value={vehicleFilter}
+                        onChange={(e) => setVehicleFilter(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2.5 border border-white/5 rounded-lg leading-5 bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#0df259]/30 sm:text-sm appearance-none transition-all"
+                    >
+                        <option value="">Araç Ara...</option>
+                        {vehicles.map((v) => (
+                            <option key={v.id} value={v.id}>
+                                {v.plaka}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                <div className="flex items-center gap-2 bg-black/20 px-3 py-2 rounded-lg border border-white/5 min-w-fit hover:border-[#0df259]/30 transition-colors">
+                    <Calendar className="w-4 h-4 text-slate-500" />
+                    <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="bg-transparent border-none text-slate-100 text-sm font-medium p-0 focus:ring-0 outline-none w-[110px]"
+                    />
+                    <span className="text-slate-600">-</span>
+                    <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="bg-transparent border-none text-slate-100 text-sm font-medium p-0 focus:ring-0 outline-none w-[110px]"
+                    />
+                </div>
+                <button 
+                    onClick={onFilter}
+                    className="flex items-center gap-2 bg-[#0df259]/10 px-4 py-2 rounded-lg border border-[#0df259]/30 text-[#0df259] text-sm font-bold hover:bg-[#0df259]/20 transition-all whitespace-nowrap active:scale-95 shadow-[0_0_15px_rgba(13,242,89,0.1)]"
+                >
+                    <Filter className="w-4 h-4" />
+                    Filtrele
+                </button>
+            </div>
+        </div>
+    )
+}

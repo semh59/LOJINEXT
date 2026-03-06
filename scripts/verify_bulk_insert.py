@@ -6,7 +6,6 @@ Repository bulk insert işlemlerini doğrular.
 
 import asyncio
 import sys
-import os
 from datetime import date
 from pathlib import Path
 

@@ -1,10 +1,14 @@
 """
 TIR Yakıt Takip - Şoför Repository
-Şoför CRUD + performans sorguları
+PostgreSQL CRUD + performans sorguları
 """
 
-from datetime import date
-from typing import Dict, List, Optional
+from datetime import date, timedelta
+from typing import Any, Dict, List, Optional
+import threading
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.base_repository import BaseRepository
 from app.database.models import Sofor
@@ -25,8 +29,8 @@ class SoforRepository(BaseRepository[Sofor]):
         limit: int = 100,
         offset: int = 0,
         search: Optional[str] = None,
-        filters: Optional[Dict] = None
-    ) -> List[Dict]:
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Tüm şoförleri getir (Arama ve Sayfalama destekli).
         """
@@ -34,78 +38,74 @@ class SoforRepository(BaseRepository[Sofor]):
         if search:
             _filters["search"] = search
 
+        # Soft delete filtresi (varsayılan: silinmemişler)
+        if "is_deleted" not in _filters:
+            _filters["is_deleted"] = False
+
         return await super().get_all(
             filters=_filters,
             order_by="ad_soyad",
             limit=limit,
             offset=offset,
-            include_inactive=not sadece_aktif
+            include_inactive=not sadece_aktif,
         )
 
     async def add(
         self,
         ad_soyad: str,
         telefon: str = "",
-        ise_baslama: Optional[str] = None,
+        ise_baslama: Optional[date] = None,
         ehliyet_sinifi: str = "E",
         score: float = 1.0,
         manual_score: float = 1.0,
         hiz_disiplin_skoru: float = 1.0,
         agresif_surus_faktoru: float = 1.0,
-        notlar: str = ""
+        notlar: str = "",
     ) -> int:
         """
         Yeni şoför ekle (TOCTOU Korumalı).
         """
-        if ise_baslama and isinstance(ise_baslama, str) and ise_baslama.strip():
-            try:
-                ise_baslama_obj = date.fromisoformat(ise_baslama)
-            except ValueError:
-                logger.warning(f"Invalid date format: {ise_baslama}")
-                ise_baslama_obj = None
-        elif isinstance(ise_baslama, date):
-            ise_baslama_obj = ise_baslama
-        else:
-            ise_baslama_obj = None
-
-        async with self._get_session() as session:
-            # 1. Kayıt var mı kontrol et ve kilitle
-            from sqlalchemy import select
-            stmt = select(self.model).where(self.model.ad_soyad == ad_soyad).with_for_update()
-            result = await session.execute(stmt)
-            if result.scalar_one_or_none():
-                logger.warning(f"TOCTOU Alert: Şoför zaten mevcut ({ad_soyad})")
-                raise ValueError(f"Bu isimle şoför zaten kayıtlı: {ad_soyad}")
-
-            # 2. Kaydı oluştur
-            new_sofor = self.model(
-                ad_soyad=ad_soyad,
-                telefon=telefon,
-                ise_baslama=ise_baslama_obj,
-                ehliyet_sinifi=ehliyet_sinifi,
-                score=score,
-                manual_score=manual_score,
-                hiz_disiplin_skoru=hiz_disiplin_skoru,
-                agresif_surus_faktoru=agresif_surus_faktoru,
-                notlar=notlar,
-                aktif=True
+        session = self.session
+        # 1. Kayıt var mı kontrol et ve kilitle
+        stmt = (
+            select(self.model).where(self.model.ad_soyad == ad_soyad).with_for_update()
+        )
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none():
+            logger.warning("TOCTOU Alert: Şoför zaten mevcut.")
+            raise ValueError(
+                "Bu isimle şoför zaten kayıtlı. Lütfen farklı bir isim deneyin."
             )
-            session.add(new_sofor)
-            
-            if not self.session:
-                await session.commit()
-                await session.refresh(new_sofor)
-            else:
-                await session.flush()
-            
-            return new_sofor.id
+
+        # 2. Kaydı oluştur
+        new_sofor = self.model(
+            ad_soyad=ad_soyad,
+            telefon=telefon,
+            ise_baslama=ise_baslama,
+            ehliyet_sinifi=ehliyet_sinifi,
+            score=score,
+            manual_score=manual_score,
+            hiz_disiplin_skoru=hiz_disiplin_skoru,
+            agresif_surus_faktoru=agresif_surus_faktoru,
+            notlar=notlar,
+            aktif=True,
+        )
+        session.add(new_sofor)
+
+        if not self.session:
+            await session.commit()
+            await session.refresh(new_sofor)
+        else:
+            await session.flush()
+
+        return int(new_sofor.id)
 
     async def get_sefer_stats(
         self,
-        sofor_id: int = None,
-        baslangic: str = None,
-        bitis: str = None
-    ) -> List[Dict]:
+        sofor_id: Optional[int] = None,
+        baslangic: Optional[date] = None,
+        bitis: Optional[date] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Şoför bazlı sefer istatistikleri (Zenginleştirilmiş).
         N+1 problemini çözmek için tüm metrikleri tek bir JOIN/GROUP BY ile getirir.
@@ -124,9 +124,9 @@ class SoforRepository(BaseRepository[Sofor]):
                 MAX(NULLIF(s.tuketim, 0)) as en_kotu_tuketim
             FROM seferler s
             JOIN soforler sf ON s.sofor_id = sf.id
-            WHERE 1=1
+            WHERE sf.is_deleted = false AND s.is_deleted = false
         """
-        params = {}
+        params: Dict[str, Any] = {}
 
         if sofor_id:
             query += " AND s.sofor_id = :sofor_id"
@@ -145,10 +145,8 @@ class SoforRepository(BaseRepository[Sofor]):
         return await self.execute_query(query, params)
 
     async def get_yakit_tuketimi(
-        self,
-        sofor_id: int = None,
-        limit: int = None
-    ) -> List[Dict]:
+        self, sofor_id: Optional[int] = None, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
         Şoför bazlı yakıt tüketimi (seferler üzerinden).
         """
@@ -162,9 +160,10 @@ class SoforRepository(BaseRepository[Sofor]):
                 AVG(s.tuketim) as tuketim
             FROM seferler s
             JOIN soforler sf ON s.sofor_id = sf.id
-            WHERE s.tuketim IS NOT NULL AND s.tuketim > 0
+            WHERE sf.is_deleted = false AND s.is_deleted = false 
+              AND s.tuketim IS NOT NULL AND s.tuketim > 0
         """
-        params = {}
+        params: Dict[str, Any] = {}
 
         if sofor_id:
             query += " AND s.sofor_id = :sofor_id"
@@ -178,7 +177,7 @@ class SoforRepository(BaseRepository[Sofor]):
 
         return await self.execute_query(query, params)
 
-    async def get_guzergah_performansi(self, sofor_id: int) -> List[Dict]:
+    async def get_guzergah_performansi(self, sofor_id: int) -> List[Dict[str, Any]]:
         """
         Şoförün güzergah bazlı performansı.
         """
@@ -197,7 +196,9 @@ class SoforRepository(BaseRepository[Sofor]):
         """
         return await self.execute_query(query, {"sofor_id": sofor_id})
 
-    async def get_driver_consumptions(self, sofor_id: int, limit: int = 100) -> List[float]:
+    async def get_driver_consumptions(
+        self, sofor_id: int, limit: int = 100
+    ) -> List[float]:
         """
         Şoförün son seferlerindeki tüketim değerleri (Trend ve StdDev için).
         """
@@ -208,29 +209,78 @@ class SoforRepository(BaseRepository[Sofor]):
             LIMIT :limit
         """
         rows = await self.execute_query(query, {"sofor_id": sofor_id, "limit": limit})
-        return [row['tuketim'] for row in rows]
+        return [row["tuketim"] for row in rows]
 
-    async def get_by_name(self, ad_soyad: str) -> Optional[Dict]:
+    async def get_by_name(
+        self, ad_soyad: str, for_update: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """İsim ile şoför getir (Performans için)"""
-        from sqlalchemy import select
-        async with self._get_session() as session:
-            stmt = select(self.model).where(self.model.ad_soyad == ad_soyad)
-            result = await session.execute(stmt)
-            return self._to_dict(result.scalar_one_or_none())
+        session = self.session
+        stmt = select(self.model).where(
+            self.model.ad_soyad == ad_soyad, self.model.is_deleted.is_(False)
+        )
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        return dict(obj.__dict__) if obj else None
 
     async def get_aktif_isimler(self) -> List[str]:
         """Aktif şoför isimlerini getir"""
-        query = "SELECT ad_soyad FROM soforler WHERE aktif = true ORDER BY ad_soyad"
+        query = "SELECT ad_soyad FROM soforler WHERE aktif = true AND is_deleted = false ORDER BY ad_soyad"
         rows = await self.execute_query(query)
-        return [row['ad_soyad'] for row in rows]
+        return [str(row["ad_soyad"]) for row in rows]
 
+    async def get_driver_anomalies_count(
+        self, sofor_id: int, days: int = 30
+    ) -> Dict[str, int]:
+        """
+        Şoförün anomalilerini say (Sefer bazlı + Şoför bazlı).
+        Ciddiyet seviyelerine göre gruplar.
+        """
+        cutoff_date = date.today() - timedelta(days=days)
 
-# Thread-safe Singleton
-import threading
-from sqlalchemy.ext.asyncio import AsyncSession
+        query = """
+            SELECT 
+                a.severity,
+                COUNT(a.id) as count
+            FROM anomalies a
+            LEFT JOIN seferler s ON a.kaynak_id = s.id AND a.kaynak_tip = 'sefer'
+            WHERE 
+                (s.sofor_id = :sofor_id OR (a.kaynak_tip = 'sofor' AND a.kaynak_id = :sofor_id))
+                AND a.tarih >= :cutoff_date
+            GROUP BY a.severity
+        """
+        rows = await self.execute_query(
+            query, {"sofor_id": sofor_id, "cutoff_date": cutoff_date}
+        )
+
+        result = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+        for row in rows:
+            sev = row["severity"]
+            # Enum value might be returned as string
+            if hasattr(sev, "value"):
+                sev = sev.value
+            if sev in result:
+                result[sev] = row["count"]
+
+        return result
+
+    async def bulk_soft_delete(
+        self, ids: List[int], current_user_id: Optional[int] = None
+    ) -> int:
+        """
+        Toplu soft silme (Performanslı).
+        """
+        if not ids:
+            return 0
+
+        return await self.bulk_update(ids=ids, is_deleted=True, aktif=False)
+
 
 _sofor_repo_lock = threading.Lock()
 _sofor_repo: Optional[SoforRepository] = None
+
 
 def get_sofor_repo(session: Optional[AsyncSession] = None) -> SoforRepository:
     """SoforRepo Provider. Eğer session verilirse yeni instance döner (UoW için)."""

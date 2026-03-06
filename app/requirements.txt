@@ -1,4 +1,4 @@
-# Backend - API Framework
+﻿# Backend - API Framework
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 python-multipart>=0.0.9
@@ -6,8 +6,11 @@ python-multipart>=0.0.9
 # Database (PostgreSQL + Async)
 sqlalchemy[asyncio]>=2.0.25
 asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
 pydantic-settings>=2.1.0
 alembic>=1.13.0
+geoalchemy2>=0.14.0
+shapely>=2.0.0
 
 # Data & Validation
 pydantic>=2.6.0
@@ -42,10 +45,6 @@ redis>=5.0.0
 reportlab>=4.0.0
 matplotlib>=3.8.0
 
-# AI - QWEN 2.5 (CPU-only)
-transformers>=4.37.0
-torch>=2.1.0
-llama-cpp-python>=0.2.20
 
 # RAG (Retrieval-Augmented Generation)
 sentence-transformers>=2.2.0
@@ -53,4 +52,9 @@ faiss-cpu>=1.7.0
 
 # Excel & Maps
 openpyxl>=3.1.0
+xlsxwriter>=3.1.0
 openrouteservice>=2.3.0
+# FAZ 15 Observability
+sentry-sdk>=1.40.0
+prometheus-fastapi-instrumentator>=6.1.0
+groq>=0.4.0

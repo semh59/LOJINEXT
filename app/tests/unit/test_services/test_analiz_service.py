@@ -1,9 +1,11 @@
 """
 Unit Tests - AnalizService
 """
-import pytest
+
 from datetime import date
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.core.entities import Sefer, SeverityEnum, YakitAlimi, YakitPeriyodu
 from app.core.services.analiz_service import AnalizService
@@ -15,10 +17,7 @@ class TestAnalizServiceAlgorithms:
     @pytest.fixture
     def service(self):
         # Mock repos for pure algorithm tests
-        return AnalizService(
-            yakit_repo=MagicMock(),
-            sefer_repo=MagicMock()
-        )
+        return AnalizService(yakit_repo=MagicMock(), sefer_repo=MagicMock())
 
     @pytest.mark.asyncio
     async def test_create_fuel_periods_empty(self, service):
@@ -30,8 +29,13 @@ class TestAnalizServiceAlgorithms:
     async def test_single_record_returns_empty(self, service):
         """Single record -> no period possible"""
         fuel = YakitAlimi(
-            id=1, tarih=date(2024, 1, 1), arac_id=1,
-            istasyon="Shell", fiyat_tl=45.0, litre=500, km_sayac=10000
+            id=1,
+            tarih=date(2024, 1, 1),
+            arac_id=1,
+            istasyon="Shell",
+            fiyat_tl=45.0,
+            litre=500,
+            km_sayac=10000,
         )
         result = await service.create_fuel_periods([fuel])
         assert result == []
@@ -40,12 +44,24 @@ class TestAnalizServiceAlgorithms:
     async def test_two_records_creates_one_period(self, service):
         """Two records -> one period"""
         fuel1 = YakitAlimi(
-            id=1, tarih=date(2024, 1, 1), arac_id=1,
-            istasyon="Shell", fiyat_tl=45.0, litre=500, km_sayac=10000
+            id=1,
+            tarih=date(2024, 1, 1),
+            arac_id=1,
+            istasyon="Shell",
+            fiyat_tl=45.0,
+            litre=500,
+            km_sayac=10000,
+            depo_durumu="dolu"
         )
         fuel2 = YakitAlimi(
-            id=2, tarih=date(2024, 1, 10), arac_id=1,
-            istasyon="BP", fiyat_tl=46.0, litre=600, km_sayac=12000
+            id=2,
+            tarih=date(2024, 1, 10),
+            arac_id=1,
+            istasyon="BP",
+            fiyat_tl=46.0,
+            litre=600,
+            km_sayac=12000,
+            depo_durumu="dolu"
         )
 
         result = await service.create_fuel_periods([fuel1, fuel2])
@@ -61,19 +77,39 @@ class TestAnalizServiceAlgorithms:
     async def test_weighted_distribution(self, service):
         """Weighted distribution by Ton-Km"""
         period = YakitPeriyodu(
-            id=1, arac_id=1, alim1_id=1, alim2_id=2,
-            alim1_tarih=date(2024, 1, 1), alim1_km=10000, alim1_litre=500,
-            alim2_tarih=date(2024, 1, 10), alim2_km=12000,
-            ara_mesafe=2000, toplam_yakit=1000, ort_tuketim=50
+            id=1,
+            arac_id=1,
+            alim1_id=1,
+            alim2_id=2,
+            alim1_tarih=date(2024, 1, 1),
+            alim1_km=10000,
+            alim1_litre=500,
+            alim2_tarih=date(2024, 1, 10),
+            alim2_km=12000,
+            ara_mesafe=2000,
+            toplam_yakit=1000,
+            ort_tuketim=50,
         )
 
         trip1 = Sefer(
-            id=1, tarih=date(2024, 1, 3), arac_id=1, sofor_id=1,
-            cikis_yeri="Ankara", varis_yeri="Bursa", mesafe_km=500, net_kg=20000
+            id=1,
+            tarih=date(2024, 1, 3),
+            arac_id=1,
+            sofor_id=1,
+            cikis_yeri="Ankara",
+            varis_yeri="Bursa",
+            mesafe_km=500,
+            net_kg=20000,
         )
         trip2 = Sefer(
-            id=2, tarih=date(2024, 1, 5), arac_id=1, sofor_id=1,
-            cikis_yeri="Bursa", varis_yeri="Ankara", mesafe_km=500, net_kg=0
+            id=2,
+            tarih=date(2024, 1, 5),
+            arac_id=1,
+            sofor_id=1,
+            cikis_yeri="Bursa",
+            varis_yeri="Ankara",
+            mesafe_km=500,
+            net_kg=0,
         )
 
         result = await service.distribute_fuel_to_trips(period, [trip1, trip2])
@@ -118,7 +154,9 @@ class TestAnalizServiceStats:
     async def test_analyze_vehicle_consumption(self, service):
         """analyze_vehicle_consumption returns VehicleStats"""
         consumptions = [30, 31, 32, 33, 34, 31, 32, 33, 32, 31]
-        result = await service.analyze_vehicle_consumption(arac_id=1, consumptions=consumptions)
+        result = await service.analyze_vehicle_consumption(
+            arac_id=1, consumptions=consumptions
+        )
 
         assert result.arac_id == 1
         assert result.ort_tuketim > 0
@@ -128,12 +166,14 @@ class TestAnalizServiceStats:
     async def test_calculate_long_term_stats(self, service):
         """Long term regression stats"""
         # Mock yakit_repo.get_all to return data
-        service.yakit_repo.get_all = AsyncMock(return_value=[
-            {"id": 1, "km_sayac": 10000, "litre": 0, "tarih": "2024-01-01"},
-            {"id": 2, "km_sayac": 11000, "litre": 300, "tarih": "2024-01-10"},
-            {"id": 3, "km_sayac": 12000, "litre": 320, "tarih": "2024-01-20"},
-            {"id": 4, "km_sayac": 13000, "litre": 310, "tarih": "2024-01-30"},
-        ])
+        service.yakit_repo.get_all = AsyncMock(
+            return_value=[
+                {"id": 1, "km_sayac": 10000, "litre": 0, "tarih": "2024-01-01"},
+                {"id": 2, "km_sayac": 11000, "litre": 300, "tarih": "2024-01-10"},
+                {"id": 3, "km_sayac": 12000, "litre": 320, "tarih": "2024-01-20"},
+                {"id": 4, "km_sayac": 13000, "litre": 310, "tarih": "2024-01-30"},
+            ]
+        )
 
         result = await service.calculate_long_term_stats(arac_id=1)
 

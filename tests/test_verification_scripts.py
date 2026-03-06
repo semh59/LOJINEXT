@@ -7,10 +7,8 @@ Tüm doğrulama betiklerini kapsayan test dosyası.
 import pytest
 import json
 import sys
-import signal
-import asyncio
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from pathlib import Path
 from io import StringIO
 

@@ -1,0 +1,198 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: FastAPI CRUD
+# ════════════════════════════════════════════════════════════════════════════
+# Full CRUD endpoint creation for an entity
+
+name: "FastAPI CRUD"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "crud"
+  - "tam crud"
+  - "listeleme ekleme silme"
+  - "full api"
+
+# ════════════════════════════════════════════════════════════════════════════
+context_required:
+  - entity_name: "Entity ismi (PascalCase)"
+  - table_name: "Tablo ismi (snake_case)"
+  - fields: "Field listesi ve tipleri"
+
+# ════════════════════════════════════════════════════════════════════════════
+steps:
+  1_model:
+    description: "Model tanımla"
+    file: "app/database/models.py"
+    template: |
+      class {EntityName}(Base):
+          __tablename__ = "{table_name}"
+          
+          id = Column(Integer, primary_key=True, index=True)
+          {fields}
+          is_active = Column(Boolean, default=True)
+          created_at = Column(DateTime, default=datetime.utcnow)
+          updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+  2_migration:
+    description: "Migration oluştur"
+    command: 'alembic revision --autogenerate -m "Create {table_name} table"'
+    review_required: true
+
+  3_schemas:
+    description: "Pydantic schemas"
+    file: "app/schemas/{entity_name}.py"
+    template: |
+      from pydantic import BaseModel, ConfigDict
+      from datetime import datetime
+
+      class {EntityName}Base(BaseModel):
+          {base_fields}
+
+      class {EntityName}Create({EntityName}Base):
+          pass
+
+      class {EntityName}Update(BaseModel):
+          {optional_fields}
+
+      class {EntityName}Response({EntityName}Base):
+          id: int
+          is_active: bool
+          created_at: datetime
+          model_config = ConfigDict(from_attributes=True)
+
+  4_repository:
+    description: "Repository pattern"
+    file: "app/core/repositories/{entity_name}_repo.py"
+    template: |
+      from sqlalchemy.ext.asyncio import AsyncSession
+      from sqlalchemy import select
+      from app.database.models import {EntityName}
+
+      class {EntityName}Repository:
+          def __init__(self, db: AsyncSession):
+              self.db = db
+          
+          async def get_by_id(self, id: int) -> {EntityName} | None:
+              result = await self.db.execute(
+                  select({EntityName}).where({EntityName}.id == id)
+              )
+              return result.scalar_one_or_none()
+          
+          async def get_all(
+              self, skip: int = 0, limit: int = 100, is_active: bool = True
+          ) -> list[{EntityName}]:
+              query = select({EntityName}).where({EntityName}.is_active == is_active)
+              result = await self.db.execute(query.offset(skip).limit(limit))
+              return list(result.scalars().all())
+          
+          async def create(self, data: dict) -> {EntityName}:
+              entity = {EntityName}(**data)
+              self.db.add(entity)
+              await self.db.commit()
+              await self.db.refresh(entity)
+              return entity
+          
+          async def update(self, id: int, data: dict) -> {EntityName} | None:
+              entity = await self.get_by_id(id)
+              if not entity:
+                  return None
+              for key, value in data.items():
+                  if value is not None:
+                      setattr(entity, key, value)
+              await self.db.commit()
+              await self.db.refresh(entity)
+              return entity
+          
+          async def delete(self, id: int) -> bool:
+              entity = await self.get_by_id(id)
+              if not entity:
+                  return False
+              entity.is_active = False
+              await self.db.commit()
+              return True
+
+  5_endpoints:
+    description: "API endpoints"
+    file: "app/api/v1/endpoints/{entity_name}.py"
+    template: |
+      from fastapi import APIRouter, Depends, HTTPException, Query
+      from sqlalchemy.ext.asyncio import AsyncSession
+      from typing import List
+
+      from app.database.connection import get_db
+      from app.schemas.{entity_name} import (
+          {EntityName}Create, {EntityName}Update, {EntityName}Response
+      )
+      from app.core.repositories.{entity_name}_repo import {EntityName}Repository
+
+      router = APIRouter(prefix="/{entity_name}s", tags=["{EntityName}s"])
+
+      @router.get("/", response_model=List[{EntityName}Response])
+      async def list_{entity_name}s(
+          skip: int = Query(0, ge=0),
+          limit: int = Query(100, ge=1, le=1000),
+          is_active: bool = Query(True),
+          db: AsyncSession = Depends(get_db)
+      ):
+          repo = {EntityName}Repository(db)
+          return await repo.get_all(skip=skip, limit=limit, is_active=is_active)
+
+      @router.get("/{id}", response_model={EntityName}Response)
+      async def get_{entity_name}(id: int, db: AsyncSession = Depends(get_db)):
+          repo = {EntityName}Repository(db)
+          entity = await repo.get_by_id(id)
+          if not entity:
+              raise HTTPException(status_code=404, detail="{EntityName} not found")
+          return entity
+
+      @router.post("/", response_model={EntityName}Response, status_code=201)
+      async def create_{entity_name}(
+          data: {EntityName}Create,
+          db: AsyncSession = Depends(get_db)
+      ):
+          repo = {EntityName}Repository(db)
+          return await repo.create(data.model_dump())
+
+      @router.put("/{id}", response_model={EntityName}Response)
+      async def update_{entity_name}(
+          id: int,
+          data: {EntityName}Update,
+          db: AsyncSession = Depends(get_db)
+      ):
+          repo = {EntityName}Repository(db)
+          entity = await repo.update(id, data.model_dump(exclude_unset=True))
+          if not entity:
+              raise HTTPException(status_code=404, detail="{EntityName} not found")
+          return entity
+
+      @router.delete("/{id}", status_code=204)
+      async def delete_{entity_name}(id: int, db: AsyncSession = Depends(get_db)):
+          repo = {EntityName}Repository(db)
+          success = await repo.delete(id)
+          if not success:
+              raise HTTPException(status_code=404, detail="{EntityName} not found")
+
+  6_router:
+    description: "Router'a ekle"
+    file: "app/api/v1/api.py"
+    action: |
+      from app.api.v1.endpoints import {entity_name}
+      api_router.include_router({entity_name}.router)
+
+# ════════════════════════════════════════════════════════════════════════════
+handoff:
+  frontend:
+    - "API endpoint URLs"
+    - "Request/Response types"
+    - "Error codes"
+  qa:
+    - "CRUD test scenarios"
+    - "Validation edge cases"
+
+# ════════════════════════════════════════════════════════════════════════════
+pitfalls:
+  - "Migration'ı run etmeden önce review et"
+  - "Router'a eklemeyi unutma"
+  - "__init__.py eksik olabilir"
+  - "Async/await doğru kullan"

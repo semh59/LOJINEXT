@@ -7,7 +7,6 @@ Kullanım: python scripts/final_tests.py
 import asyncio
 import httpx
 import json
-from datetime import date
 
 BASE_URL = "http://127.0.0.1:8000/api/v1"
 RESULTS = {"passed": 0, "failed": 0, "tests": []}

@@ -7,9 +7,7 @@ Kapsam:
 - FAZ 2: URL Bypass, Thread Safety, Import Validation, Correlation ID
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
-import re
 
 
 # ============================================================================

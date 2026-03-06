@@ -1,11 +1,39 @@
-
 """
 TIR Yakıt Takip Sistemi - Dependency Injection Container
 Tüm bağımlılıkları yöneten merkezi konteyner.
 """
 
 import threading
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from app.core.entities.sofor_degerlendirme import SoforDegerlendirmeService
+    from app.core.services.analiz_service import AnalizService
+    from app.core.services.anomaly_detector import AnomalyDetector
+    from app.core.services.arac_service import AracService
+    from app.core.services.health_service import HealthService
+    from app.core.services.dorse_service import DorseService
+    from app.core.services.import_service import ImportService
+    from app.core.services.license_service import LicenseEngine
+    from app.core.services.lokasyon_service import LokasyonService
+    from app.core.services.report_service import ReportService
+    from app.core.services.sefer_service import SeferService
+    from app.core.services.sofor_analiz_service import SoforAnalizService
+    from app.core.services.sofor_service import SoforService
+    from app.core.services.yakit_service import YakitService
+    from app.core.services.yakit_tahmin_service import YakitTahminService
+    from app.database.repositories.analiz_repo import AnalizRepository
+    from app.database.repositories.arac_repo import AracRepository
+    from app.database.repositories.dorse_repo import DorseRepository
+    from app.database.repositories.lokasyon_repo import LokasyonRepository
+    from app.database.repositories.sefer_repo import SeferRepository
+    from app.database.repositories.sofor_repo import SoforRepository
+    from app.database.repositories.yakit_repo import YakitRepository
+    from app.infrastructure.events.event_bus import EventBus
+    from app.services.prediction_service import PredictionService
+    from app.services.route_service import RouteService
+    from app.services.smart_ai_service import SmartAIService
+    from app.services.time_series_service import TimeSeriesService
 
 
 class Container:
@@ -16,285 +44,354 @@ class Container:
     """
 
     def __init__(self):
-        self._lock = threading.RLock() # Re-entrant lock to prevent deadlocks when properties call each other
-        
+        self._lock = (
+            threading.RLock()
+        )  # Re-entrant lock to prevent deadlocks when properties call each other
+
         # Infrastructure
-        self._event_bus = None
-        
+        self._event_bus: Optional["EventBus"] = None
+
         # Repositories
-        self._arac_repo = None
-        self._sefer_repo = None
-        self._sofor_repo = None
-        self._yakit_repo = None
-        self._lokasyon_repo = None
-        self._analiz_repo = None
-        
+        self._arac_repo: Optional["AracRepository"] = None
+        self._sefer_repo: Optional["SeferRepository"] = None
+        self._sofor_repo: Optional["SoforRepository"] = None
+        self._yakit_repo: Optional["YakitRepository"] = None
+        self._lokasyon_repo: Optional["LokasyonRepository"] = None
+        self._analiz_repo: Optional["AnalizRepository"] = None
+
         # Services
-        self._arac_service = None
-        self._sofor_service = None
-        self._sefer_service = None
-        self._yakit_service = None
-        self._lokasyon_service = None
-        self._analiz_service = None
-        self._import_service = None
-        self._report_service = None
-        self._prediction_service = None
-        self._anomaly_detector = None
-        self._time_series_service = None
-        self._license_service = None
-        self._health_service = None
-        self._route_service = None
-        self._smart_ai_service = None
-        self._yakit_tahmin_service = None
-        self._sofor_analiz_service = None
-        self._degerlendirme_service = None
+        self._arac_service: Optional["AracService"] = None
+        self._sofor_service: Optional["SoforService"] = None
+        self._sefer_service: Optional["SeferService"] = None
+        self._yakit_service: Optional["YakitService"] = None
+        self._lokasyon_service: Optional["LokasyonService"] = None
+        self._analiz_service: Optional["AnalizService"] = None
+        self._import_service: Optional["ImportService"] = None
+        self._report_service: Optional["ReportService"] = None
+        self._prediction_service: Optional["PredictionService"] = None
+        self._anomaly_detector: Optional["AnomalyDetector"] = None
+        self._time_series_service: Optional["TimeSeriesService"] = None
+        self._license_service: Optional["LicenseEngine"] = None
+        self._health_service: Optional["HealthService"] = None
+        self._route_service: Optional["RouteService"] = None
+        self._smart_ai_service: Optional["SmartAIService"] = None
+        self._yakit_tahmin_service: Optional["YakitTahminService"] = None
+        self._sofor_analiz_service: Optional["SoforAnalizService"] = None
+        self._degerlendirme_service: Optional["SoforDegerlendirmeService"] = None
         self._external_service = None
         self._weather_service = None
 
     @property
-    def event_bus(self):
+    def event_bus(self) -> "EventBus":
         if self._event_bus is None:
             with self._lock:
                 if self._event_bus is None:
                     from app.infrastructure.events.event_bus import get_event_bus
+
                     self._event_bus = get_event_bus()
         return self._event_bus
 
     # --- Repositories ---
 
     @property
-    def arac_repo(self):
+    def arac_repo(self) -> "AracRepository":
         if self._arac_repo is None:
             with self._lock:
                 if self._arac_repo is None:
                     from app.database.repositories.arac_repo import AracRepository
+
                     self._arac_repo = AracRepository()
         return self._arac_repo
 
     @property
-    def sefer_repo(self):
+    def sefer_repo(self) -> "SeferRepository":
         if self._sefer_repo is None:
             with self._lock:
                 if self._sefer_repo is None:
                     from app.database.repositories.sefer_repo import SeferRepository
+
                     self._sefer_repo = SeferRepository()
         return self._sefer_repo
 
     @property
-    def sofor_repo(self):
+    def sofor_repo(self) -> "SoforRepository":
         if self._sofor_repo is None:
             with self._lock:
                 if self._sofor_repo is None:
                     from app.database.repositories.sofor_repo import SoforRepository
+
                     self._sofor_repo = SoforRepository()
         return self._sofor_repo
 
     @property
-    def yakit_repo(self):
+    def yakit_repo(self) -> "YakitRepository":
         if self._yakit_repo is None:
             with self._lock:
                 if self._yakit_repo is None:
                     from app.database.repositories.yakit_repo import YakitRepository
+
                     self._yakit_repo = YakitRepository()
         return self._yakit_repo
 
     @property
-    def lokasyon_repo(self):
+    def lokasyon_repo(self) -> "LokasyonRepository":
         if self._lokasyon_repo is None:
             with self._lock:
                 if self._lokasyon_repo is None:
-                    from app.database.repositories.lokasyon_repo import LokasyonRepository
+                    from app.database.repositories.lokasyon_repo import (
+                        LokasyonRepository,
+                    )
+
                     self._lokasyon_repo = LokasyonRepository()
         return self._lokasyon_repo
+
+    @property
+    def dorse_repo(self) -> "DorseRepository":
+        if self._dorse_repo is None:
+            with self._lock:
+                if self._dorse_repo is None:
+                    from app.database.repositories.dorse_repo import DorseRepository
+
+                    self._dorse_repo = DorseRepository()
+        return self._dorse_repo
 
     # --- Core Services ---
 
     @property
-    def arac_service(self):
+    def arac_service(self) -> "AracService":
         if self._arac_service is None:
             with self._lock:
                 if self._arac_service is None:
                     from app.core.services.arac_service import AracService
-                    self._arac_service = AracService(repo=self.arac_repo, event_bus=self.event_bus)
+
+                    self._arac_service = AracService(
+                        repo=self.arac_repo, event_bus=self.event_bus
+                    )
         return self._arac_service
 
     @property
-    def sofor_service(self):
+    def sofor_service(self) -> "SoforService":
         if self._sofor_service is None:
             with self._lock:
                 if self._sofor_service is None:
                     from app.core.services.sofor_service import SoforService
-                    self._sofor_service = SoforService(repo=self.sofor_repo, event_bus=self.event_bus)
+
+                    self._sofor_service = SoforService(
+                        repo=self.sofor_repo, event_bus=self.event_bus
+                    )
         return self._sofor_service
 
     @property
-    def sefer_service(self):
+    def sefer_service(self) -> "SeferService":
         if self._sefer_service is None:
             with self._lock:
                 if self._sefer_service is None:
                     from app.core.services.sefer_service import SeferService
-                    self._sefer_service = SeferService(repo=self.sefer_repo, event_bus=self.event_bus)
+
+                    self._sefer_service = SeferService(
+                        repo=self.sefer_repo, event_bus=self.event_bus
+                    )
         return self._sefer_service
 
     @property
-    def yakit_service(self):
+    def yakit_service(self) -> "YakitService":
         if self._yakit_service is None:
             with self._lock:
                 if self._yakit_service is None:
                     from app.core.services.yakit_service import YakitService
-                    self._yakit_service = YakitService(repo=self.yakit_repo, event_bus=self.event_bus)
+
+                    self._yakit_service = YakitService(
+                        repo=self.yakit_repo, event_bus=self.event_bus
+                    )
         return self._yakit_service
 
     @property
-    def lokasyon_service(self):
+    def lokasyon_service(self) -> "LokasyonService":
         if self._lokasyon_service is None:
             with self._lock:
                 if self._lokasyon_service is None:
                     from app.core.services.lokasyon_service import LokasyonService
-                    self._lokasyon_service = LokasyonService(repo=self.lokasyon_repo, event_bus=self.event_bus)
+
+                    self._lokasyon_service = LokasyonService(
+                        repo=self.lokasyon_repo, event_bus=self.event_bus
+                    )
         return self._lokasyon_service
 
     @property
-    def analiz_repo(self):
+    def dorse_service(self) -> "DorseService":
+        if self._dorse_service is None:
+            with self._lock:
+                if self._dorse_service is None:
+                    from app.core.services.dorse_service import DorseService
+
+                    self._dorse_service = DorseService(
+                        repo=self.dorse_repo, event_bus=self.event_bus
+                    )
+        return self._dorse_service
+
+    @property
+    def analiz_repo(self) -> "AnalizRepository":
         if self._analiz_repo is None:
             with self._lock:
                 if self._analiz_repo is None:
                     from app.database.repositories.analiz_repo import AnalizRepository
+
                     self._analiz_repo = AnalizRepository()
         return self._analiz_repo
 
     @property
-    def analiz_service(self):
+    def analiz_service(self) -> "AnalizService":
         if self._analiz_service is None:
             with self._lock:
                 if self._analiz_service is None:
                     from app.core.services.analiz_service import AnalizService
+
                     self._analiz_service = AnalizService(
                         arac_repo=self.arac_repo,
                         sefer_repo=self.sefer_repo,
-                        yakit_repo=self.yakit_repo
+                        yakit_repo=self.yakit_repo,
                     )
         return self._analiz_service
 
     @property
-    def import_service(self):
+    def import_service(self) -> "ImportService":
         if self._import_service is None:
             with self._lock:
                 if self._import_service is None:
                     from app.core.services.import_service import ImportService
+
                     self._import_service = ImportService(
                         sefer_service=self.sefer_service,
                         yakit_service=self.yakit_service,
                         arac_repo=self.arac_repo,
-                        sofor_repo=self.sofor_repo
+                        sofor_repo=self.sofor_repo,
+                        arac_service=self.arac_service,
+                        sofor_service=self.sofor_service,
+                        dorse_repo=self.dorse_repo,
                     )
         return self._import_service
 
     @property
-    def report_service(self):
+    def report_service(self) -> "ReportService":
         if self._report_service is None:
             with self._lock:
                 if self._report_service is None:
                     from app.core.services.report_service import ReportService
+
                     self._report_service = ReportService(
                         sefer_repo=self.sefer_repo,
                         yakit_repo=self.yakit_repo,
                         arac_repo=self.arac_repo,
-                        sofor_repo=self.sofor_repo
+                        sofor_repo=self.sofor_repo,
                     )
         return self._report_service
 
     @property
-    def prediction_service(self):
+    def prediction_service(self) -> "PredictionService":
         if self._prediction_service is None:
             with self._lock:
                 if self._prediction_service is None:
                     from app.services.prediction_service import PredictionService
+
                     self._prediction_service = PredictionService()
         return self._prediction_service
 
     @property
-    def anomaly_detector(self):
+    def anomaly_detector(self) -> "AnomalyDetector":
         if self._anomaly_detector is None:
             with self._lock:
                 if self._anomaly_detector is None:
                     from app.core.services.anomaly_detector import AnomalyDetector
+
                     self._anomaly_detector = AnomalyDetector()
         return self._anomaly_detector
 
     @property
-    def time_series_service(self):
+    def time_series_service(self) -> "TimeSeriesService":
         if self._time_series_service is None:
             with self._lock:
                 if self._time_series_service is None:
                     from app.services.time_series_service import TimeSeriesService
+
                     self._time_series_service = TimeSeriesService()
         return self._time_series_service
 
     @property
-    def license_service(self):
+    def license_service(self) -> "LicenseEngine":
         if self._license_service is None:
             with self._lock:
                 if self._license_service is None:
                     from app.core.services.license_service import LicenseEngine
+
                     self._license_service = LicenseEngine()
         return self._license_service
 
     @property
-    def health_service(self):
+    def health_service(self) -> "HealthService":
         if self._health_service is None:
             with self._lock:
                 if self._health_service is None:
                     from app.core.services.health_service import HealthService
+
                     self._health_service = HealthService()
         return self._health_service
 
     @property
-    def route_service(self):
+    def route_service(self) -> "RouteService":
         if self._route_service is None:
             with self._lock:
                 if self._route_service is None:
                     from app.services.route_service import RouteService
+
                     self._route_service = RouteService()
         return self._route_service
 
     @property
-    def smart_ai_service(self):
+    def smart_ai_service(self) -> "SmartAIService":
         if self._smart_ai_service is None:
             with self._lock:
                 if self._smart_ai_service is None:
                     from app.services.smart_ai_service import SmartAIService
+
                     self._smart_ai_service = SmartAIService()
         return self._smart_ai_service
 
     @property
-    def yakit_tahmin_service(self):
+    def yakit_tahmin_service(self) -> "YakitTahminService":
         if self._yakit_tahmin_service is None:
             with self._lock:
                 if self._yakit_tahmin_service is None:
-                    from app.core.services.yakit_tahmin_service import YakitTahminService
+                    from app.core.services.yakit_tahmin_service import (
+                        YakitTahminService,
+                    )
+
                     self._yakit_tahmin_service = YakitTahminService()
         return self._yakit_tahmin_service
 
     @property
-    def sofor_analiz_service(self):
+    def sofor_analiz_service(self) -> "SoforAnalizService":
         if self._sofor_analiz_service is None:
             with self._lock:
                 if self._sofor_analiz_service is None:
-                    from app.core.services.sofor_analiz_service import SoforAnalizService
+                    from app.core.services.sofor_analiz_service import (
+                        SoforAnalizService,
+                    )
+
                     self._sofor_analiz_service = SoforAnalizService()
         return self._sofor_analiz_service
 
     @property
-    def degerlendirme_service(self):
+    def degerlendirme_service(self) -> "SoforDegerlendirmeService":
         if self._degerlendirme_service is None:
             with self._lock:
                 if self._degerlendirme_service is None:
-                    from app.core.entities.sofor_degerlendirme import SoforDegerlendirmeService
+                    from app.core.entities.sofor_degerlendirme import (
+                        SoforDegerlendirmeService,
+                    )
+
                     # Get required repos from self properties to ensure they are initialized
                     self._degerlendirme_service = SoforDegerlendirmeService(
-                        analiz_repo=self.analiz_repo,
-                        sofor_repo=self.sofor_repo
+                        analiz_repo=self.analiz_repo, sofor_repo=self.sofor_repo
                     )
         return self._degerlendirme_service
 
@@ -304,6 +401,7 @@ class Container:
             with self._lock:
                 if self._external_service is None:
                     from app.services.external_service import get_external_service
+
                     self._external_service = get_external_service()
         return self._external_service
 
@@ -313,6 +411,7 @@ class Container:
             with self._lock:
                 if self._weather_service is None:
                     from app.core.services.weather_service import get_weather_service
+
                     self._weather_service = get_weather_service()
         return self._weather_service
 
@@ -324,25 +423,32 @@ class Container:
         with self._lock:
             # Servisleri sıfırla (Dependency sırasının tersine)
             self._degerlendirme_service = None
+            self._sofor_analiz_service = None
+            self._yakit_tahmin_service = None
             self._smart_ai_service = None
             self._route_service = None
+            self._health_service = None
+            self._license_service = None
+            self._time_series_service = None
+            self._anomaly_detector = None
             self._prediction_service = None
             self._report_service = None
-            self._analiz_service = None
             self._import_service = None
-            self._yakit_service = None
+            self._analiz_service = None
             self._lokasyon_service = None
             self._sefer_service = None
             self._sofor_service = None
             self._arac_service = None
-            
+            self._dorse_service = None
+
             # Repositories
             self._yakit_repo = None
             self._lokasyon_repo = None
             self._sefer_repo = None
             self._sofor_repo = None
             self._arac_repo = None
-            
+            self._dorse_repo = None
+
             # Infrastructure
             self._event_bus = None
 
@@ -350,9 +456,6 @@ class Container:
 # Global Instance
 _container: Optional[Container] = None
 _container_lock = threading.Lock()
-
-
-
 
 
 def get_container() -> Container:
@@ -368,7 +471,7 @@ def get_container() -> Container:
 def reset_container() -> None:
     """
     Container singleton'ını sıfırla (Thread-safe).
-    
+
     ⚠️ SADECE TEST İÇİN KULLANIN!
     """
     global _container

@@ -2,7 +2,6 @@
 Security Sanitizer - Logs & Data Cleanup
 Hassas verileri loglardan temizler ve geçici dosyaları siler.
 """
-import os
 import re
 from pathlib import Path
 

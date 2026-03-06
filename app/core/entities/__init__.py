@@ -1,6 +1,7 @@
 """
 Core Entities
 """
+
 from .models import (
     # Analysis
     AnomalyResult,
@@ -26,13 +27,22 @@ from .models import (
 )
 
 __all__ = [
-    "DurumEnum", "ZorlukEnum", "SeverityEnum",
-    "Arac", "AracCreate",
-    "Sofor", "SoforCreate",
-    "Lokasyon",
-    "YakitAlimi", "YakitAlimiCreate",
-    "Sefer", "SeferCreate",
-    "YakitPeriyodu",
-    "AnomalyResult", "VehicleStats", "DriverStats", "DashboardStats",
+    "AnomalyResult",
+    "Arac",
+    "AracCreate",
     "Ayar",
+    "DashboardStats",
+    "DriverStats",
+    "DurumEnum",
+    "Lokasyon",
+    "Sefer",
+    "SeferCreate",
+    "SeverityEnum",
+    "Sofor",
+    "SoforCreate",
+    "VehicleStats",
+    "YakitAlimi",
+    "YakitAlimiCreate",
+    "YakitPeriyodu",
+    "ZorlukEnum",
 ]

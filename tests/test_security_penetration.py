@@ -1,6 +1,5 @@
 
 import pytest
-import asyncio
 from app.schemas.validators import validate_safe_string, sanitize_string
 from app.core.services.ai_service import AIService
 

@@ -3,9 +3,11 @@ TIR Yakıt Takip Sistemi - Unit Tests (Async & Pytest)
 Pydantic entities, analiz servisi ve infrastructure testleri
 """
 
-import pytest
 from datetime import date
-from app.core.entities import Arac, Sefer, SeverityEnum, YakitAlimi, YakitPeriyodu
+
+import pytest
+
+from app.core.entities import Arac, Sefer, YakitAlimi, YakitPeriyodu
 from app.core.services.analiz_service import AnalizService
 from app.infrastructure.cache.cache_manager import CacheManager
 from app.infrastructure.events.event_bus import Event, EventBus, EventType
@@ -24,11 +26,7 @@ class TestAracEntity:
         ]
 
         for input_plaka, expected in test_cases:
-            arac = Arac(
-                plaka=input_plaka,
-                marka="Mercedes",
-                yil=2020
-            )
+            arac = Arac(plaka=input_plaka, marka="Mercedes", yil=2020)
             assert arac.plaka == expected
 
     def test_invalid_plaka_raises_error(self):
@@ -43,11 +41,7 @@ class TestYakitAlimiEntity:
     def test_computed_toplam_tutar(self):
         """Toplam tutar otomatik hesaplanmalı"""
         yakit = YakitAlimi(
-            tarih=date.today(),
-            arac_id=1,
-            fiyat_tl=43.50,
-            litre=250,
-            km_sayac=100000
+            tarih=date.today(), arac_id=1, fiyat_tl=43.50, litre=250, km_sayac=100000
         )
         assert yakit.toplam_tutar == 10875.0
 
@@ -64,7 +58,7 @@ class TestSeferEntity:
             net_kg=22500,
             cikis_yeri="Gebze",
             varis_yeri="Ankara",
-            mesafe_km=450
+            mesafe_km=450,
         )
         assert sefer.ton == 22.5
 
@@ -80,9 +74,30 @@ class TestAnalizService:
     async def test_create_fuel_periods(self, service):
         """Periyot oluşturma testi"""
         fuel_records = [
-            YakitAlimi(id=1, tarih=date(2024, 1, 1), arac_id=1, fiyat_tl=43, litre=200, km_sayac=100000),
-            YakitAlimi(id=2, tarih=date(2024, 1, 5), arac_id=1, fiyat_tl=44, litre=180, km_sayac=100600),
-            YakitAlimi(id=3, tarih=date(2024, 1, 10), arac_id=1, fiyat_tl=45, litre=220, km_sayac=101400),
+            YakitAlimi(
+                id=1,
+                tarih=date(2024, 1, 1),
+                arac_id=1,
+                fiyat_tl=43,
+                litre=200,
+                km_sayac=100000,
+            ),
+            YakitAlimi(
+                id=2,
+                tarih=date(2024, 1, 5),
+                arac_id=1,
+                fiyat_tl=44,
+                litre=180,
+                km_sayac=100600,
+            ),
+            YakitAlimi(
+                id=3,
+                tarih=date(2024, 1, 10),
+                arac_id=1,
+                fiyat_tl=45,
+                litre=220,
+                km_sayac=101400,
+            ),
         ]
 
         periods = await service.create_fuel_periods(fuel_records)
@@ -105,19 +120,40 @@ class TestAnalizService:
             alim2_tarih=date(2024, 1, 5),
             alim2_km=100600,
             ara_mesafe=600,
-            toplam_yakit=180
+            toplam_yakit=180,
         )
 
         trips = [
-            Sefer(id=1, tarih=date(2024, 1, 2), arac_id=1, sofor_id=1, net_kg=20000, cikis_yeri="Gebze", varis_yeri="Bursa", mesafe_km=300),
-            Sefer(id=2, tarih=date(2024, 1, 3), arac_id=1, sofor_id=1, net_kg=18000, cikis_yeri="Bursa", varis_yeri="Gebze", mesafe_km=300),
+            Sefer(
+                id=1,
+                tarih=date(2024, 1, 2),
+                arac_id=1,
+                sofor_id=1,
+                net_kg=20000,
+                cikis_yeri="Gebze",
+                varis_yeri="Bursa",
+                mesafe_km=300,
+            ),
+            Sefer(
+                id=2,
+                tarih=date(2024, 1, 3),
+                arac_id=1,
+                sofor_id=1,
+                net_kg=18000,
+                cikis_yeri="Bursa",
+                varis_yeri="Gebze",
+                mesafe_km=300,
+            ),
         ]
 
         distributed = await service.distribute_fuel_to_trips(period, trips)
 
         assert distributed[0].dagitilan_yakit > 90.0
         assert distributed[1].dagitilan_yakit < 90.0
-        assert abs(distributed[0].dagitilan_yakit + distributed[1].dagitilan_yakit - 180.0) < 0.1
+        assert (
+            abs(distributed[0].dagitilan_yakit + distributed[1].dagitilan_yakit - 180.0)
+            < 0.1
+        )
 
     @pytest.mark.asyncio
     async def test_detect_anomalies(self, service):
@@ -137,9 +173,9 @@ class TestEventBus:
         # Clean state before test
         bus._subscribers.clear()
         bus.clear_history()
-        
+
         yield bus
-        
+
         # Clean state after test
         bus._subscribers.clear()
         bus.clear_history()
@@ -148,6 +184,7 @@ class TestEventBus:
     async def test_subscribe_and_publish(self, bus):
         """Abone ol ve olay yayınla"""
         received = []
+
         async def handler(event):
             received.append(event)
 
@@ -167,9 +204,9 @@ class TestCacheManager:
         CacheManager._instance = None
         c = CacheManager()
         c.clear()
-        
+
         yield c
-        
+
         # Teardown: Clear cache
         c.clear()
         CacheManager._instance = None

@@ -1,0 +1,119 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Edge Case Analysis
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Edge Case Analysis"
+version: "1.0"
+agent: "qa"
+
+trigger_keywords:
+  - "edge case"
+  - "boundary"
+  - "corner case"
+  - "sınır"
+
+# ════════════════════════════════════════════════════════════════════════════
+categories:
+  string_inputs:
+    name: "String Input Edge Cases"
+    cases:
+      - empty_string: "''"
+      - single_char: "'A'"
+      - max_length: "$max_length characters"
+      - max_length_plus_one: "$max_length + 1 characters"
+      - unicode: "'Çağrı Şöförlüğü'"
+      - emoji: "'🚗 Test 🛣️'"
+      - special_chars: "'<script>alert(1)</script>'"
+      - sql_injection: "'; DROP TABLE--"
+      - whitespace_only: "'   '"
+      - leading_trailing_space: "' test '"
+      - newlines: "'line1\\nline2'"
+      - null_char: "'test\\x00end'"
+
+  numeric_inputs:
+    name: "Numeric Input Edge Cases"
+    cases:
+      - zero: 0
+      - negative: -1
+      - max_int: 2147483647
+      - min_int: -2147483648
+      - float_precision: 0.1 + 0.2
+      - very_small: 0.0000001
+      - very_large: 1000000000000
+      - infinity: "Infinity"
+      - nan: "NaN"
+
+  date_inputs:
+    name: "Date/Time Edge Cases"
+    cases:
+      - epoch: "1970-01-01"
+      - far_future: "2099-12-31"
+      - leap_year: "2024-02-29"
+      - non_leap: "2023-02-29 (invalid)"
+      - timezone: "UTC vs local"
+      - dst_change: "DST boundary"
+      - null_date: null
+
+  array_collection:
+    name: "Array/Collection Edge Cases"
+    cases:
+      - empty: "[]"
+      - single_item: "[x]"
+      - large: "[1000+ items]"
+      - duplicates: "Same item repeated"
+      - mixed_types: "[1, 'a', null]"
+      - nested: "[[[]]]"
+
+  state_transitions:
+    name: "State Transition Edge Cases"
+    cases:
+      - initial_state: "First use"
+      - empty_state: "No data loaded"
+      - loading_interrupted: "Cancel during load"
+      - concurrent_edit: "Two users edit same record"
+      - stale_data: "Data changed since load"
+
+  business_logic:
+    name: "LojiNext Specific Edge Cases"
+    cases:
+      - no_trips: "Araç hiç sefer yapmamış"
+      - single_trip: "Tek sefer"
+      - future_trip: "Gelecek tarihli sefer"
+      - overlapping_trips: "Aynı araç, çakışan saatler"
+      - zero_fuel: "0 litre yakıt kaydı"
+      - max_tank: "Tank kapasitesi aşımı"
+      - inactive_driver: "Pasif sürücüye sefer atama"
+      - deleted_vehicle: "Silinmiş araçla sefer"
+
+# ════════════════════════════════════════════════════════════════════════════
+test_template: |
+  @pytest.mark.asyncio
+  @pytest.mark.parametrize("input_value,should_succeed", [
+      ("", False),                     # Empty
+      ("A", True),                     # Single char
+      ("A" * 100, True),              # Max length
+      ("A" * 101, False),             # Over max
+      ("Çağrı", True),                # Turkish chars
+      ("<script>", False),            # XSS attempt
+  ])
+  async def test_{field}_edge_cases(self, client, input_value, should_succeed):
+      payload = {"{field}": input_value, ...}
+      response = await client.post("/endpoint", json=payload)
+      if should_succeed:
+          assert response.status_code in [200, 201]
+      else:
+          assert response.status_code in [400, 422]
+
+# ════════════════════════════════════════════════════════════════════════════
+checklist:
+  before_testing:
+    - "Boundary değerleri belirle (min, max, 0)"
+    - "Null/undefined davranışı düşün"
+    - "Geçersiz format kombinasyonları"
+    - "Timing/race conditions"
+    - "Concurrent operations"
+
+  after_finding_bug:
+    - "Minimal reproduction oluştur"
+    - "Expected vs actual belirt"
+    - "Regression test yaz"

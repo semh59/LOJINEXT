@@ -1,4 +1,5 @@
 import sys
+import uuid
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -21,28 +22,51 @@ async def test_create_and_retrieve_sefer(db_session):
     sefer_service = get_sefer_service()
     sefer_repo = get_sefer_repo()
 
-    # Setup Data
-    arac_id = None
-    sofor_id = None
+    # Setup Data with unique labels to avoid IntegrityError
+    unique_suffix = uuid.uuid4().hex[:8]
+    plaka = f"99 TST {unique_suffix}"[-12:]  # Max 12 chars
+    sofor_ad = f"Şoför {unique_suffix}"
 
-    # db_session yields session, we use it directly
-    await db_session.execute(text("""
+    # Insert Vehicle
+    arac_res = await db_session.execute(
+        text("""
         INSERT INTO araclar (plaka, marka, model, yil, aktif) 
         VALUES (:plaka, :marka, :model, :yil, :aktif)
-    """), {"plaka": "99 TEST 01", "marka": "TestMarka", "model": "TestModel", "yil": 2024, "aktif": True})
-
-    await db_session.execute(text("""
-        INSERT INTO soforler (ad_soyad, telefon, ise_baslama, aktif, ehliyet_sinifi, score, hiz_disiplin_skoru, agresif_surus_faktoru) 
-        VALUES (:ad, :tel, :tarih, :aktif, :ehliyet, :score, :hiz, :agresif)
-    """), {"ad": "Test Şoför", "tel": "5551234567", "tarih": "2024-01-01", "aktif": True, "ehliyet": "E", "score": 1.0, "hiz": 1.0, "agresif": 1.0})
-
-    arac_res = await db_session.execute(text("SELECT id FROM araclar WHERE plaka = '99 TEST 01'"))
+        RETURNING id
+    """),
+        {
+            "plaka": plaka,
+            "marka": "TestMarka",
+            "model": "TestModel",
+            "yil": 2024,
+            "aktif": True,
+        },
+    )
     arac_id = arac_res.scalar()
 
-    sofor_res = await db_session.execute(text("SELECT id FROM soforler WHERE telefon = '5551234567'"))
+    # Insert Driver
+    sofor_res = await db_session.execute(
+        text("""
+        INSERT INTO soforler (ad_soyad, telefon, ise_baslama, aktif, ehliyet_sinifi, score, manual_score, hiz_disiplin_skoru, agresif_surus_faktoru, notlar) 
+        VALUES (:ad, :tel, :tarih, :aktif, :ehliyet, :score, :mscore, :hiz, :agresif, :notlar)
+        RETURNING id
+    """),
+        {
+            "ad": sofor_ad,
+            "tel": "5551234567",
+            "tarih": date(2024, 1, 1),
+            "aktif": True,
+            "ehliyet": "E",
+            "score": 1.0,
+            "mscore": 1.0,
+            "hiz": 1.0,
+            "agresif": 1.0,
+            "notlar": "",
+        },
+    )
     sofor_id = sofor_res.scalar()
 
-    await db_session.commit()
+    await db_session.flush()
 
     # Sefer oluştur
     sefer_data = SeferCreate(
@@ -52,7 +76,7 @@ async def test_create_and_retrieve_sefer(db_session):
         cikis_yeri="Ankara",
         varis_yeri="İstanbul",
         mesafe_km=450,
-        net_kg=20000
+        net_kg=20000,
     )
 
     sefer_id = await sefer_service.add_sefer(sefer_data)
@@ -64,14 +88,18 @@ async def test_create_and_retrieve_sefer(db_session):
     # Geri oku (Repo calls likely async now too)
     saved = await sefer_repo.get_by_id(sefer_id)
     assert saved is not None
-    assert saved['cikis_yeri'] == 'Ankara'
-    assert saved['varis_yeri'] == 'İstanbul'
-    assert saved['mesafe_km'] == 450
+    assert saved["cikis_yeri"] == "Ankara"
+    assert saved["varis_yeri"] == "İstanbul"
+    assert saved["mesafe_km"] == 450
+
 
 @pytest.mark.asyncio
 async def test_transaction_rollback_on_error(db_session):
     """Hata durumunda transaction rollback (Async test)"""
     # Service kullanılmıyor, sadece session.
+    unique_suffix = uuid.uuid4().hex[:8]
+
+    plaka = f"99 RLB {unique_suffix}"[-12:]
 
     res_initial = await db_session.execute(text("SELECT COUNT(*) FROM araclar"))
     initial = res_initial.scalar()
@@ -79,12 +107,20 @@ async def test_transaction_rollback_on_error(db_session):
     try:
         # Nested transaction for async session
         async with db_session.begin_nested():
-            await db_session.execute(text("INSERT INTO araclar (plaka, marka, aktif) VALUES (:plaka, :marka, :aktif)"),
-                           {"plaka": "99 ROLLBACK 01", "marka": "Test", "aktif": True})
+            await db_session.execute(
+                text(
+                    "INSERT INTO araclar (plaka, marka, aktif) VALUES (:plaka, :marka, :aktif)"
+                ),
+                {"plaka": plaka, "marka": "Test", "aktif": True},
+            )
 
             # İkinci insert (Unique Violation)
-            await db_session.execute(text("INSERT INTO araclar (plaka, marka, aktif) VALUES (:plaka, :marka, :aktif)"),
-                           {"plaka": "99 ROLLBACK 01", "marka": "Test", "aktif": True})
+            await db_session.execute(
+                text(
+                    "INSERT INTO araclar (plaka, marka, aktif) VALUES (:plaka, :marka, :aktif)"
+                ),
+                {"plaka": plaka, "marka": "Test", "aktif": True},
+            )
     except Exception:
         pass
 
@@ -93,20 +129,34 @@ async def test_transaction_rollback_on_error(db_session):
 
     assert initial == final, "Rollback çalışmadı!"
 
+
 @pytest.mark.asyncio
 async def test_add_and_verify_fuel(db_session):
     """Yakıt ekle ve kontrol et"""
     yakit_service = get_yakit_service()
+    unique_suffix = uuid.uuid4().hex[:8]
+    plaka = f"99 FUL {unique_suffix}"[-12:]
 
     # Araç oluştur
     arac_id = None
 
-    await db_session.execute(text("""
+    await db_session.execute(
+        text("""
         INSERT INTO araclar (plaka, marka, model, yil, aktif) 
         VALUES (:plaka, :marka, :model, :yil, :aktif)
-    """), {"plaka": "99 FUEL 01", "marka": "TestMarka", "model": "TestModel", "yil": 2024, "aktif": True})
+    """),
+        {
+            "plaka": plaka,
+            "marka": "TestMarka",
+            "model": "TestModel",
+            "yil": 2024,
+            "aktif": True,
+        },
+    )
 
-    arac_res = await db_session.execute(text("SELECT id FROM araclar WHERE plaka = '99 FUEL 01'"))
+    arac_res = await db_session.execute(
+        text(f"SELECT id FROM araclar WHERE plaka = '{plaka}'")
+    )
     arac_id = arac_res.scalar()
     await db_session.commit()
 
@@ -117,7 +167,7 @@ async def test_add_and_verify_fuel(db_session):
         istasyon="TestShell",
         litre=500,
         fiyat_tl=Decimal("45.0"),
-        km_sayac=100000
+        km_sayac=100000,
     )
 
     yakit_id = await yakit_service.add_yakit(yakit_data)

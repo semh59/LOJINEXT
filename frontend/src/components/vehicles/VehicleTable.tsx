@@ -1,40 +1,37 @@
 import { useState, useEffect } from 'react'
 import { Vehicle } from '../../types'
-import { Edit2, Trash2, Truck, Eye } from 'lucide-react'
+import { Edit2, Trash2, Truck, Gauge, Calendar, Droplet, Activity } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DropdownMenu } from '../ui/DropdownMenu'
+import { cn } from '../../lib/utils'
 import { SkeletonTable } from './SkeletonTable'
 
 interface VehicleTableProps {
     vehicles: Vehicle[]
     loading: boolean
     onEdit: (vehicle: Vehicle) => void
-    onDelete: (id: number) => Promise<void>
+    onDelete: (vehicle: Vehicle) => void | Promise<void>
     onViewDetail: (vehicle: Vehicle) => void
 }
 
 export function VehicleTable({ vehicles, loading, onEdit, onDelete, onViewDetail }: VehicleTableProps) {
-    // Optimistic delete için state
     const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set())
     const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
 
-    // Veri değiştiğinde (örn: fetch'ten sonra) optimistic state'i temizle
     useEffect(() => {
         setDeletedIds(new Set())
         setDeletingIds(new Set())
     }, [vehicles])
 
-    // Optimistic delete handler
-    const handleOptimisticDelete = async (id: number) => {
-        // Hemen UI'dan kaldır (optimistic)
+    const handleOptimisticDelete = async (vehicle: Vehicle) => {
+        if (!vehicle.id) return
+        
+        const id = vehicle.id
         setDeletedIds(prev => new Set([...prev, id]))
         setDeletingIds(prev => new Set([...prev, id]))
 
         try {
-            await onDelete(id)
-            // Başarılı - kalıcı olarak kaldır
+            await onDelete(vehicle)
         } catch (error) {
-            // Hata - geri getir (rollback)
             setDeletedIds(prev => {
                 const next = new Set(prev)
                 next.delete(id)
@@ -49,145 +46,147 @@ export function VehicleTable({ vehicles, loading, onEdit, onDelete, onViewDetail
         }
     }
 
-    // Skeleton loading göster
     if (loading) {
         return <SkeletonTable rows={5} />
     }
 
-    // Boş durum
     if (vehicles.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-neutral-200 rounded-3xl bg-neutral-50/50">
-                <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
-                    <Truck className="w-8 h-8 text-neutral-400" />
+            <div className="flex flex-col items-center justify-center p-16 text-center border-2 border-dashed border-[#d006f9]/20 rounded-[32px] bg-[#1a0121]/40 backdrop-blur-md shadow-[inset_0_2px_20px_rgba(0,0,0,0.2)]">
+                <div className="w-20 h-20 bg-[#d006f9]/10 rounded-2xl flex items-center justify-center mb-6 border border-[#d006f9]/30 shadow-[0_0_30px_rgba(208,6,249,0.2)]">
+                    <Truck className="w-10 h-10 text-[#d006f9]" />
                 </div>
-                <h3 className="text-lg font-bold text-neutral-900">Henüz Araç Eklenmemiş</h3>
-                <p className="text-neutral-500 mt-1 max-w-sm">
-                    Filo yönetimine başlamak için sağ üstteki butondan yeni bir araç ekleyin.
+                <h3 className="text-2xl font-black text-white mb-2">Henüz Araç Eklenmemiş</h3>
+                <p className="text-white/50 max-w-sm text-sm">
+                    Filo yönetimine başlamak için sağ üstteki butondan yeni bir araç ekleyerek operasyonlarınızı başlatın.
                 </p>
             </div>
         )
     }
 
-    // Silinen araçları filtrele (optimistic)
-    const visibleVehicles = vehicles.filter(v => v.id && !deletedIds.has(v.id))
-
     return (
-        <div className="overflow-hidden rounded-[24px] border border-neutral-200 bg-white shadow-sm">
-            <table className="w-full">
-                <thead>
-                    <tr className="bg-neutral-50 border-b border-neutral-100">
-                        <th className="px-4 py-4 text-left text-xs font-bold text-neutral-500 uppercase tracking-wider w-[180px]">Araç</th>
-                        <th className="px-4 py-4 text-left text-xs font-bold text-neutral-500 uppercase tracking-wider w-[130px]">Plaka</th>
-                        <th className="px-4 py-4 text-center text-xs font-bold text-neutral-500 uppercase tracking-wider w-[70px]">Yıl</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-neutral-500 uppercase tracking-wider w-[90px]">Tank</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-neutral-500 uppercase tracking-wider w-[100px]">Hedef</th>
-                        <th className="px-4 py-4 text-center text-xs font-bold text-neutral-500 uppercase tracking-wider w-[90px]">Durum</th>
-                        <th className="px-4 py-4 text-center text-xs font-bold text-neutral-500 uppercase tracking-wider w-[70px]">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                    <AnimatePresence mode="popLayout">
-                        {visibleVehicles.map((vehicle, index) => (
-                            <motion.tr
+        <div className="w-full space-y-6">
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-black text-white flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#d006f9]/20 border border-[#d006f9]/40 rounded-xl flex items-center justify-center text-[#d006f9] shadow-[0_0_15px_rgba(208,6,249,0.3)]">
+                        <Truck className="w-5 h-5" />
+                    </div>
+                    Filo Araçları
+                </h2>
+                <div className="text-sm font-bold text-white/50 bg-black/40 px-4 py-2 rounded-xl border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]">
+                    Toplam: <span className="text-[#d006f9] ml-1">{vehicles.filter(v => !deletedIds.has(v.id!)).length} Araç</span>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <AnimatePresence>
+                    {vehicles
+                        .filter(v => v.id && !deletedIds.has(v.id))
+                        .map((vehicle, index) => (
+                            <motion.div
                                 key={vehicle.id}
-                                layout
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{
-                                    opacity: deletingIds.has(vehicle.id!) ? 0.5 : 1,
-                                    y: 0,
-                                    x: 0
-                                }}
-                                exit={{
-                                    opacity: 0,
-                                    x: -100,
-                                    transition: { duration: 0.2 }
-                                }}
-                                transition={{ delay: index * 0.03, duration: 0.2 }}
-                                className="group hover:bg-blue-50/30 transition-colors"
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                                transition={{ duration: 0.3, delay: index * 0.05 }}
+                                className={cn(
+                                    "bg-[#1a0121]/80 backdrop-blur-xl border border-[#d006f9]/30 rounded-[24px] p-6 shadow-[0_0_30px_rgba(208,6,249,0.1)] transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(208,6,249,0.2)] hover:border-[#d006f9]/50 flex flex-col relative overflow-hidden group",
+                                    vehicle.id && deletingIds.has(vehicle.id) && "opacity-50 grayscale pointer-events-none"
+                                )}
                             >
-                                {/* Araç (Marka + Model) */}
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                                            <Truck className="w-4 h-4" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-brand-dark text-sm truncate">{vehicle.marka}</p>
-                                            <p className="text-xs text-neutral-500 font-medium truncate">{vehicle.model}</p>
-                                        </div>
+                                {/* Background glow effect on hover */}
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-[#d006f9]/10 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                
+                                {/* Status Indicator (Top Right) */}
+                                <div className="absolute top-6 right-6 z-10">
+                                    <span className={cn(
+                                        "text-[10px] font-bold px-3 py-1.5 rounded-full border flex items-center gap-1.5 uppercase tracking-widest shadow-sm",
+                                        vehicle.aktif
+                                            ? "bg-[#0df259]/10 text-[#0df259] border-[#0df259]/30 shadow-[0_0_10px_rgba(13,242,89,0.1)]"
+                                            : "bg-white/5 text-white/50 border-white/10"
+                                    )}>
+                                        <span className={cn(
+                                            "w-2 h-2 rounded-full",
+                                            vehicle.aktif ? "bg-[#0df259] shadow-[0_0_5px_#0df259] animate-pulse" : "bg-white/30"
+                                        )}></span>
+                                        {vehicle.aktif ? 'AKTİF' : 'PASİF'}
+                                    </span>
+                                </div>
+
+                                {/* Vehicle Header */}
+                                <div className="flex items-start gap-4 mb-6 relative z-10">
+                                    <div className="w-14 h-14 bg-black/60 border border-white/10 rounded-2xl flex items-center justify-center shrink-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+                                        <Truck className="w-7 h-7 text-white/80" />
                                     </div>
-                                </td>
+                                    <div className="flex-1 min-w-0 pr-20">
+                                        <div className="bg-black/80 text-white text-xs font-black tracking-widest px-2.5 py-1 rounded inline-flex items-center border border-white/20 mb-2 shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                                            {vehicle.plaka}
+                                        </div>
+                                        <h3 className="text-lg font-black text-white truncate group-hover:text-[#d006f9] transition-colors">
+                                            {vehicle.marka} {vehicle.model}
+                                        </h3>
+                                    </div>
+                                </div>
 
-                                {/* Plaka */}
-                                <td className="px-4 py-3">
-                                    <span className="font-mono bg-neutral-100 px-2 py-0.5 rounded text-neutral-700 text-xs font-bold border border-neutral-200">
-                                        {vehicle.plaka}
-                                    </span>
-                                </td>
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-2 gap-3 mb-6 relative z-10">
+                                    <div className="bg-black/30 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                                        <div className="flex items-center gap-1.5 text-white/40 mb-0.5">
+                                            <Calendar className="w-3.5 h-3.5" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Model Yılı</span>
+                                        </div>
+                                        <span className="text-sm font-bold text-white">{vehicle.yil}</span>
+                                    </div>
+                                    <div className="bg-black/30 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                                        <div className="flex items-center gap-1.5 text-white/40 mb-0.5">
+                                            <Droplet className="w-3.5 h-3.5" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Yakıt Kapasite</span>
+                                        </div>
+                                        <span className="text-sm font-bold text-white">{vehicle.kapasite?.toLocaleString('tr-TR') || '-'} L</span>
+                                    </div>
+                                    <div className="col-span-2 bg-black/30 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                                        <div className="flex items-center gap-1.5 text-white/40 mb-0.5">
+                                            <Gauge className="w-3.5 h-3.5" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Hedef Tüketim (L/100km)</span>
+                                        </div>
+                                        <span className="text-sm font-bold text-white">{vehicle.hedef_tuketim || '-'} L</span>
+                                    </div>
+                                </div>
 
-                                {/* Yıl */}
-                                <td className="px-4 py-3 text-sm text-neutral-600 font-semibold text-center">
-                                    {vehicle.yil}
-                                </td>
+                                <div className="flex-1" />
 
-                                {/* Tank Kapasitesi */}
-                                <td className="px-4 py-3 text-right">
-                                    <span className="text-sm font-semibold text-neutral-700">
-                                        {vehicle.tank_kapasitesi || '-'}
-                                        {vehicle.tank_kapasitesi && <span className="text-neutral-400 ml-0.5 text-xs">L</span>}
-                                    </span>
-                                </td>
-
-                                {/* Hedef Tüketim */}
-                                <td className="px-4 py-3 text-right">
-                                    <span className="text-sm font-semibold text-neutral-700">
-                                        {vehicle.hedef_tuketim || '-'}
-                                        {vehicle.hedef_tuketim && <span className="text-neutral-400 ml-0.5 text-xs">L/100km</span>}
-                                    </span>
-                                </td>
-
-                                {/* Durum Badge */}
-                                <td className="px-4 py-3 text-center">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${vehicle.aktif
-                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                                        }`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full mr-1 ${vehicle.aktif ? 'bg-emerald-500' : 'bg-amber-500'
-                                            }`} />
-                                        {vehicle.aktif ? 'Aktif' : 'Pasif'}
-                                    </span>
-                                </td>
-
-                                {/* Actions Dropdown */}
-                                <td className="px-4 py-3 text-center">
-                                    <DropdownMenu
-                                        align="right"
-                                        items={[
-                                            {
-                                                label: 'Düzenle',
-                                                icon: <Edit2 className="w-4 h-4" />,
-                                                onClick: () => onEdit(vehicle)
-                                            },
-                                            {
-                                                label: 'Detay',
-                                                icon: <Eye className="w-4 h-4" />,
-                                                onClick: () => onViewDetail(vehicle)
-                                            },
-                                            {
-                                                label: 'Sil',
-                                                icon: <Trash2 className="w-4 h-4" />,
-                                                onClick: () => vehicle.id && handleOptimisticDelete(vehicle.id),
-                                                variant: 'danger'
-                                            }
-                                        ]}
-                                    />
-                                </td>
-                            </motion.tr>
+                                {/* Actions Footer */}
+                                <div className="flex justify-between items-center pt-4 border-t border-[#d006f9]/20 relative z-10">
+                                    <button
+                                        onClick={() => onViewDetail(vehicle)}
+                                        className="h-10 px-4 rounded-xl bg-[#d006f9]/10 text-[#d006f9] border border-[#d006f9]/20 hover:bg-[#d006f9]/20 hover:border-[#d006f9]/40 font-bold text-xs flex items-center gap-2 transition-all"
+                                    >
+                                        <Activity className="w-4 h-4" />
+                                        İçgörüler
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => onEdit(vehicle)}
+                                            className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all"
+                                            title="Düzenle"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => vehicle.id && handleOptimisticDelete(vehicle)}
+                                            disabled={!!vehicle.id && deletingIds.has(vehicle.id)}
+                                            className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 hover:border-red-500/40 flex items-center justify-center transition-all disabled:opacity-50"
+                                            title="Sil"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
                         ))}
-                    </AnimatePresence>
-                </tbody>
-            </table>
+                </AnimatePresence>
+            </div>
         </div>
     )
 }

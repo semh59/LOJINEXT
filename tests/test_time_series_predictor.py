@@ -5,7 +5,6 @@ LSTM Time Series Predictor Unit Tests
 import pytest
 import numpy as np
 from datetime import date, timedelta
-from unittest.mock import MagicMock, patch, AsyncMock
 
 import sys
 sys.path.insert(0, '.')

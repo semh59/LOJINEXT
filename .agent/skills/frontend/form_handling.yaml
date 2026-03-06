@@ -1,0 +1,111 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Form Handling
+# ════════════════════════════════════════════════════════════════════════════
+# react-hook-form + zod validation
+
+name: "Form Handling"
+version: "1.0"
+agent: "frontend"
+
+trigger_keywords:
+  - "form"
+  - "validation"
+  - "zod"
+  - "react-hook-form"
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  basic_form:
+    description: "Temel form yapısı"
+    code: |
+      // 1. Zod schema
+      const schema = z.object({
+        name: z.string().min(1, "İsim zorunlu"),
+        email: z.string().email("Geçerli email girin"),
+        age: z.number().min(18, "18 yaşından büyük olmalı").optional(),
+      });
+
+      type FormData = z.infer<typeof schema>;
+
+      // 2. Form component
+      export function MyForm({ onSubmit }: { onSubmit: (data: FormData) => void }) {
+        const form = useForm<FormData>({
+          resolver: zodResolver(schema),
+          defaultValues: {
+            name: "",
+            email: "",
+          },
+        });
+        
+        return (
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <input {...form.register("name")} />
+            {form.formState.errors.name && (
+              <span className="text-red-500">
+                {form.formState.errors.name.message}
+              </span>
+            )}
+            
+            <button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? "Gönderiliyor..." : "Gönder"}
+            </button>
+          </form>
+        );
+      }
+
+  edit_form:
+    description: "Edit formu (defaultValues ile)"
+    code: |
+      interface EditFormProps {
+        initialData: FormData;
+        onSubmit: (data: FormData) => void;
+      }
+
+      export function EditForm({ initialData, onSubmit }: EditFormProps) {
+        const form = useForm<FormData>({
+          resolver: zodResolver(schema),
+          defaultValues: initialData,
+        });
+        
+        // Reset form when initialData changes
+        useEffect(() => {
+          form.reset(initialData);
+        }, [initialData, form]);
+        
+        return (
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            {/* fields */}
+          </form>
+        );
+      }
+
+# ════════════════════════════════════════════════════════════════════════════
+zod_patterns:
+  string:
+    required: "z.string().min(1, 'Zorunlu alan')"
+    optional: "z.string().optional()"
+    email: "z.string().email('Geçerli email girin')"
+    url: "z.string().url('Geçerli URL girin')"
+    min_max: "z.string().min(3).max(100)"
+
+  number:
+    required: "z.number({ required_error: 'Zorunlu' })"
+    optional: "z.number().optional()"
+    positive: "z.number().positive('Pozitif olmalı')"
+    range: "z.number().min(0).max(100)"
+
+  date:
+    iso: "z.string().datetime()"
+    coerce: "z.coerce.date()"
+
+  enum:
+    basic: "z.enum(['option1', 'option2'])"
+    native: "z.nativeEnum(MyEnum)"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Zod schema'yı component dışında tanımla"
+  - "z.infer ile type safety sağla"
+  - "defaultValues her zaman ver"
+  - "Error message'ları kullanıcı dostu yaz"
+  - "isSubmitting ile double submit engelle"

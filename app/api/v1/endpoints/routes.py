@@ -1,11 +1,14 @@
 from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
 from app.api.deps import SessionDep, get_current_user
 from app.database.models import Kullanici
 from app.services.route_service import RouteService
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
 
 router = APIRouter()
+
 
 class RouteAnalysisRequest(BaseModel):
     start_lat: float = Field(..., ge=-90, le=90)
@@ -13,11 +16,12 @@ class RouteAnalysisRequest(BaseModel):
     end_lat: float = Field(..., ge=-90, le=90)
     end_lon: float = Field(..., ge=-180, le=180)
 
+
 @router.post("/analyze")
 async def analyze_route(
     request: RouteAnalysisRequest,
     db: SessionDep,
-    current_user: Annotated[Kullanici, Depends(get_current_user)]
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
 ):
     service = RouteService()
 
@@ -33,7 +37,7 @@ async def analyze_route(
     difficulty = service.analyze_route_difficulty(
         result.get("ascent_m", 0),
         result.get("descent_m", 0),
-        result.get("distance_km", 0)
+        result.get("distance_km", 0),
     )
 
     result["difficulty"] = difficulty

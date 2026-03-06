@@ -9,8 +9,6 @@ import asyncio
 import os
 import sys
 import time
-from datetime import date, timedelta
-from typing import Optional
 
 # Ensure project root is in path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

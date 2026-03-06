@@ -1,0 +1,150 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Error Handling
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Error Handling"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "error"
+  - "exception"
+  - "hata"
+  - "HTTPException"
+
+# ════════════════════════════════════════════════════════════════════════════
+http_exceptions:
+  not_found:
+    code: 404
+    example: |
+      if not entity:
+          raise HTTPException(
+              status_code=404,
+              detail=f"{entity_name} bulunamadı: {id}"
+          )
+
+  bad_request:
+    code: 400
+    example: |
+      if invalid_data:
+          raise HTTPException(
+              status_code=400,
+              detail="Geçersiz veri formatı"
+          )
+
+  conflict:
+    code: 409
+    example: |
+      if existing_entity:
+          raise HTTPException(
+              status_code=409,
+              detail=f"Bu plaka zaten kayıtlı: {plaka}"
+          )
+
+  unauthorized:
+    code: 401
+    example: |
+      if not current_user:
+          raise HTTPException(
+              status_code=401,
+              detail="Kimlik doğrulama gerekli",
+              headers={"WWW-Authenticate": "Bearer"}
+          )
+
+  forbidden:
+    code: 403
+    example: |
+      if not has_permission:
+          raise HTTPException(
+              status_code=403,
+              detail="Bu işlem için yetkiniz yok"
+          )
+
+  unprocessable:
+    code: 422
+    example: |
+      # Pydantic otomatik döner, custom için:
+      raise HTTPException(
+          status_code=422,
+          detail=[{"loc": ["body", "field"], "msg": "error", "type": "value_error"}]
+      )
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  custom_exception:
+    description: "Custom exception class"
+    code: |
+      class EntityNotFoundError(Exception):
+          def __init__(self, entity_type: str, entity_id: int):
+              self.entity_type = entity_type
+              self.entity_id = entity_id
+              super().__init__(f"{entity_type} not found: {entity_id}")
+
+      # Exception handler
+      @app.exception_handler(EntityNotFoundError)
+      async def entity_not_found_handler(request, exc):
+          return JSONResponse(
+              status_code=404,
+              content={"detail": str(exc)}
+          )
+
+  service_layer_errors:
+    description: "Service layer'da error handling"
+    code: |
+      class ServiceError(Exception):
+          """Base service error"""
+          pass
+
+      class ValidationError(ServiceError):
+          pass
+
+      class BusinessRuleError(ServiceError):
+          pass
+
+      # Service'te
+      def create_trip(data):
+          if data.mesafe_km <= 0:
+              raise ValidationError("Mesafe pozitif olmalı")
+          if data.yakit_litre > 1000:
+              raise BusinessRuleError("Yakıt limiti aşıldı")
+
+  error_response_model:
+    description: "Standart error response"
+    code: |
+      class ErrorResponse(BaseModel):
+          detail: str
+          code: str | None = None
+          timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+      @app.exception_handler(Exception)
+      async def global_exception_handler(request, exc):
+          return JSONResponse(
+              status_code=500,
+              content=ErrorResponse(
+                  detail="Beklenmeyen bir hata oluştu",
+                  code="INTERNAL_ERROR"
+              ).model_dump()
+          )
+
+# ════════════════════════════════════════════════════════════════════════════
+logging_errors:
+  pattern: |
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        result = await risky_operation()
+    except SpecificError as e:
+        logger.warning(f"Beklenen hata: {e}")
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.exception(f"Beklenmeyen hata: {e}")
+        raise HTTPException(500, "İşlem başarısız")
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Her endpoint için 404, 400, 422 case'lerini düşün"
+  - "Kullanıcıya gösterilecek mesajlar Türkçe ve anlaşılır olsun"
+  - "Internal detayları logla, client'a gönderme"
+  - "Validation hataları için 422, business logic için 400"
+  - "Exception chaining: 'raise NewError() from e'"

@@ -7,8 +7,9 @@ interface AuthContextType {
     isAuthenticated: boolean
     isLoading: boolean
     login: (username: string, password: string) => Promise<void>
-    logout: () => void
+    logout: () => Promise<void>
     error: string | null
+    hasPermission: (permission: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -27,10 +28,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     const userData = await authApi.getMe()
                     setUser({
                         id: userData.id,
-                        username: userData.kullanici_adi,
-                        full_name: userData.ad_soyad,
-                        role: userData.rol,
-                        is_active: userData.aktif
+                        username: userData.kullanici_adi || userData.username,
+                        full_name: userData.ad_soyad || userData.full_name,
+                        role: userData.rol?.ad || userData.rol || userData.role,
+                        is_active: userData.aktif || userData.is_active
                     })
                 } catch (err) {
                     console.error('Session restoration failed', err)
@@ -49,16 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             const response = await authApi.login(username, password)
-            tokenStorage.set(response.access_token)
+            tokenStorage.set(response.access_token, response.refresh_token)
 
             // Login sonrası kullanıcı detaylarını çek
             const userData = await authApi.getMe()
             setUser({
                 id: userData.id,
-                username: userData.kullanici_adi,
-                full_name: userData.ad_soyad,
-                role: userData.rol,
-                is_active: userData.aktif
+                username: userData.kullanici_adi || userData.username,
+                full_name: userData.ad_soyad || userData.full_name,
+                role: userData.rol?.ad || userData.rol || userData.role,
+                is_active: userData.aktif || userData.is_active
             })
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Giriş yapılamadı'
@@ -69,10 +70,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const logout = () => {
-        tokenStorage.remove()
-        setUser(null)
-        // Opsiyonel: Backend logout endpoint varsa çağrılabilir
+    const logout = async () => {
+        try {
+            await authApi.logout()
+        } catch (e) {
+            console.error('Backend logout failed', e)
+        } finally {
+            tokenStorage.remove()
+            setUser(null)
+            // Redirect will be handled by components utilizing this context or use window.location if necessary.
+        }
+    }
+
+    const hasPermission = (permission: string): boolean => {
+        if (!user) return false
+        
+        const role = user.role?.toString() || ''
+        const isAdmin = role === 'SuperAdmin' || role === 'Admin' || role === 'super_admin' || role === 'admin'
+        
+        // Super/Admin her şeye yetkilidir (Sistem dışı)
+        if (isAdmin) {
+            if (permission.startsWith('system:')) return false
+            return true
+        }
+        
+        // Driver yetkileri
+        if (role === 'Driver' || role === 'driver') {
+            const allowed = ['sefer:read', 'arac:read']
+            return allowed.includes(permission)
+        }
+        
+        return false
     }
 
     return (
@@ -83,7 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 isLoading,
                 login,
                 logout,
-                error
+                error,
+                hasPermission
             }}
         >
             {children}

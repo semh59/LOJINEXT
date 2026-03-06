@@ -1,6 +1,7 @@
 """
 Interfaces Package
 """
+
 from .repositories import (
     BaseRepository,
     IAracRepository,
@@ -14,9 +15,9 @@ from .repositories import (
 __all__ = [
     "BaseRepository",
     "IAracRepository",
-    "ISoforRepository",
-    "IYakitRepository",
-    "ISeferRepository",
     "ILokasyonRepository",
     "IPeriyotRepository",
+    "ISeferRepository",
+    "ISoforRepository",
+    "IYakitRepository",
 ]

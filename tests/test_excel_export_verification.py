@@ -3,7 +3,6 @@ import pytest
 import pandas as pd
 import io
 from app.core.services.excel_service import ExcelService
-from datetime import datetime, date
 
 class TestExcelExportEngine:
     """Excel Export Engine Verification Tests"""

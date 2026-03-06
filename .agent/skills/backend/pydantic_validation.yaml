@@ -1,0 +1,120 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Pydantic Validation Patterns
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Pydantic Validation"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "validation"
+  - "pydantic"
+  - "schema"
+  - "validator"
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  basic_model:
+    description: "Temel Pydantic model"
+    code: |
+      from pydantic import BaseModel, Field, ConfigDict
+      from datetime import datetime
+
+      class EntityBase(BaseModel):
+          name: str = Field(..., min_length=1, max_length=100)
+          description: str | None = Field(None, max_length=500)
+          
+      class EntityCreate(EntityBase):
+          pass
+          
+      class EntityUpdate(BaseModel):
+          name: str | None = Field(None, min_length=1, max_length=100)
+          description: str | None = None
+          
+      class EntityResponse(EntityBase):
+          id: int
+          created_at: datetime
+          is_active: bool
+          model_config = ConfigDict(from_attributes=True)
+
+  custom_validator:
+    description: "Custom field validator"
+    code: |
+      from pydantic import field_validator
+
+      class VehicleCreate(BaseModel):
+          plaka: str
+          
+          @field_validator('plaka')
+          @classmethod
+          def validate_plaka(cls, v: str) -> str:
+              v = v.strip().upper()
+              if not re.match(r'^\d{2}\s?[A-Z]{1,3}\s?\d{2,4}$', v):
+                  raise ValueError('Geçersiz plaka formatı')
+              return v
+
+  model_validator:
+    description: "Model-level validation"
+    code: |
+      from pydantic import model_validator
+
+      class DateRangeFilter(BaseModel):
+          start_date: date
+          end_date: date
+          
+          @model_validator(mode='after')
+          def validate_dates(self) -> Self:
+              if self.start_date > self.end_date:
+                  raise ValueError('start_date, end_date\'den büyük olamaz')
+              return self
+
+  computed_field:
+    description: "Hesaplanan alan"
+    code: |
+      from pydantic import computed_field
+
+      class TripResponse(BaseModel):
+          mesafe_km: float
+          yakit_litre: float
+          
+          @computed_field
+          @property
+          def verimlilik(self) -> float:
+              if self.yakit_litre == 0:
+                  return 0
+              return self.mesafe_km / self.yakit_litre
+
+# ════════════════════════════════════════════════════════════════════════════
+common_validators:
+  turkish_phone: |
+    @field_validator('telefon')
+    @classmethod
+    def validate_phone(cls, v):
+        if not re.match(r'^(\+90|0)?5\d{9}$', v):
+            raise ValueError('Geçersiz telefon numarası')
+        return v.replace(' ', '').replace('-', '')
+
+  positive_number: |
+    @field_validator('amount')
+    @classmethod
+    def validate_positive(cls, v):
+        if v <= 0:
+            raise ValueError('Pozitif değer olmalı')
+        return v
+
+  enum_value: |
+    from enum import Enum
+
+    class Status(str, Enum):
+        ACTIVE = "active"
+        INACTIVE = "inactive"
+        PENDING = "pending"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Field(...) ile required, Field(None) ile optional"
+  - "min_length, max_length, ge, le gibi constraints kullan"
+  - "model_config = ConfigDict(from_attributes=True) ORM için"
+  - "Custom validator için @field_validator veya @model_validator"
+  - "Computed field için @computed_field + @property"
+  - "Validator'da her zaman return yap"

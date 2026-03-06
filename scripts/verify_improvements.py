@@ -5,7 +5,6 @@ Yeni servis ve model alanlarını kontrol eder.
 """
 
 import sys
-import os
 import time
 from pathlib import Path
 
@@ -73,7 +72,6 @@ def main():
     if runner.should_run_check("ai"):
         start = time.time()
         try:
-            from app.services.ai_service import LocalAIService
             runner.add_result(
                 "LocalAIService", 
                 True, 

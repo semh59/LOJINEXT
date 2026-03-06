@@ -1,0 +1,154 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Zustand Store Pattern
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Zustand Store"
+version: "1.0"
+agent: "frontend"
+
+trigger_keywords:
+  - "zustand"
+  - "store"
+  - "global state"
+  - "state management"
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  basic_store:
+    description: "Temel Zustand store"
+    code: |
+      import { create } from 'zustand';
+
+      interface CounterState {
+        count: number;
+        increment: () => void;
+        decrement: () => void;
+        reset: () => void;
+      }
+
+      export const useCounterStore = create<CounterState>((set) => ({
+        count: 0,
+        increment: () => set((state) => ({ count: state.count + 1 })),
+        decrement: () => set((state) => ({ count: state.count - 1 })),
+        reset: () => set({ count: 0 }),
+      }));
+
+  with_async:
+    description: "Async actions"
+    code: |
+      interface UserState {
+        user: User | null;
+        isLoading: boolean;
+        error: string | null;
+        fetchUser: (id: number) => Promise<void>;
+        logout: () => void;
+      }
+
+      export const useUserStore = create<UserState>((set) => ({
+        user: null,
+        isLoading: false,
+        error: null,
+        
+        fetchUser: async (id) => {
+          set({ isLoading: true, error: null });
+          try {
+            const user = await userService.getById(id);
+            set({ user, isLoading: false });
+          } catch (e) {
+            set({ error: e.message, isLoading: false });
+          }
+        },
+        
+        logout: () => set({ user: null }),
+      }));
+
+  with_persistence:
+    description: "LocalStorage persistence"
+    code: |
+      import { persist } from 'zustand/middleware';
+
+      export const useSettingsStore = create<SettingsState>()(
+        persist(
+          (set) => ({
+            theme: 'light',
+            language: 'tr',
+            setTheme: (theme) => set({ theme }),
+            setLanguage: (language) => set({ language }),
+          }),
+          {
+            name: 'settings-storage',
+            partialize: (state) => ({ theme: state.theme }), // sadece theme persist
+          }
+        )
+      );
+
+  with_selectors:
+    description: "Selector pattern (performance)"
+    code: |
+      // Store
+      interface FilterState {
+        filters: {
+          search: string;
+          status: string;
+          dateRange: [Date, Date] | null;
+        };
+        setFilter: (key: string, value: any) => void;
+        resetFilters: () => void;
+      }
+
+      // Selectors - re-render optimization
+      export const useSearch = () => useFilterStore((s) => s.filters.search);
+      export const useStatus = () => useFilterStore((s) => s.filters.status);
+
+      // Component'te kullanım
+      function SearchInput() {
+        const search = useSearch(); // Sadece search değişince re-render
+        const setFilter = useFilterStore((s) => s.setFilter);
+        
+        return <input value={search} onChange={(e) => setFilter('search', e.target.value)} />;
+      }
+
+  with_immer:
+    description: "Immer ile nested updates"
+    code: |
+      import { immer } from 'zustand/middleware/immer';
+
+      export const useCartStore = create<CartState>()(
+        immer((set) => ({
+          items: [],
+          addItem: (item) => set((state) => {
+            state.items.push(item);
+          }),
+          updateQuantity: (id, qty) => set((state) => {
+            const item = state.items.find((i) => i.id === id);
+            if (item) item.quantity = qty;
+          }),
+          removeItem: (id) => set((state) => {
+            state.items = state.items.filter((i) => i.id !== id);
+          }),
+        }))
+      );
+
+# ════════════════════════════════════════════════════════════════════════════
+when_to_use:
+  zustand:
+    - "Cross-component state (sibling components)"
+    - "Global app state (user, settings)"
+    - "Complex state logic"
+
+  useState:
+    - "Component-local state"
+    - "Form inputs"
+    - "UI toggles (modal open/close)"
+
+  tanstack_query:
+    - "Server state (API data)"
+    - "Cache management"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Store'ları modüler tut (user, settings, cart ayrı)"
+  - "Selector ile unnecessary re-render önle"
+  - "Server state için TanStack Query tercih et"
+  - "Persist sadece gerekli alanlar için"
+  - "Actions store içinde tanımla, dışarıda değil"

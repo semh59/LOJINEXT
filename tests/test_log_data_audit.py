@@ -3,10 +3,8 @@ Logs and Data Security Audit Verification Tests
 Denetim kriterleri: PII masking, password masking, audit log security
 """
 import logging
-import json
 import pytest
-from pathlib import Path
-from app.infrastructure.logging.logger import setup_logging, PIIFilter
+from app.infrastructure.logging.logger import PIIFilter
 from app.infrastructure.logging.audit_logger import audit_log, _mask_sensitive_data
 
 class TestLoggingSecurity:

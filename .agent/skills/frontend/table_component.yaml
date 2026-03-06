@@ -1,0 +1,196 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Table Component Pattern
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Table Component"
+version: "1.0"
+agent: "frontend"
+
+trigger_keywords:
+  - "table"
+  - "tablo"
+  - "data table"
+  - "liste"
+  - "grid"
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  basic_table:
+    description: "Temel tablo component"
+    code: |
+      interface Column<T> {
+        key: keyof T;
+        header: string;
+        render?: (value: any, row: T) => React.ReactNode;
+      }
+
+      interface DataTableProps<T> {
+        data: T[];
+        columns: Column<T>[];
+        isLoading?: boolean;
+        emptyMessage?: string;
+      }
+
+      export function DataTable<T extends { id: number }>({
+        data,
+        columns,
+        isLoading,
+        emptyMessage = "Kayıt bulunamadı"
+      }: DataTableProps<T>) {
+        if (isLoading) return <TableSkeleton rows={5} cols={columns.length} />;
+        if (!data.length) return <EmptyState message={emptyMessage} />;
+        
+        return (
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100 border-b">
+                {columns.map((col) => (
+                  <th key={String(col.key)} className="px-4 py-3 text-left font-medium">
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row) => (
+                <tr key={row.id} className="border-b hover:bg-gray-50">
+                  {columns.map((col) => (
+                    <td key={String(col.key)} className="px-4 py-3">
+                      {col.render 
+                        ? col.render(row[col.key], row)
+                        : String(row[col.key] ?? '-')
+                      }
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      }
+
+  with_actions:
+    description: "Action column ile tablo"
+    code: |
+      const columns: Column<Driver>[] = [
+        { key: 'ad', header: 'Ad' },
+        { key: 'soyad', header: 'Soyad' },
+        { key: 'telefon', header: 'Telefon' },
+        {
+          key: 'id',
+          header: 'İşlemler',
+          render: (_, row) => (
+            <DropdownMenu>
+              <DropdownItem onClick={() => onEdit(row)}>Düzenle</DropdownItem>
+              <DropdownItem onClick={() => onDelete(row.id)}>Sil</DropdownItem>
+            </DropdownMenu>
+          ),
+        },
+      ];
+
+  with_sorting:
+    description: "Sıralanabilir tablo"
+    code: |
+      const [sortConfig, setSortConfig] = useState<{
+        key: string;
+        direction: 'asc' | 'desc';
+      } | null>(null);
+
+      const sortedData = useMemo(() => {
+        if (!sortConfig) return data;
+        
+        return [...data].sort((a, b) => {
+          const aVal = a[sortConfig.key];
+          const bVal = b[sortConfig.key];
+          
+          if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }, [data, sortConfig]);
+
+      const handleSort = (key: string) => {
+        setSortConfig((prev) => ({
+          key,
+          direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+        }));
+      };
+
+  with_pagination:
+    description: "Pagination ile tablo"
+    code: |
+      interface PaginatedTableProps<T> extends DataTableProps<T> {
+        page: number;
+        pageSize: number;
+        total: number;
+        onPageChange: (page: number) => void;
+      }
+
+      export function PaginatedTable<T>({ 
+        page, pageSize, total, onPageChange, ...tableProps 
+      }: PaginatedTableProps<T>) {
+        const totalPages = Math.ceil(total / pageSize);
+        
+        return (
+          <div>
+            <DataTable {...tableProps} />
+            
+            <div className="flex justify-between items-center mt-4 px-4">
+              <span className="text-sm text-gray-600">
+                Toplam {total} kayıt
+              </span>
+              
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => onPageChange(page - 1)}
+                >
+                  Önceki
+                </Button>
+                <span className="px-3 py-1">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  disabled={page === totalPages}
+                  onClick={() => onPageChange(page + 1)}
+                >
+                  Sonraki
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+  with_selection:
+    description: "Seçilebilir satırlar"
+    code: |
+      const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+      const toggleSelect = (id: number) => {
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      };
+
+      const toggleSelectAll = () => {
+        if (selectedIds.size === data.length) {
+          setSelectedIds(new Set());
+        } else {
+          setSelectedIds(new Set(data.map((d) => d.id)));
+        }
+      };
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Generic type kullan <T>"
+  - "Loading skeleton göster"
+  - "Empty state tasarla"
+  - "Hover effect ekle"
+  - "Responsive: mobile'da horizontal scroll veya card view"
+  - "Keyboard navigation düşün"

@@ -1,0 +1,143 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Testing Patterns (pytest)
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Testing Patterns"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "test"
+  - "pytest"
+  - "unit test"
+  - "integration"
+
+# ════════════════════════════════════════════════════════════════════════════
+fixtures:
+  database:
+    description: "Test database fixture"
+    code: |
+      import pytest
+      from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+
+      @pytest.fixture
+      async def db_session():
+          engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+          async with engine.begin() as conn:
+              await conn.run_sync(Base.metadata.create_all)
+          
+          async with AsyncSession(engine) as session:
+              yield session
+          
+          await engine.dispose()
+
+  test_client:
+    description: "FastAPI test client"
+    code: |
+      from httpx import AsyncClient
+
+      @pytest.fixture
+      async def client(db_session):
+          app.dependency_overrides[get_db] = lambda: db_session
+          async with AsyncClient(app=app, base_url="http://test") as ac:
+              yield ac
+          app.dependency_overrides.clear()
+
+  factory:
+    description: "Test data factory"
+    code: |
+      import factory
+
+      class DriverFactory(factory.Factory):
+          class Meta:
+              model = Driver
+          
+          ad = factory.Faker('first_name', locale='tr_TR')
+          soyad = factory.Faker('last_name', locale='tr_TR')
+          telefon = factory.Sequence(lambda n: f"0532{n:07d}")
+          is_active = True
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  unit_test:
+    description: "Unit test pattern"
+    code: |
+      class TestFuelCalculator:
+          def test_calculate_efficiency_normal(self):
+              result = calculate_efficiency(mesafe=500, yakit=100)
+              assert result == 5.0
+          
+          def test_calculate_efficiency_zero_fuel_raises(self):
+              with pytest.raises(ValueError, match="positive"):
+                  calculate_efficiency(mesafe=500, yakit=0)
+          
+          @pytest.mark.parametrize("mesafe,yakit,expected", [
+              (500, 100, 5.0),
+              (1000, 250, 4.0),
+              (0, 100, 0),
+          ])
+          def test_parametrized(self, mesafe, yakit, expected):
+              assert calculate_efficiency(mesafe, yakit) == pytest.approx(expected)
+
+  integration_test:
+    description: "API integration test"
+    code: |
+      @pytest.mark.asyncio
+      async def test_create_driver(client, auth_headers):
+          payload = {
+              "ad": "Ahmet",
+              "soyad": "Yılmaz",
+              "telefon": "05321234567"
+          }
+          response = await client.post(
+              "/api/v1/suruculer",
+              json=payload,
+              headers=auth_headers
+          )
+          assert response.status_code == 201
+          data = response.json()
+          assert data["ad"] == "Ahmet"
+          assert "id" in data
+
+  mock_external:
+    description: "External service mocking"
+    code: |
+      from unittest.mock import patch, AsyncMock
+
+      @pytest.mark.asyncio
+      async def test_weather_service():
+          mock_response = {"temp": 25, "condition": "sunny"}
+          
+          with patch('app.services.weather_service.httpx.AsyncClient') as mock:
+              mock.return_value.__aenter__.return_value.get = AsyncMock(
+                  return_value=Mock(json=lambda: mock_response)
+              )
+              result = await get_weather("Istanbul")
+              assert result["temp"] == 25
+
+  test_error_cases:
+    description: "Error case testing"
+    code: |
+      @pytest.mark.asyncio
+      async def test_get_driver_not_found(client, auth_headers):
+          response = await client.get(
+              "/api/v1/suruculer/99999",
+              headers=auth_headers
+          )
+          assert response.status_code == 404
+          assert "bulunamadı" in response.json()["detail"]
+
+# ════════════════════════════════════════════════════════════════════════════
+markers:
+  slow: "@pytest.mark.slow  # pytest -m 'not slow'"
+  integration: "@pytest.mark.integration"
+  unit: "@pytest.mark.unit"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Her test tek bir şeyi test etsin"
+  - "Test isolation: Her test kendi verisini oluşturmalı"
+  - "AAA pattern: Arrange, Act, Assert"
+  - "Descriptive test names: test_what_when_expected"
+  - "Mock external services, real DB ile test et"
+  - "Fixtures reusable olsun"

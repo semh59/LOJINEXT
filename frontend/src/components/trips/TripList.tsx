@@ -47,7 +47,7 @@ export function TripList({ trips, onSelect, loading }: TripListProps) {
                         <div className="min-w-[100px]">
                             <span className="text-xs font-mono text-neutral-400 block mb-1">#{trip.id?.toString().padStart(4, '0')}</span>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${trip.durum === 'Yolda' ? 'bg-indigo-50 text-indigo-700' :
-                                trip.durum === 'Tamamlandı' ? 'bg-emerald-50 text-emerald-700' :
+                                trip.durum === 'Tamam' ? 'bg-emerald-50 text-emerald-700' :
                                     trip.durum === 'İptal' ? 'bg-red-50 text-red-700' :
                                         'bg-neutral-100 text-neutral-600'
                                 }`}>
@@ -59,9 +59,9 @@ export function TripList({ trips, onSelect, loading }: TripListProps) {
                         {/* Route */}
                         <div className="flex-1 flex items-center gap-3">
                             <div className="text-right">
-                                <div className="font-bold text-neutral-900">{trip.cikis_konum}</div>
+                                <div className="font-bold text-neutral-900">{trip.cikis_yeri}</div>
                                 <div className="text-xs text-neutral-500 font-medium">
-                                    {new Date(trip.planlanan_cikis).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
+                                    {new Date(trip.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
                                 </div>
                             </div>
 
@@ -70,9 +70,9 @@ export function TripList({ trips, onSelect, loading }: TripListProps) {
                             </div>
 
                             <div className="text-left">
-                                <div className="font-bold text-neutral-900">{trip.varis_konum}</div>
+                                <div className="font-bold text-neutral-900">{trip.varis_yeri}</div>
                                 <div className="text-xs text-neutral-500 font-medium">
-                                    {trip.tahmini_varis ? new Date(trip.tahmini_varis).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '-'}
+                                    -
                                 </div>
                             </div>
                         </div>

@@ -20,9 +20,9 @@ describe('VehicleTable', () => {
             />
         )
 
-        expect(screen.getByText('34ABC123')).toBeInTheDocument()
-        expect(screen.getByText('Ford')).toBeInTheDocument()
-        expect(screen.getByText('15000 kg')).toBeInTheDocument()
+        expect(screen.getByText(/34ABC123/i)).toBeInTheDocument()
+        expect(screen.getByText(/Ford/i)).toBeInTheDocument()
+        expect(screen.getByText(/15[.,]000 kg/i)).toBeInTheDocument()
         expect(screen.getByText('Aktif')).toBeInTheDocument()
         expect(screen.getByText('Pasif')).toBeInTheDocument()
     })

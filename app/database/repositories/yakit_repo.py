@@ -1,12 +1,15 @@
 """
 TIR Yakıt Takip - Yakıt Repository
-Yakıt alımı CRUD + periyot yönetimi
+PostgreSQL CRUD + periyot yönetimi
 """
 
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import insert
+from sqlalchemy import insert, text
+from sqlalchemy.ext.asyncio import AsyncSession
+import threading
+
 from app.database.base_repository import BaseRepository
 from app.database.models import YakitAlimi, YakitPeriyodu
 from app.infrastructure.logging.logger import get_logger
@@ -21,11 +24,14 @@ class YakitRepository(BaseRepository[YakitAlimi]):
 
     async def get_all(
         self,
-        arac_id: int = None,
+        arac_id: Optional[int] = None,
         limit: int = 100,
         offset: int = 0,
-        desc: bool = True
-    ) -> List[Dict]:
+        desc: bool = True,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+        **filters: Any,
+    ) -> List[Dict[str, Any]]:
         """Yakıt alımlarını getir"""
         # Input validation
         limit = max(1, min(int(limit or 100), self.MAX_LIMIT))
@@ -36,44 +42,67 @@ class YakitRepository(BaseRepository[YakitAlimi]):
             FROM yakit_alimlari ya
             JOIN araclar a ON ya.arac_id = a.id
         """
-        params = {}
+        params: Dict[str, Any] = {}
+        where_clauses = []
 
         if arac_id:
-            query += " WHERE ya.arac_id = :arac_id"
+            where_clauses.append("ya.arac_id = :arac_id")
             params["arac_id"] = arac_id
 
-        # ORDER BY Whitelist
+        where_clauses.append("ya.aktif = TRUE")
+
+        if baslangic_tarih:
+            where_clauses.append("ya.tarih >= :baslangic_tarih")
+            params["baslangic_tarih"] = baslangic_tarih
+
+        if bitis_tarih:
+            where_clauses.append("ya.tarih <= :bitis_tarih")
+            params["bitis_tarih"] = bitis_tarih
+
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        # 2. Count Query (Total records for pagination)
+        count_query = (
+            "SELECT COUNT(*) FROM yakit_alimlari ya JOIN araclar a ON ya.arac_id = a.id"
+        )
+        if where_clauses:
+            count_query += " WHERE " + " AND ".join(where_clauses)
+
+        total_count = await self.execute_scalar(count_query, params)
+
+        # 3. Data Query
         order_direction = "DESC" if desc else "ASC"
-        
         # SQL Injection Prevention for dynamic ORDER BY
         query += f" ORDER BY ya.tarih {order_direction}, ya.km_sayac {order_direction} LIMIT :limit OFFSET :offset"
         params["limit"] = limit
         params["offset"] = offset
 
-        return await self.execute_query(query, params)
+        records = await self.execute_query(query, params)
+        return {"items": records, "total": total_count}
 
     async def add(
         self,
-        tarih: str,
+        tarih: date,
         arac_id: int,
-        istasyon: str,
+        istasyon: Optional[str],
         fiyat: float,
         litre: float,
         km_sayac: int,
-        fis_no: str = "",
+        fis_no: Optional[str] = None,
         depo_durumu: str = "Bilinmiyor",
-        **kwargs
+        toplam_tutar: Optional[float] = None,
     ) -> int:
         """Yeni yakıt alımı ekle"""
-        toplam = round(fiyat * litre, 2)
-
-        if isinstance(tarih, str):
-            tarih_obj = date.fromisoformat(tarih)
-        else:
-            tarih_obj = tarih
+        # Eğer dışarıdan hesaplanmış geldiyse onu kullan, yoksa burada hesapla
+        toplam = (
+            toplam_tutar
+            if toplam_tutar is not None and toplam_tutar > 0
+            else round(float(fiyat) * float(litre), 2)
+        )
 
         return await self.create(
-            tarih=tarih_obj,
+            tarih=tarih,
             arac_id=arac_id,
             istasyon=istasyon,
             fiyat_tl=fiyat,
@@ -82,8 +111,24 @@ class YakitRepository(BaseRepository[YakitAlimi]):
             km_sayac=km_sayac,
             fis_no=fis_no,
             depo_durumu=depo_durumu,
-            durum='Bekliyor',
-            **kwargs
+            durum="Bekliyor",
+        )
+
+    async def check_duplicate(self, arac_id: int, tarih: date, litre: float) -> bool:
+        """Aynı araç, tarih ve miktar için kayıt var mı kontrol et"""
+        query = """
+            SELECT EXISTS(
+                SELECT 1 FROM yakit_alimlari 
+                WHERE arac_id = :arac_id 
+                AND tarih = :tarih 
+                AND litre = :litre 
+                AND aktif = TRUE
+            )
+        """
+        return bool(
+            await self.execute_scalar(
+                query, {"arac_id": arac_id, "tarih": tarih, "litre": litre}
+            )
         )
 
     async def get_son_km(self, arac_id: int) -> Optional[int]:
@@ -94,18 +139,29 @@ class YakitRepository(BaseRepository[YakitAlimi]):
             WHERE arac_id = :arac_id
         """
         result = await self.execute_scalar(query, {"arac_id": arac_id})
-        return result
+        return int(result) if result is not None else None
 
-    async def update_yakit(self, id: int, **kwargs) -> bool:
+    async def update_yakit(self, id: int, **kwargs: Any) -> bool:
         """Yakıt alımı güncelle"""
-        allowed = ["tarih", "arac_id", "istasyon", "fiyat_tl", "litre",
-                   "km_sayac", "fis_no", "depo_durumu", "durum"]
+        allowed = [
+            "tarih",
+            "arac_id",
+            "istasyon",
+            "fiyat_tl",
+            "litre",
+            "km_sayac",
+            "fis_no",
+            "depo_durumu",
+            "durum",
+        ]
 
         updates = {k: v for k, v in kwargs.items() if k in allowed}
 
         # Toplam tutarı yeniden hesapla
         if "fiyat_tl" in updates and "litre" in updates:
-            updates["toplam_tutar"] = round(updates["fiyat_tl"] * updates["litre"], 2)
+            updates["toplam_tutar"] = round(
+                float(updates["fiyat_tl"]) * float(updates["litre"]), 2
+            )
 
         return await self.update(id, **updates)
 
@@ -114,9 +170,7 @@ class YakitRepository(BaseRepository[YakitAlimi]):
     # =========================================================================
 
     async def save_fuel_periods(
-        self,
-        periods: List[Any],
-        clear_existing: bool = False
+        self, periods: List[Any], clear_existing: bool = False
     ) -> int:
         """
         Yakıt periyotlarını toplu kaydet (Async).
@@ -124,23 +178,24 @@ class YakitRepository(BaseRepository[YakitAlimi]):
         if not periods:
             return 0
 
-        from sqlalchemy import text
+        session = self.session
+        try:
+            if clear_existing:
+                arac_ids = set(p.arac_id for p in periods)
+                for arac_id in arac_ids:
+                    await session.execute(
+                        text(
+                            "DELETE FROM yakit_periyotlari WHERE arac_id = :arac_id"
+                        ),
+                        {"arac_id": arac_id},
+                    )
 
-        async with self._get_session() as session:
-            try:
-                if clear_existing:
-                    arac_ids = set(p.arac_id for p in periods)
-                    for arac_id in arac_ids:
-                        await session.execute(
-                            text("DELETE FROM yakit_periyotlari WHERE arac_id = :arac_id"),
-                            {"arac_id": arac_id}
-                        )
-
-                count = 0
-                # Bulk Insert Data Preparation
-                insert_data = []
-                for p in periods:
-                    insert_data.append({
+            count = 0
+            # Bulk Insert Data Preparation
+            insert_data = []
+            for p in periods:
+                insert_data.append(
+                    {
                         "arac_id": p.arac_id,
                         "alim1_id": p.alim1_id,
                         "alim2_id": p.alim2_id,
@@ -152,27 +207,30 @@ class YakitRepository(BaseRepository[YakitAlimi]):
                         "ara_mesafe": p.ara_mesafe,
                         "toplam_yakit": p.toplam_yakit,
                         "ort_tuketim": p.ort_tuketim,
-                        "durum": p.durum
-                    })
+                        "durum": p.durum,
+                    }
+                )
 
-                # Core Insert
-                stmt = insert(YakitPeriyodu).values(insert_data)
-                
-                # Execute Bulk Insert
-                result = await session.execute(stmt)
-                count = len(insert_data)
-                
-                if not self.session:
-                    await session.commit()
+            # Core Insert
+            stmt = insert(YakitPeriyodu).values(insert_data)
 
-                logger.info(f"Saved {count} fuel periods (Bulk)")
-                return count
-            except Exception as e:
-                if not self.session:
-                    await session.rollback()
-                raise e
+            # Execute Bulk Insert
+            await session.execute(stmt)
+            count = len(insert_data)
 
-    async def get_fuel_periods(self, arac_id: int, limit: int = 20) -> List[Dict]:
+            if not self.session:
+                await session.commit()
+
+            logger.info(f"Saved {count} fuel periods (Bulk)")
+            return count
+        except Exception as e:
+            if not self.session:
+                await session.rollback()
+            raise e
+
+    async def get_fuel_periods(
+        self, arac_id: int, limit: int = 20
+    ) -> List[Dict[str, Any]]:
         """Aracın yakıt periyotlarını getir"""
         query = """
             SELECT * FROM yakit_periyotlari 
@@ -182,13 +240,76 @@ class YakitRepository(BaseRepository[YakitAlimi]):
         """
         return await self.execute_query(query, {"arac_id": arac_id, "limit": limit})
 
+    async def get_stats(
+        self,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Yakıt istatistiklerini getir (Gerçek L/100km Hesaplamalı)"""
+        # 1. Toplam Yakıt ve Maliyet (YakitAlimi)
+        fuel_query = """
+            SELECT 
+                SUM(litre) as total_consumption,
+                SUM(toplam_tutar) as total_cost,
+                AVG(fiyat_tl) as avg_price
+            FROM yakit_alimlari
+            WHERE aktif = TRUE
+        """
+        params = {}
+        if baslangic_tarih:
+            fuel_query += " AND tarih >= :start"
+            params["start"] = baslangic_tarih
+        if bitis_tarih:
+            fuel_query += " AND tarih <= :end"
+            params["end"] = bitis_tarih
 
-# Thread-safe Singleton
-import threading
-from sqlalchemy.ext.asyncio import AsyncSession
+        fuel_rows = await self.execute_query(fuel_query, params)
+        if fuel_rows and fuel_rows[0].get("total_consumption") is not None:
+            fuel_stats = {
+                "total_consumption": float(fuel_rows[0]["total_consumption"]),
+                "total_cost": float(fuel_rows[0]["total_cost"]),
+                "avg_price": float(fuel_rows[0]["avg_price"] or 0.0),
+            }
+        else:
+            fuel_stats = {
+                "total_consumption": 0.0,
+                "total_cost": 0.0,
+                "avg_price": 0.0,
+            }
+
+        # 2. Toplam Mesafe (Seferler) - L/100km için gerekli
+        dist_query = "SELECT SUM(mesafe_km) as total_distance FROM seferler WHERE 1=1"
+        dist_params = {}
+        if baslangic_tarih:
+            dist_query += " AND tarih >= :start"
+            dist_params["start"] = baslangic_tarih
+        if bitis_tarih:
+            dist_query += " AND tarih <= :end"
+            dist_params["end"] = bitis_tarih
+
+        dist_rows = await self.execute_query(dist_query, dist_params)
+        total_distance = (
+            float(dist_rows[0].get("total_distance") or 0.0) if dist_rows else 0.0
+        )
+
+        # 3. L/100km Hesapla
+        # Eğer mesafe 0 ise fallback olarak 0 döner.
+        avg_consumption = 0.0
+        if total_distance > 0:
+            avg_consumption = (fuel_stats["total_consumption"] / total_distance) * 100
+
+        return {
+            "total_consumption": fuel_stats["total_consumption"],
+            "total_cost": fuel_stats["total_cost"],
+            "avg_consumption": avg_consumption,
+            "avg_price": fuel_stats["avg_price"],
+            "total_distance": total_distance,
+        }
+
 
 _yakit_repo_lock = threading.Lock()
 _yakit_repo: Optional[YakitRepository] = None
+
 
 def get_yakit_repo(session: Optional[AsyncSession] = None) -> YakitRepository:
     """YakitRepo Provider. Eğer session verilirse yeni instance döner (UoW için)."""

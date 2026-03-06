@@ -9,52 +9,42 @@ Güvenlik kontrolleri:
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
-from app.schemas.validators import sanitize_string, validate_safe_string
+from app.schemas.validators import validate_safe_string
 
 
 class YakitBase(BaseModel):
     """Yakıt base model - ortak alanlar."""
-    
+
     tarih: date
     arac_id: int = Field(..., gt=0, le=999999999)
     istasyon: Optional[str] = Field(None, max_length=100)
     fiyat_tl: Decimal = Field(
-        ..., 
-        gt=0,
-        le=1000,
-        decimal_places=2,
-        description="Litre fiyatı (TL)"
+        ..., gt=0, le=1000, decimal_places=2, description="Litre fiyatı (TL)"
     )
     litre: Decimal = Field(
-        ..., 
-        gt=0,
-        le=10000,
-        decimal_places=2,
-        description="Alınan yakıt (litre)"
+        ..., gt=0, le=10000, decimal_places=2, description="Alınan yakıt (litre)"
     )
     toplam_tutar: Decimal = Field(
-        ..., 
-        gt=0,
-        le=1000000,
-        decimal_places=2,
-        description="Toplam tutar (TL)"
+        ..., gt=0, le=1000000, decimal_places=2, description="Toplam tutar (TL)"
     )
     km_sayac: int = Field(..., gt=0, le=9999999, description="Kilometre sayacı")
     fis_no: Optional[str] = Field(None, max_length=50)
-    depo_durumu: Literal["Bilinmiyor", "Doldu", "Kısmi"] = Field("Bilinmiyor")
-    durum: Literal["Bekliyor", "Onaylandı", "Reddedildi"] = Field("Bekliyor")
-    
-    @field_validator('istasyon', 'fis_no', mode='before')
+    depo_durumu: Literal["Bilinmiyor", "Doldu", "Dolu", "Kısmi"] = Field("Bilinmiyor")
+    durum: Literal["Bekliyor", "Onaylandi", "Reddedildi", "Onaylandı"] = Field(
+        "Bekliyor"
+    )
+
+    @field_validator("istasyon", "fis_no", mode="before")
     @classmethod
     def validate_strings(cls, v: Optional[str]) -> Optional[str]:
         """String alanları XSS koruması."""
         return validate_safe_string(v)
-    
-    @field_validator('toplam_tutar')
+
+    @field_validator("toplam_tutar")
     @classmethod
     def validate_toplam_tutar(cls, v: Decimal, info) -> Decimal:
         """Toplam tutar = fiyat * litre kontrolü (yaklaşık)."""
@@ -65,12 +55,16 @@ class YakitBase(BaseModel):
 
 class YakitCreate(YakitBase):
     """Yakıt oluşturma şeması."""
-    pass
+
+    # Backend hesaplaması için opsiyonel yap
+    toplam_tutar: Optional[Decimal] = Field(
+        None, gt=0, le=1000000, decimal_places=2, description="Opsiyonel (Hesaplanır)"
+    )
 
 
 class YakitUpdate(BaseModel):
     """Yakıt güncelleme şeması - tüm alanlar optional."""
-    
+
     tarih: Optional[date] = None
     arac_id: Optional[int] = Field(None, gt=0)
     istasyon: Optional[str] = Field(None, max_length=100)
@@ -79,10 +73,10 @@ class YakitUpdate(BaseModel):
     toplam_tutar: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
     km_sayac: Optional[int] = Field(None, gt=0)
     fis_no: Optional[str] = Field(None, max_length=50)
-    depo_durumu: Optional[Literal["Bilinmiyor", "Doldu", "Kısmi"]] = None
+    depo_durumu: Optional[Literal["Bilinmiyor", "Doldu", "Dolu", "Kısmi"]] = None
     durum: Optional[Literal["Bekliyor", "Onaylandı", "Reddedildi"]] = None
-    
-    @field_validator('istasyon', 'fis_no', mode='before')
+
+    @field_validator("istasyon", "fis_no", mode="before")
     @classmethod
     def validate_strings(cls, v: Optional[str]) -> Optional[str]:
         """String alanları XSS koruması."""
@@ -92,25 +86,27 @@ class YakitUpdate(BaseModel):
 class YakitResponse(YakitBase):
     """
     Yakıt response şeması - API çıktısı.
-    
+
     [HEALING] Finansal verilerin görünürlüğünü garanti eder.
     """
-    
+
     id: int
     created_at: datetime
+    plaka: Optional[str] = None
 
-    @field_validator('fiyat_tl', 'litre', 'toplam_tutar', mode='before')
+    @field_validator("fiyat_tl", "litre", "toplam_tutar", mode="before")
     @classmethod
     def heal_amounts(cls, v: Any) -> Decimal:
         """Geçersiz tutarları 0'a çekmek yerine minimum 0.01 veya 0 yapar (Görünürlük için)"""
-        if v is None: return Decimal('0')
+        if v is None:
+            return Decimal("0")
         try:
             val = Decimal(str(v))
-            return val if val >= 0 else Decimal('0')
+            return val if val >= 0 else Decimal("0")
         except (ValueError, TypeError, Exception):
-            return Decimal('0')
+            return Decimal("0")
 
-    @field_validator('km_sayac', mode='before')
+    @field_validator("km_sayac", mode="before")
     @classmethod
     def heal_km(cls, v: Any) -> int:
         """Geçersiz KM verisini 0 olarak gösterir (Hata fırlatmaz)"""
@@ -119,4 +115,22 @@ class YakitResponse(YakitBase):
         except (ValueError, TypeError):
             return 0
 
+    # Frontend uyumu için fiyat_tl'yi birim_fiyat olarak da döndür
+    @computed_field
+    @property
+    def birim_fiyat(self) -> Decimal:
+        """Frontend için fiyat_tl alias'ı."""
+        return self.fiyat_tl
+
+
+class YakitListResponse(BaseModel):
+    """Yakıt listesi response şeması (Sayfalı)."""
+
+    items: List[YakitResponse]
+    total: int
+
     model_config = ConfigDict(from_attributes=True)
+
+
+# For forward references
+YakitListResponse.model_rebuild()

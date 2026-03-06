@@ -2,16 +2,14 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock
+from starlette.websockets import WebSocketDisconnect
 
 from app.main import app
 from app.api.v1.endpoints.admin_ws import training_ws_manager
-
-client = TestClient(app)
-
-
-from starlette.websockets import WebSocketDisconnect
 from app.infrastructure.security.jwt_handler import create_access_token
 from app.config import settings
+
+client = TestClient(app)
 
 
 @pytest.mark.asyncio

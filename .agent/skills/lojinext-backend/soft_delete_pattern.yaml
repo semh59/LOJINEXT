@@ -1,0 +1,129 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Soft Delete Pattern
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Soft Delete Pattern"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "delete"
+  - "soft delete"
+  - "is_active"
+  - "silme"
+
+# ════════════════════════════════════════════════════════════════════════════
+project_convention:
+  field_name: "is_active"
+  default_value: true
+  deleted_value: false
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  model_setup:
+    description: "Model'de soft delete"
+    code: |
+      class Vehicle(Base):
+          __tablename__ = "araclar"
+          
+          id = Column(Integer, primary_key=True)
+          plaka = Column(String, unique=True, index=True)
+          # ... other fields ...
+          
+          # Soft delete fields
+          is_active = Column(Boolean, default=True, nullable=False)
+          deleted_at = Column(DateTime, nullable=True)
+
+  soft_delete:
+    description: "Soft delete işlemi"
+    code: |
+      async def delete(self, id: int) -> bool:
+          entity = await self.get_by_id(id)
+          if not entity:
+              return False
+          
+          entity.is_active = False
+          entity.deleted_at = datetime.utcnow()
+          await self.db.commit()
+          return True
+
+  query_filter:
+    description: "Query'lerde soft delete filter"
+    code: |
+      # Sadece aktif kayıtları getir
+      async def get_all(self, include_deleted: bool = False):
+          query = select(Vehicle)
+          
+          if not include_deleted:
+              query = query.where(Vehicle.is_active == True)
+          
+          result = await self.db.execute(query)
+          return result.scalars().all()
+
+      # Tek kayıt için
+      async def get_by_id(self, id: int, include_deleted: bool = False):
+          query = select(Vehicle).where(Vehicle.id == id)
+          
+          if not include_deleted:
+              query = query.where(Vehicle.is_active == True)
+          
+          result = await self.db.execute(query)
+          return result.scalar_one_or_none()
+
+  restore:
+    description: "Restore (geri getirme)"
+    code: |
+      async def restore(self, id: int) -> bool:
+          entity = await self.get_by_id(id, include_deleted=True)
+          if not entity or entity.is_active:
+              return False
+          
+          entity.is_active = True
+          entity.deleted_at = None
+          await self.db.commit()
+          return True
+
+  hard_delete:
+    description: "Kalıcı silme (admin only)"
+    code: |
+      async def hard_delete(self, id: int) -> bool:
+          """⚠️ DIKKAT: Geri alınamaz!"""
+          entity = await self.get_by_id(id, include_deleted=True)
+          if not entity:
+              return False
+          
+          await self.db.delete(entity)
+          await self.db.commit()
+          return True
+
+# ════════════════════════════════════════════════════════════════════════════
+endpoints:
+  delete: |
+    @router.delete("/{id}", status_code=204)
+    async def delete_vehicle(id: int, db: AsyncSession = Depends(get_db)):
+        repo = VehicleRepository(db)
+        success = await repo.delete(id)
+        if not success:
+            raise HTTPException(404, "Araç bulunamadı")
+
+  restore: |
+    @router.post("/{id}/restore")
+    async def restore_vehicle(
+        id: int, 
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(require_admin)  # Admin only
+    ):
+        repo = VehicleRepository(db)
+        success = await repo.restore(id)
+        if not success:
+            raise HTTPException(404, "Araç bulunamadı veya zaten aktif")
+        return {"message": "Araç restore edildi"}
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Default: is_active=True"
+  - "Tüm query'lerde filter uygula"
+  - "deleted_at ile ne zaman silindiğini tut"
+  - "Hard delete sadece admin için"
+  - "Cascade soft delete düşün (parent silinince children)"
+  - "Unique constraint'lerde dikkat (deleted items)"

@@ -1,12 +1,13 @@
-from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 
-from app.schemas.lokasyon import LokasyonCreate, LokasyonUpdate, LokasyonResponse
 from app.database.repositories.lokasyon_repo import get_lokasyon_repo
 from app.infrastructure.events.event_bus import EventType, get_event_bus, publishes
 from app.infrastructure.logging.logger import get_logger
+from app.schemas.lokasyon import LokasyonCreate, LokasyonResponse, LokasyonUpdate
 
 logger = get_logger(__name__)
+
 
 class LokasyonService:
     """Lokasyon/Güzergah iş mantığı servisi"""
@@ -17,31 +18,64 @@ class LokasyonService:
 
     @publishes(EventType.LOKASYON_ADDED)
     async def add_lokasyon(self, data: LokasyonCreate) -> int:
-        """Yeni güzergah oluştur (Duplicate Check)"""
+        """
+        Yeni lokasyon/güzergah ekle.
+        """
+        # Normalize names to prevent duplicates (e.g., Istanbul vs İstanbul)
+        # We store display names as title-cased for UI consistency
+        data.cikis_yeri = data.cikis_yeri.strip().title()
+        data.varis_yeri = data.varis_yeri.strip().title()
+
+        # We use consistent normalization for checking existing records
+        # in the repository (which now handles it in SQL)
         existing = await self.repo.get_by_route(data.cikis_yeri, data.varis_yeri)
         if existing:
-            if existing.get('aktif'):
-                raise ValueError(f"Bu güzergah zaten mevcut: {data.cikis_yeri} -> {data.varis_yeri}")
+            if existing.get("aktif"):
+                raise ValueError(
+                    f"Bu güzergah zaten mevcut: {data.cikis_yeri} -> {data.varis_yeri}"
+                )
             else:
                 # Pasif ise geri getir ve güncelle
-                logger.info(f"Pasif lokasyon tekrar aktifleştiriliyor: {data.cikis_yeri} -> {data.varis_yeri}")
-                await self.repo.update(
-                    existing['id'],
-                    aktif=True,
-                    **data.model_dump(exclude_unset=True)
+                logger.info(
+                    f"Pasif lokasyon tekrar aktifleştiriliyor: {data.cikis_yeri} -> {data.varis_yeri}"
                 )
-                return existing['id']
+                await self.repo.update(
+                    existing["id"], aktif=True, **data.model_dump(exclude_unset=True)
+                )
+                return existing["id"]
 
-        lokasyon_id = await self.repo.add(
-            **data.model_dump()
-        )
+        lokasyon_id = await self.repo.add(**data.model_dump())
         logger.info(f"Yeni güzergah eklendi: ID {lokasyon_id}")
+
+        # Rota analizi yap (Opsiyonel - eğer koordinatlar varsa veya sadece isimden bulmaya çalışıyorsak)
+        # Şimdilik sadece koordinat varsa veya isimlerden bulmaya çalışıyorsak tetikleyebiliriz.
+        # create_guzergah mantığını buraya taşıyoruz:
+        payload = data.model_dump()
+        if all(
+            [
+                payload.get("cikis_lat"),
+                payload.get("cikis_lon"),
+                payload.get("varis_lat"),
+                payload.get("varis_lon"),
+            ]
+        ):
+            try:
+                # Arka planda analiz başlatılabilir veya senkron yapılabilir.
+                # create_guzergah senkron yapıyordu, biz de öyle yapalım şimdilik.
+                await self.analyze_route(lokasyon_id)
+            except Exception as e:
+                logger.warning(
+                    f"Otomatik rota analizi başarısız (ID: {lokasyon_id}): {e}"
+                )
+
         return lokasyon_id
 
     @publishes(EventType.LOKASYON_UPDATED)
     async def update_lokasyon(self, lokasyon_id: int, data: LokasyonUpdate) -> bool:
         """Güzergah güncelle"""
-        success = await self.repo.update(lokasyon_id, **data.model_dump(exclude_unset=True))
+        success = await self.repo.update(
+            lokasyon_id, **data.model_dump(exclude_unset=True)
+        )
         if success:
             logger.info(f"Güzergah güncellendi: ID {lokasyon_id}")
         return success
@@ -54,22 +88,28 @@ class LokasyonService:
             if not current:
                 return False
 
-            if current.get('aktif'):
+            if current.get("aktif"):
                 # Soft Delete
                 success = await self.repo.update(lokasyon_id, aktif=False)
                 if success:
-                    logger.info(f"Güzergah pasife alındı (Soft Deleted): ID {lokasyon_id}")
+                    logger.info(
+                        f"Güzergah pasife alındı (Soft Deleted): ID {lokasyon_id}"
+                    )
                 return success
             else:
                 # Hard Delete
                 try:
                     success = await self.repo.hard_delete(lokasyon_id)
                     if success:
-                        logger.info(f"Güzergah tamamen silindi (Hard Deleted): ID {lokasyon_id}")
+                        logger.info(
+                            f"Güzergah tamamen silindi (Hard Deleted): ID {lokasyon_id}"
+                        )
                     return success
                 except Exception as e:
                     logger.warning(f"Hard delete engellendi: {e}")
-                    raise ValueError("Bu güzergah silinemez (bağımlı veriler olabilir).")
+                    raise ValueError(
+                        "Bu güzergah silinemez (bağımlı veriler olabilir)."
+                    )
         except ValueError:
             raise
         except Exception as e:
@@ -82,117 +122,91 @@ class LokasyonService:
         limit: int = 100,
         aktif_only: bool = True,
         zorluk: Optional[str] = None,
-        search: Optional[str] = None
-    ) -> List[LokasyonResponse]:
-        """Sayfalı ve filtreli lokasyon listesi (Güvenli Katman)"""
-        # Note: LokasyonRepo.get_all doesn't support filters yet in this version, 
-        # but BaseRepository.get_all does. LokasyonRepo.get_all just passes order_by.
-        # We'll use BaseRepo power via filters dict.
-        
+        search: Optional[str] = None,
+    ) -> dict:
+        """Sayfalı ve filtreli lokasyon listesi + Toplam Sayı"""
         filters = {}
         if zorluk:
-            filters['zorluk'] = zorluk
+            filters["zorluk"] = zorluk
         if search:
-            filters['search'] = search
+            filters["search"] = search
 
+        # Get records
         records = await self.repo.get_all(
-            offset=skip,
-            limit=limit,
-            include_inactive=not aktif_only,
-            filters=filters
+            offset=skip, limit=limit, include_inactive=not aktif_only, filters=filters
         )
-        
-        results = []
+
+        # Get total count (new repo method needed or generic count)
+        total = await self.repo.count(filters=filters, include_inactive=not aktif_only)
+
+        items = []
         for r in records:
             try:
-                results.append(LokasyonResponse.model_validate(dict(r)))
+                items.append(LokasyonResponse.model_validate(dict(r)))
             except Exception as e:
                 logger.error(f"Lokasyon validasyon hatasi (ID {r.get('id')}): {e}")
                 continue
-        return results
+
+        return {"items": items, "total": total}
 
     async def analyze_route(self, lokasyon_id: int) -> dict:
-        """OpenRouteService kullanarak güzergahı analiz et ve güncelle"""
-        current = await self.repo.get_by_id(lokasyon_id)
-        if not current:
-            raise ValueError("Güzergah bulunamadı")
+        """Hibrit RouteService kullanarak güzergahı analiz et ve güncelle"""
+        # Centralized logic via RouteService (Hybrid + Validation support)
+        from app.services.route_service import get_route_service
 
-        if not all([current.get('cikis_lat'), current.get('cikis_lon'), current.get('varis_lat'), current.get('varis_lon')]):
-            raise ValueError("Analiz için koordinatlar gerekli.")
+        # 1. Lokasyon bilgilerini getir
+        loc = await self.repo.get_by_id(lokasyon_id)
+        if not loc or not all(
+            [
+                loc.get("cikis_lat"),
+                loc.get("cikis_lon"),
+                loc.get("varis_lat"),
+                loc.get("varis_lon"),
+            ]
+        ):
+            raise ValueError(f"Lokasyon {lokasyon_id} koordinat bilgileri eksik.")
 
-        from app.services.route_service import RouteService
-        import asyncio
+        # 2. RouteService üzerinden analiz yap (Hybrid: ORS -> Validator -> Mapbox Fallback)
+        route_service = get_route_service()
+        # RouteService accepts (lon, lat) tuples
+        start_coords = (loc["cikis_lon"], loc["cikis_lat"])
+        end_coords = (loc["varis_lon"], loc["varis_lat"])
 
-        service = RouteService()
-        result = await asyncio.to_thread(
-            service.get_route_details,
-            (current['cikis_lon'], current['cikis_lat']),
-            (current['varis_lon'], current['varis_lat'])
+        # use_cache=False because we want fresh analysis/correction
+        result = await route_service.get_route_details(
+            start_coords, end_coords, use_cache=False
         )
 
         if "error" in result:
-            raise ValueError(f"API Hatası: {result['error']}")
+            raise ValueError(f"Analiz hatası: {result['error']}")
 
-        # Update data
-        update_data = {
-            "api_mesafe_km": result.get("distance_km"),
-            "api_sure_saat": result.get("duration_min", 0) / 60,
-            "ascent_m": result.get("ascent_m"),
-            "descent_m": result.get("descent_m"),
-            "last_api_call": datetime.now(),
-            "zorluk": service.analyze_route_difficulty(
-                result.get("ascent_m", 0),
-                result.get("descent_m", 0),
-                result.get("distance_km", 0)
-            )
-        }
+        # 3. Sonuçları veritabanına yansıt
+        await self.repo.update(
+            lokasyon_id,
+            mesafe_km=result["distance_km"],
+            tahmini_sure_saat=round(result["duration_min"] / 60, 2),
+            api_mesafe_km=result["distance_km"],
+            api_sure_saat=round(result["duration_min"] / 60, 2),
+            ascent_m=result["ascent_m"],
+            descent_m=result["descent_m"],
+            flat_distance_km=result["flat_distance_km"],
+            otoban_mesafe_km=result.get("otoban_mesafe_km"),
+            sehir_ici_mesafe_km=result.get("sehir_ici_mesafe_km"),
+            zorluk=result.get("difficulty", loc.get("zorluk", "Normal")),
+            source=result.get("source"),
+            is_corrected=result.get("is_corrected", False),
+            correction_reason=result.get("correction_reason"),
+            route_analysis=result.get("route_analysis"),
+            last_api_call=datetime.now(timezone.utc),
+        )
 
-        await self.repo.update(lokasyon_id, **update_data)
-        logger.info(f"Güzergah analiz edildi ve güncellendi: ID {lokasyon_id}")
-        
-        # Extract elevation profile for frontend chart
-        geometry = result.get("geometry", {})
-        coords = geometry.get("coordinates", [])
-        
-        elevation_profile = []
-        total_dist_m = 0.0
-        
-        def haversine(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-            import math
-            R = 6371000
-            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-            dphi = math.radians(lat2 - lat1)
-            dlamb = math.radians(lon2 - lon1)
-            a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlamb / 2) ** 2
-            return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        if coords:
-            # First point
-            elevation_profile.append({
-                "distance_km": 0.0,
-                "elevation_m": round(coords[0][2], 1) if len(coords[0]) > 2 else 0.0
-            })
-            
-            # Sampling logic: If many points, take every Nth point to avoid large payload
-            # or just take all for high resolution
-            for i in range(1, len(coords)):
-                p1 = coords[i - 1]
-                p2 = coords[i]
-                d = haversine(p1[0], p1[1], p2[0], p2[1])
-                total_dist_m += d
-                
-                # Sample every ~1km or just use all if route is short
-                if i % 10 == 0 or i == len(coords) - 1:
-                    elevation_profile.append({
-                        "distance_km": round(total_dist_m / 1000, 2),
-                        "elevation_m": round(p2[2], 1) if len(p2) > 2 else 0.0
-                    })
-
-        result["elevation_profile"] = elevation_profile
-        
-        # Return merged or just success
+        logger.info(
+            f"Güzergah {lokasyon_id} hibrit servis ile güncellendi. Kaynak: {result.get('source')}"
+        )
         return result
+
 
 def get_lokasyon_service() -> LokasyonService:
     from app.core.container import get_container
+
     return get_container().lokasyon_service

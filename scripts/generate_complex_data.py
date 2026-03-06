@@ -3,7 +3,6 @@ import sqlite3
 import random
 from datetime import datetime, timedelta
 import sys
-import os
 
 # Veritabanı yolu
 DB_PATH = "d:/PROJECT/excel/app/data/yakit_takip.db"
@@ -138,7 +137,7 @@ def generate_complex_data():
     conn.commit()
     print("\n--- Simülasyon Tamamlandı ---")
     print(f"Toplam Yol: {current_km - 120000} km")
-    print(f"Simülasyonu veritabanına işledim. Şimdi AnalizService bu 'Parçalı' veriyi işlemeli.")
+    print("Simülasyonu veritabanına işledim. Şimdi AnalizService bu 'Parçalı' veriyi işlemeli.")
 
 if __name__ == "__main__":
     generate_complex_data()

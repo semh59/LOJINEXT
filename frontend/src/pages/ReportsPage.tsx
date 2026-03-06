@@ -29,9 +29,31 @@ export default function ReportsPage() {
     const handleDownload = async (type: string) => {
         notify('info', 'Hazırlanıyor...', 'Rapor oluşturuluyor, lütfen bekleyin.')
         try {
-            await reportsApi.downloadPdf(type)
+            let id: number | undefined = undefined
+            let params: Record<string, any> = {}
+
+            if (type === 'vehicle_detail') {
+                const vehicleId = prompt('Lütfen araç ID giriniz (Örn: 1):')
+                if (!vehicleId) return
+                id = Number(vehicleId)
+                params = { month: new Date().getMonth() + 1, year: new Date().getFullYear() }
+            }
+
+            const blob = await reportsApi.downloadPdf(type, id, params)
+            
+            // Link oluştur ve indir
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `${type}_${new Date().toISOString().split('T')[0]}.pdf`
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+            
             notify('success', 'İndirildi', 'Rapor başarıyla indirildi.')
-        } catch {
+        } catch (err) {
+            console.error(err)
             notify('error', 'Hata', 'Rapor oluşturulamadı.')
         }
     }

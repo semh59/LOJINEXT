@@ -1,13 +1,24 @@
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { useAuth } from '../context/AuthContext'
 import { Eye, EyeOff, Truck, Lock, User, AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 
-// Circular Progress Component - Rate Limit Countdown için
+import { Button } from '../components/ui/Button'
+
+// Validation Schema
+const loginSchema = z.object({
+    username: z.string().min(1, 'Kullanıcı adı gerekli'),
+    password: z.string().min(1, 'Şifre gerekli'),
+})
+
+type LoginFormValues = z.infer<typeof loginSchema>
+
+// Circular Progress for Rate Limit
 function CircularProgress({ value, max }: { value: number; max: number }) {
     const radius = 18
     const circumference = 2 * Math.PI * radius
@@ -15,7 +26,6 @@ function CircularProgress({ value, max }: { value: number; max: number }) {
 
     return (
         <svg className="w-10 h-10 -rotate-90" viewBox="0 0 44 44">
-            {/* Arka plan dairesi */}
             <circle
                 cx="22"
                 cy="22"
@@ -25,7 +35,6 @@ function CircularProgress({ value, max }: { value: number; max: number }) {
                 strokeWidth="3"
                 className="text-slate-200"
             />
-            {/* Progress dairesi */}
             <circle
                 cx="22"
                 cy="22"
@@ -36,7 +45,7 @@ function CircularProgress({ value, max }: { value: number; max: number }) {
                 strokeLinecap="round"
                 strokeDasharray={circumference}
                 strokeDashoffset={progress}
-                className="text-red-500 transition-all duration-1000"
+                className="text-primary transition-all duration-1000"
             />
         </svg>
     )
@@ -45,243 +54,210 @@ function CircularProgress({ value, max }: { value: number; max: number }) {
 export default function LoginPage() {
     const navigate = useNavigate()
     const { login, isLoading } = useAuth()
-
-    const [username, setUsername] = useState('')
-    const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [showErrorGlow, setShowErrorGlow] = useState(false)
     const [failedAttempts, setFailedAttempts] = useState(0)
     const [lockoutTime, setLockoutTime] = useState<number | null>(null)
     const [remainingSeconds, setRemainingSeconds] = useState(0)
 
-    // Rate Limiting Logic via Local State
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<LoginFormValues>({
+        resolver: zodResolver(loginSchema),
+    })
+
+    // Handle Rate Limiting
     useEffect(() => {
         if (lockoutTime) {
             const timer = setInterval(() => {
-                const remaining = Math.ceil((lockoutTime - Date.now()) / 1000)
-                setRemainingSeconds(Math.max(0, remaining))
-                if (remaining <= 0) {
+                const now = Date.now()
+                if (now >= lockoutTime) {
                     setLockoutTime(null)
                     setFailedAttempts(0)
-                    setError(null)
+                } else {
+                    setRemainingSeconds(Math.ceil((lockoutTime - now) / 1000))
                 }
-            }, 100) // Daha smooth countdown için 100ms
+            }, 1000)
             return () => clearInterval(timer)
         }
     }, [lockoutTime])
 
-    // Error glow efekti için timer (2 saniye)
-    useEffect(() => {
-        if (error && !lockoutTime) {
-            setShowErrorGlow(true)
-            const timer = setTimeout(() => setShowErrorGlow(false), 2000)
-            return () => clearTimeout(timer)
-        }
-    }, [error, lockoutTime])
-
-    const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault()
-        if (lockoutTime) return
-
+    const onSubmit = async (data: LoginFormValues) => {
         setError(null)
-
-        if (!username || !password) {
-            setError('Lütfen tüm alanları doldurun')
-            return
-        }
-
         try {
-            await login(username, password)
+            await login(data.username, data.password)
             navigate('/dashboard')
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Giriş yapılamadı'
-            setError(message)
-
-            // Increment failed attempts
+        } catch (err: any) {
             const newAttempts = failedAttempts + 1
             setFailedAttempts(newAttempts)
 
-            if (newAttempts >= 3) {
-                setLockoutTime(Date.now() + 30000) // 30 seconds
-                setRemainingSeconds(30)
+            if (err.response?.status === 429) {
+                const waitTime = 30 * 1000
+                setLockoutTime(Date.now() + waitTime)
                 setError('Çok fazla başarısız deneme. Lütfen bekleyin.')
+            } else {
+                setError('Kullanıcı adı veya şifre hatalı')
             }
         }
     }
 
     return (
-        <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center p-6 relative overflow-hidden font-sans">
-            {/* Abstract Geometric Premium Pattern Background */}
-            <div className="absolute inset-0 z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-gradient-to-br from-blue-400/20 to-indigo-400/10 rounded-full blur-[120px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-gradient-to-tl from-indigo-400/20 to-purple-400/10 rounded-full blur-[120px]" />
-                {/* Subtle grid pattern overlay */}
-                <div className="absolute inset-0 opacity-[0.02]" style={{
-                    backgroundImage: `
-                        linear-gradient(to right, #0F172A 1px, transparent 1px),
-                        linear-gradient(to bottom, #0F172A 1px, transparent 1px)
-                    `,
-                    backgroundSize: '40px 40px'
-                }} />
-            </div>
-
-            <motion.div
-                initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-                className="w-full max-w-[400px] relative z-10"
-            >
-                {/* Card with Glassmorphism & Error Glow */}
-                <motion.div
-                    animate={error ? { x: [-8, 8, -6, 6, -4, 4, 0] } : {}}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                    className={cn(
-                        "rounded-[32px] border backdrop-blur-xl p-12 transition-all duration-300",
-                        "bg-white/75 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)]",
-                        showErrorGlow
-                            ? "border-red-400/60 shadow-[0_0_40px_-5px_rgba(239,68,68,0.25)]"
-                            : "border-white/50"
-                    )}
-                >
-                    {/* Logo Area */}
-                    <div className="flex flex-col items-center mb-8">
-                        <motion.div
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 15 }}
-                            className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4"
-                        >
-                            <Truck className="text-white w-8 h-8" />
-                        </motion.div>
-                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">LojiNext AI</h1>
-                        <p className="text-sm text-slate-500 mt-1">TIR Yakıt Takip Sistemi</p>
+        <div className="font-sans min-h-screen flex items-center justify-center overflow-hidden bg-[var(--bg-dark)] text-slate-100">
+            <div className="relative w-full min-h-screen flex flex-col lg:flex-row">
+                {/* Left Section: High-tech Visual */}
+                <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[var(--bg-surface)] border-r border-white/5">
+                    {/* Abstract background image */}
+                    <div 
+                        className="absolute inset-0 bg-cover bg-center opacity-80 z-0" 
+                        style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCOAdPgRI1zO2loGtOPll5_3hxJ61EgmcWWrLLpNTg_rQWHpjlO-aZRrpBbcUIAGGHLjv5gVqhD6tMyJAovbEuklVFOGFW2TXDyYBebtN_blUX8u6bJ4nvd652-yrLJVUkcFnuUlSLRF0hBYv7V7Pp19WAjWdr3VGb6lzzooBMK3n63AT0Z7_Q5uDDJDIp1w24mS5p929vF8exlNF_gVnQGChXxRo8hVbh2eY-g_Ulv7WlKZNph0OITPTph19DfP7L3JHRV4wsmsKo')" }}
+                    />
+                    
+                    {/* Overlay Gradients for Depth */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-dark)] via-transparent to-transparent z-10"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--bg-dark)]/50 to-[var(--bg-dark)] z-10"></div>
+                    
+                    {/* Branding Text Overlay */}
+                    <div className="relative z-20 flex flex-col justify-end p-16 h-full text-slate-100">
+                        <div className="mb-0">
+                            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 text-[var(--color-primary)] text-xs font-black tracking-widest uppercase mb-6 backdrop-blur-md shadow-[0_0_15px_var(--glass-glow-cyan)]">
+                                <Truck className="w-4 h-4" />
+                                Next Gen Logistics
+                            </span>
+                            <h2 className="text-5xl font-bold leading-tight mb-4 tracking-tighter">Autonomous Fleet<br/>Intelligence</h2>
+                            <p className="text-slate-400 text-lg max-w-md font-sans">
+                                Real-time tracking, AI-powered route optimization, and predictive maintenance for the modern supply chain.
+                            </p>
+                        </div>
                     </div>
+                </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-5" role="form" aria-label="Giriş formu">
-                        <div className="space-y-1.5">
-                            <label htmlFor="username" className="text-sm font-medium text-slate-700 ml-1">
-                                Kullanıcı Adı
-                            </label>
-                            <div className="relative group">
-                                <Input
-                                    id="username"
-                                    autoComplete="username"
-                                    className={cn(
-                                        "h-12 rounded-[14px] bg-white/60 border-transparent pl-11 pr-4",
-                                        "focus:bg-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10",
-                                        "transition-all duration-200",
-                                        error && !lockoutTime && "border-red-400"
-                                    )}
-                                    placeholder="Kullanıcı adınızı girin"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    disabled={isLoading || !!lockoutTime}
-                                    aria-describedby={error ? "error-message" : undefined}
-                                />
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                            </div>
-                        </div>
+                {/* Right Section: Login Form */}
+                <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative bg-[var(--bg-dark)]">
+                    {/* Decorative background glow */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[var(--color-primary)]/5 rounded-full blur-[100px] pointer-events-none"></div>
+                    
+                    <div className="w-full max-w-[480px] z-10">
+                        {/* Glassmorphic Container */}
+                        <div className="relative glass-card shadow-2xl p-8 sm:p-10 overflow-hidden border border-white/5">
+                            {/* Decorative top line */}
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--color-primary)] to-transparent opacity-50"></div>
 
-                        <div className="space-y-1.5">
-                            <label htmlFor="password" className="text-sm font-medium text-slate-700 ml-1">
-                                Şifre
-                            </label>
-                            <div className="relative group">
-                                <Input
-                                    id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    autoComplete="current-password"
-                                    className={cn(
-                                        "h-12 rounded-[14px] bg-white/60 border-transparent pl-11 pr-12",
-                                        "focus:bg-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10",
-                                        "transition-all duration-200",
-                                        error && !lockoutTime && "border-red-400"
-                                    )}
-                                    placeholder="Şifrenizi girin"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    disabled={isLoading || !!lockoutTime}
-                                    aria-describedby={error ? "error-message" : undefined}
-                                />
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className={cn(
-                                        "absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-md",
-                                        "text-slate-400 hover:text-blue-600 hover:bg-blue-50",
-                                        "transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                    )}
-                                    disabled={isLoading || !!lockoutTime}
-                                    aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
-                                >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Error Message */}
-                        <AnimatePresence mode="wait">
-                            {error && (
-                                <motion.div
-                                    id="error-message"
-                                    role="alert"
-                                    initial={{ opacity: 0, y: -10, height: 0 }}
-                                    animate={{ opacity: 1, y: 0, height: 'auto' }}
-                                    exit={{ opacity: 0, y: -10, height: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 border border-red-100"
-                                >
-                                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                    <span className="text-xs text-red-600 font-medium">{error}</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Rate Limit Countdown UI */}
-                        <AnimatePresence>
-                            {lockoutTime && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    className="flex flex-col items-center py-3 gap-2"
-                                >
-                                    <div className="relative">
-                                        <CircularProgress value={remainingSeconds} max={30} />
-                                        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-red-600">
-                                            {remainingSeconds}
-                                        </span>
+                             {/* Header */}
+                            <div className="mb-10 mt-4">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-[var(--color-primary)]/30 shadow-[0_0_15px_var(--glass-glow-cyan)]">
+                                          <Truck className="w-7 h-7 text-[var(--color-primary)]" />
                                     </div>
-                                    <span className="text-xs text-slate-500">saniye bekleyin</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                    <h1 className="text-white text-4xl font-black tracking-tighter">LojiNext</h1>
+                                </div>
+                                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-4">Kurumsal Yönetim Paneli</p>
+                            </div>
 
-                        {/* Submit Button */}
-                        <Button
-                            type="submit"
-                            className={cn(
-                                "w-full h-12 mt-1 rounded-xl text-base font-semibold",
-                                "shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40",
-                                "transition-all duration-200",
-                                lockoutTime && "opacity-50 cursor-not-allowed"
-                            )}
-                            isLoading={isLoading}
-                            disabled={!!lockoutTime || isLoading}
-                        >
-                            {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
-                        </Button>
-                    </form>
+                            {/* Form */}
+                            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+                                {/* Email Field */}
+                                <div className="space-y-2 group">
+                                    <label className="text-slate-300 text-sm font-semibold flex items-center gap-2">
+                                        <User className="w-5 h-5 text-slate-500 group-focus-within:text-[var(--color-primary)] transition-colors" />
+                                        Kullanıcı Adı veya E-Posta
+                                    </label>
+                                    <div className="relative">
+                                        <input 
+                                            {...register('username')}
+                                            className={cn(
+                                                "w-full bg-black/40 border border-white/10 text-slate-100 rounded-xl px-5 py-4 focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 placeholder:text-slate-600 transition-all font-bold text-sm shadow-inner",
+                                                errors.username && "border-red-500 focus:border-red-500 focus:ring-red-500/50"
+                                            )} 
+                                            placeholder="Kullanıcı Adı" 
+                                            type="text" 
+                                        />
+                                        {errors.username && (
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 text-xs font-semibold">Gerekli</span>
+                                        )}
+                                    </div>
+                                </div>
 
-                    {/* Footer hint */}
-                    <p className="text-xs text-slate-400 text-center mt-6">
-                        Güvenli bağlantı ile korunmaktadır
-                    </p>
-                </motion.div>
-            </motion.div>
+                                {/* Password Field */}
+                                <div className="space-y-2 group">
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-slate-300 text-sm font-semibold flex items-center gap-2">
+                                            <Lock className="w-5 h-5 text-slate-500 group-focus-within:text-[var(--color-primary)] transition-colors" />
+                                            Şifre
+                                        </label>
+                                    </div>
+                                     <div className="relative">
+                                        <input 
+                                            {...register('password')}
+                                            className={cn(
+                                               "w-full bg-black/40 border border-white/10 text-slate-100 rounded-xl pl-5 pr-12 py-4 focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 placeholder:text-slate-600 transition-all font-bold text-sm tracking-[0.3em] shadow-inner",
+                                               errors.password && "border-red-500 focus:border-red-500 focus:ring-red-500/50"
+                                            )} 
+                                            placeholder="••••••••" 
+                                            type={showPassword ? 'text' : 'password'}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Error Message */}
+                                <AnimatePresence>
+                                    {error && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="bg-red-500/10 text-red-400 p-3 rounded-lg border border-red-500/20 flex items-center justify-center gap-2"
+                                        >
+                                            <AlertCircle className="w-4 h-4" />
+                                            <span className="text-xs font-semibold">{error}</span>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                                
+                                {/* Rate Limit Countdown */}
+                                <AnimatePresence>
+                                    {lockoutTime && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.9 }}
+                                            className="flex flex-col items-center py-2 gap-2"
+                                        >
+                                            <div className="relative">
+                                                <CircularProgress value={remainingSeconds} max={30} />
+                                                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-[#0df2df]">
+                                                    {remainingSeconds}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs text-neutral-500 font-medium tracking-tight">Kilitlendiniz, lütfen bekleyin...</span>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Actions */}
+                                <div className="flex flex-col gap-4 mt-2">
+                                    <Button
+                                        type="submit"
+                                        variant="glossy-cyan"
+                                        isLoading={isLoading}
+                                        className="w-full h-14 text-lg"
+                                    >
+                                        Sisteme Giriş Yap
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

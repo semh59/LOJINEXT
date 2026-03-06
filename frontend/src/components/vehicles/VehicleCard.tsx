@@ -1,6 +1,7 @@
-import { Truck, Eye, Edit2, Trash2, Calendar, Fuel, Target } from 'lucide-react'
+import { Truck, Eye, Edit2, Trash2, Calendar, Fuel, Gauge } from 'lucide-react'
 import { Vehicle } from '../../types'
-import { DropdownMenu } from '../ui/DropdownMenu'
+import { motion } from 'framer-motion'
+import { cn } from '../../lib/utils'
 
 interface VehicleCardProps {
     vehicle: Vehicle
@@ -10,104 +11,116 @@ interface VehicleCardProps {
 }
 
 export function VehicleCard({ vehicle, onEdit, onDelete, onViewDetail }: VehicleCardProps) {
+    // Note: kilometre data might come from vehicle stats enrichment
+    const displayedKm = (vehicle as any).kilometre || (vehicle as any).toplam_km || 0
+
     return (
-        <div
-            className={`group relative bg-white rounded-[32px] border border-neutral-200 p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${!vehicle.aktif ? 'opacity-75 grayscale-[0.5]' : ''}`}
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card-premium h-full flex flex-col p-6 group"
         >
-            {/* Header / Brand */}
-            <div className="flex justify-between items-start mb-6">
+            {/* Header Area */}
+            <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform duration-300">
-                        <Truck className="w-7 h-7" />
+                    <div className="w-14 h-14 bg-gradient-to-br from-[#d006f9]/20 to-[#d006f9]/5 rounded-[22px] flex items-center justify-center border border-[#d006f9]/10 transition-transform group-hover:scale-110 group-hover:rotate-3 shadow-[0_0_20px_rgba(208,6,249,0.1)]">
+                        <Truck className="w-7 h-7 text-[#d006f9]" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-neutral-900 tracking-tight leading-none mb-1">
-                            {vehicle.marka}
-                        </h3>
-                        <p className="text-sm text-neutral-500 font-bold uppercase tracking-wider">
-                            {vehicle.model}
-                        </p>
+                        <h3 className="text-xl font-black text-white leading-tight uppercase tracking-tight">{vehicle.plaka}</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{vehicle.marka} {vehicle.model}</p>
                     </div>
                 </div>
 
-                <DropdownMenu
-                    align="right"
-                    items={[
-                        {
-                            label: 'Düzenle',
-                            icon: <Edit2 className="w-4 h-4" />,
-                            onClick: () => onEdit(vehicle)
-                        },
-                        {
-                            label: 'Detaylar',
-                            icon: <Eye className="w-4 h-4" />,
-                            onClick: () => onViewDetail(vehicle)
-                        },
-                        {
-                            label: 'Sil',
-                            icon: <Trash2 className="w-4 h-4" />,
-                            onClick: () => onDelete(vehicle),
-                            variant: 'danger'
-                        }
-                    ]}
-                />
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={() => onEdit(vehicle)}
+                        className="p-2.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-[#d006f9] transition-all"
+                    >
+                        <Edit2 className="w-4.5 h-4.5" />
+                    </button>
+                    <button
+                        onClick={() => onDelete(vehicle)}
+                        className="p-2.5 rounded-xl hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all"
+                    >
+                        <Trash2 className="w-4.5 h-4.5" />
+                    </button>
+                </div>
             </div>
 
-            {/* Plate Badge */}
-            <div className="mb-6">
-                <span className="font-mono text-lg font-black tracking-widest bg-neutral-100 text-neutral-800 px-4 py-2 rounded-xl border-2 border-dashed border-neutral-300 block text-center shadow-inner group-hover:border-primary/30 group-hover:bg-primary/5 transition-colors">
-                    {vehicle.plaka}
-                </span>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-3">
-                <div className="bg-neutral-50 rounded-2xl p-3 flex flex-col gap-1 border border-neutral-100">
-                    <div className="flex items-center gap-1.5 text-neutral-400">
+            {/* Main Info */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-black/20 rounded-2xl p-4 border border-white/5 shadow-inner">
+                    <div className="flex items-center gap-2 text-slate-500 mb-1">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold uppercase tracking-tighter">Model Yılı</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Model Yılı</span>
                     </div>
-                    <span className="text-sm font-black text-neutral-700">{vehicle.yil || '---'}</span>
+                    <span className="text-sm font-extrabold text-white">{vehicle.yil}</span>
                 </div>
-
-                <div className="bg-neutral-50 rounded-2xl p-3 flex flex-col gap-1 border border-neutral-100">
-                    <div className="flex items-center gap-1.5 text-neutral-400">
-                        <Fuel className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold uppercase tracking-tighter">Tank Kapasite</span>
+                <div className="bg-black/20 rounded-2xl p-4 border border-white/5 shadow-inner">
+                    <div className="flex items-center gap-2 text-slate-500 mb-1">
+                        <Gauge className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Kilometre</span>
                     </div>
-                    <span className="text-sm font-black text-neutral-700">
-                        {vehicle.tank_kapasitesi}<span className="text-[10px] ml-0.5 text-neutral-400">L</span>
-                    </span>
-                </div>
-
-                <div className="col-span-2 bg-gradient-to-br from-neutral-50 to-neutral-100/50 rounded-2xl p-3 flex items-center justify-between border border-neutral-100">
-                    <div className="flex items-center gap-2 text-neutral-400">
-                        <Target className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-tighter">Hedef Tüketim</span>
-                    </div>
-                    <span className="text-sm font-black text-primary">
-                        {vehicle.hedef_tuketim}<span className="text-[10px] ml-0.5 opacity-60">L/100km</span>
+                    <span className="text-sm font-extrabold text-white">
+                        {displayedKm.toLocaleString('tr-TR')} <span className="text-[10px] text-slate-500">km</span>
                     </span>
                 </div>
             </div>
 
-            {/* Status Indicator */}
-            <div className="mt-6 flex items-center justify-between">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${vehicle.aktif
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                    : 'bg-amber-50 text-amber-600 border-amber-100'
-                    }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${vehicle.aktif ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            {/* Performance Stats */}
+            <div className="space-y-3 flex-1">
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2 text-neutral-500">
+                        <Fuel className="w-4 h-4" />
+                        <span className="text-xs font-bold uppercase tracking-tighter">Ort. Tüketim</span>
+                    </div>
+                    <span className={cn(
+                        "text-sm font-black",
+                        (vehicle as any).ort_tuketim > vehicle.hedef_tuketim ? "text-red-500" : "text-emerald-500"
+                    )}>
+                        {Number((vehicle as any).ort_tuketim || 0).toFixed(1)} <span className="text-[10px] opacity-60">L/100km</span>
+                    </span>
+                </div>
+                {/* Comparison to Target */}
+                <div className="px-1 flex justify-between text-[10px] text-slate-500 font-medium">
+                    <span>Hedef: {vehicle.hedef_tuketim} L</span>
+                    <span className={cn(
+                        (vehicle as any).ort_tuketim > vehicle.hedef_tuketim ? "text-red-400" : "text-emerald-400"
+                    )}>
+                        {((vehicle as any).ort_tuketim && vehicle.hedef_tuketim) 
+                            ? `${(((vehicle as any).ort_tuketim - vehicle.hedef_tuketim) / vehicle.hedef_tuketim * 100).toFixed(0)}%` 
+                            : '-'}
+                    </span>
+                </div>
+                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: '65%' }} // Mock value or calculate based on performance
+                        className="h-full bg-[#d006f9]"
+                    />
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+                <div className={cn(
+                    "px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border",
+                    vehicle.aktif
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                )}>
+                    <div className={cn("w-2 h-2 rounded-full", vehicle.aktif ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-amber-500")} />
                     {vehicle.aktif ? 'Aktif' : 'Pasif'}
-                </span>
+                </div>
 
                 <button
                     onClick={() => onViewDetail(vehicle)}
-                    className="text-xs font-bold text-primary hover:text-primary-dark tracking-tight flex items-center gap-1 transition-colors"
+                    className="h-10 px-4 rounded-xl text-xs font-bold text-[#d006f9] bg-[#d006f9]/5 hover:bg-[#d006f9] hover:text-white transition-all flex items-center gap-2"
                 >
-                    Detayları Gör
+                    <Eye className="w-3.5 h-3.5" /> Detaylar
                 </button>
             </div>
-        </div>
+        </motion.div>
     )
 }

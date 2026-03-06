@@ -4,7 +4,6 @@ LightGBM Predictor Unit Tests
 
 import pytest
 import numpy as np
-from unittest.mock import MagicMock, patch
 
 import sys
 sys.path.insert(0, '.')

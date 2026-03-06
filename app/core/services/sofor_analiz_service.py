@@ -27,36 +27,49 @@ class SoforAnalizService:
     - Performans puanı (0-100)
     """
 
-    def __init__(self):
-        # Repositories are singletons, no need to inject
-        pass
+    def __init__(self, uow=None):
+        self._uow = uow
 
     @property
     def analiz_repo(self):
+        if self._uow:
+            return self._uow.analiz_repo
         from app.database.repositories.analiz_repo import get_analiz_repo
 
         return get_analiz_repo()
 
     @property
     def sofor_repo(self):
+        if self._uow:
+            return self._uow.sofor_repo
         from app.database.repositories.sofor_repo import get_sofor_repo
 
         return get_sofor_repo()
 
     async def get_driver_stats(
-        self, sofor_id: int = None, baslangic: str = None, bitis: str = None
+        self,
+        sofor_id: int = None,
+        baslangic: str = None,
+        bitis: str = None,
+        include_elite_score: bool = True,
+        uow=None,
     ) -> List[DriverStats]:
         """
         Tüm şoförlerin veya tek şoförün istatistiklerini hesapla (Elite Async).
         N+1 probleminden arındırılmış, optimize sürüm.
         """
+        # Temporal UOW binding
+        if uow:
+            self._uow = uow
         # 1. Toplu veya tekil metrikleri çek
         if sofor_id is None:
             # Toplu çekim (Elite Bulk - No N+1)
             sefer_stats = await self.analiz_repo.get_bulk_driver_metrics()
         else:
             # Tekil çekim (Sadece ilgili şoför)
-            sefer_stats = await self.sofor_repo.get_sefer_stats(sofor_id, baslangic, bitis)
+            sefer_stats = await self.sofor_repo.get_sefer_stats(
+                sofor_id, baslangic, bitis
+            )
 
         if not sefer_stats:
             return []
@@ -65,23 +78,32 @@ class SoforAnalizService:
         filo_ort = await self.analiz_repo.get_filo_ortalama_tuketim(baslangic, bitis)
 
         # 3. Elite skorları paralel hesapla (N+1 optimizasyonu)
-        # Her şoför için ayrı ayrı çağırmak yerine tümünü paralel çalıştır
-        sofor_ids = [stats["sofor_id"] for stats in sefer_stats]
-
-        # Paralel elite score hesaplama
-        elite_scores = await asyncio.gather(
-            *[self.calculate_elite_performance_score(sid, baslangic, bitis) for sid in sofor_ids],
-            return_exceptions=True,
-        )
-
-        # Exception olan skorları None'a çevir (Faz 3.2: Silent Failure Prevention)
         elite_score_map = {}
-        for sid, score in zip(sofor_ids, elite_scores):
-            if isinstance(score, Exception):
-                logger.warning(f"Elite score calculation failed for driver {sid}: {score}")
-                elite_score_map[sid] = None
-            else:
-                elite_score_map[sid] = score
+        if include_elite_score:
+            # Her şoför için ayrı ayrı çağırmak yerine tümünü paralel çalıştır
+            sofor_ids = [stats["sofor_id"] for stats in sefer_stats]
+
+            # Paralel elite score hesaplama
+            elite_scores = await asyncio.gather(
+                *[
+                    self.calculate_elite_performance_score(sid, baslangic, bitis)
+                    for sid in sofor_ids
+                ],
+                return_exceptions=True,
+            )
+
+            # Exception olan skorları None'a çevir (Faz 3.2: Silent Failure Prevention)
+            for sid, score in zip(sofor_ids, elite_scores):
+                if isinstance(score, Exception):
+                    logger.warning(
+                        f"Elite score calculation failed for driver {sid}: {score}"
+                    )
+                    elite_score_map[sid] = None
+                else:
+                    elite_score_map[sid] = score
+        else:
+            # Skor hesaplamayı atla (Eğitim vb. toplu işlemler için)
+            elite_score_map = {stats["sofor_id"]: None for stats in sefer_stats}
 
         # 4. Her şoför için verileri birleştir
         result = []
@@ -92,7 +114,9 @@ class SoforAnalizService:
 
             # Filo karşılaştırma (% fark)
             if filo_ort > 0 and ort_tuketim > 0:
-                filo_karsilastirma = round(((filo_ort - ort_tuketim) / filo_ort) * 100, 1)
+                filo_karsilastirma = round(
+                    ((filo_ort - ort_tuketim) / filo_ort) * 100, 1
+                )
             else:
                 filo_karsilastirma = 0.0
 
@@ -147,10 +171,17 @@ class SoforAnalizService:
             all_stats = [s for s in all_stats if s.sofor_id in sofor_ids]
 
         # Minimum sefer kontrolü (en az 5 sefer)
-        valid_stats = [s for s in all_stats if s.toplam_sefer >= 5 and s.ort_tuketim > 0]
+        valid_stats = [
+            s for s in all_stats if s.toplam_sefer >= 5 and s.ort_tuketim > 0
+        ]
 
         if not valid_stats:
-            return {"en_verimli": None, "en_az_verimli": None, "filo_ortalama": 0.0, "ranking": []}
+            return {
+                "en_verimli": None,
+                "en_az_verimli": None,
+                "filo_ortalama": 0.0,
+                "ranking": [],
+            }
 
         # Performans puanına göre sırala
         ranking = sorted(valid_stats, key=lambda x: x.performans_puani, reverse=True)
@@ -182,11 +213,18 @@ class SoforAnalizService:
             }
         """
         # Async repo call
-        tuketimler = await self.sofor_repo.get_yakit_tuketimi(sofor_id, limit=window * 2)
+        tuketimler = await self.sofor_repo.get_yakit_tuketimi(
+            sofor_id, limit=window * 2
+        )
         values = [t["tuketim"] for t in reversed(tuketimler) if t.get("tuketim")]
 
         if len(values) < 5:
-            return {"trend": "stable", "slope": 0.0, "values": values, "moving_avg": values}
+            return {
+                "trend": "stable",
+                "slope": 0.0,
+                "values": values,
+                "moving_avg": values,
+            }
 
         trend = self.calculate_trend(values[-window:])
 
@@ -203,7 +241,9 @@ class SoforAnalizService:
             x_mean = (n - 1) / 2
             y_mean = mean(values[-window:])
 
-            numerator = sum((i - x_mean) * (values[-window:][i] - y_mean) for i in range(n))
+            numerator = sum(
+                (i - x_mean) * (values[-window:][i] - y_mean) for i in range(n)
+            )
             denominator = sum((i - x_mean) ** 2 for i in range(n))
 
             slope = numerator / denominator if denominator > 0 else 0
@@ -241,7 +281,11 @@ class SoforAnalizService:
         result = []
         for g in guzergahlar:
             ort = g.get("ort_tuketim") or 0
-            fark = round(((filo_ort - ort) / filo_ort) * 100, 1) if filo_ort > 0 and ort > 0 else 0
+            fark = (
+                round(((filo_ort - ort) / filo_ort) * 100, 1)
+                if filo_ort > 0 and ort > 0
+                else 0
+            )
 
             result.append(
                 {
@@ -258,21 +302,27 @@ class SoforAnalizService:
         return result
 
     async def calculate_elite_performance_score(
-        self, sofor_id: int, baslangic: str = None, bitis: str = None
+        self, sofor_id: int, baslangic: str = None, bitis: str = None, uow=None
     ) -> float:
         """
         Elite Puanlama Algoritması.
         Sadece filo ortalaması değil, her sefer için 'Elite Prediction' ile 'Gerçek' arasındaki farkı baz alır.
         Bu sayede zor güzergahta çalışan şoför cezalandırılmaz.
         """
-        from app.database.repositories.sefer_repo import get_sefer_repo
-        from app.config import settings
+        # Temporal UOW binding
+        if uow:
+            self._uow = uow
 
-        sefer_repo = get_sefer_repo()
+        from app.config import settings
+        from app.database.repositories.sefer_repo import get_sefer_repo
+
+        sefer_repo = self._uow.sefer_repo if self._uow else get_sefer_repo()
 
         # Son N seferi çek (Config'den alınır)
         trip_limit = settings.ELITE_SCORE_TRIP_LIMIT
-        seferler = await sefer_repo.get_all(filters={"sofor_id": sofor_id}, limit=trip_limit)
+        seferler = await sefer_repo.get_all(
+            filters={"sofor_id": sofor_id}, limit=trip_limit
+        )
         if not seferler:
             return None
 

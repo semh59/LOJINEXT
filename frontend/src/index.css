@@ -4,56 +4,140 @@
 
 @layer utilities {
   .shadow-premium {
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 20px 25px -5px rgba(0, 0, 0, 0.02);
+    box-shadow:
+      0 10px 30px -5px rgba(0, 0, 0, 0.04),
+      0 20px 25px -5px rgba(0, 0, 0, 0.02);
   }
   .shadow-soft {
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 10px -2px rgba(0, 0, 0, 0.02);
+    box-shadow:
+      0 4px 20px -2px rgba(0, 0, 0, 0.03),
+      0 2px 10px -2px rgba(0, 0, 0, 0.02);
   }
   .shadow-floating {
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08), 0 10px 20px -5px rgba(0, 0, 0, 0.03);
+    box-shadow:
+      0 25px 50px -12px rgba(0, 0, 0, 0.08),
+      0 10px 20px -5px rgba(0, 0, 0, 0.03);
   }
+}
+
+:root {
+  /* Core Palette (Deep Space Theme) */
+  --bg-dark: #050b0e;
+  --bg-surface: #0a1114;
+  --bg-card: rgba(13, 20, 24, 0.7);
+  --bg-elevated: rgba(30, 41, 59, 0.4);
+
+  /* Accent Colors (Neon Palette) */
+  --color-primary: #25d1f4; /* Cyan: Trips/Nav */
+  --color-secondary: #d006f9; /* Purple: Fleet/Drivers */
+  --color-tertiary: #0df259; /* Green: Fuel/Stats */
+  --color-quaternary: #ec3713; /* Orange/Red: Locations */
+  --color-warning: #f59e0b; /* Gold: Alerts */
+
+  /* Text Colors */
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  /* Glass Effects */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 16px;
+  --glass-glow-cyan: rgba(37, 209, 244, 0.2);
+  --glass-glow-purple: rgba(208, 6, 249, 0.2);
+  --glass-glow-green: rgba(13, 242, 89, 0.2);
+  --glass-glow-orange: rgba(236, 55, 19, 0.2);
 }
 
 /* Base styles */
 body {
-  @apply antialiased text-neutral-800 bg-[#F4F7FE] selection:bg-primary/20;
-  background: radial-gradient(circle at 50% 0%, #E0E7FF 0%, #F4F7FE 100%);
+  @apply antialiased bg-[#050b0e] selection:bg-cyan-500/20;
+  color: var(--text-main);
   min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
 }
 
-/* Glassmorphism */
-.glass {
-  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-premium;
+/* Global Transitions */
+* {
+  @apply transition-colors duration-200;
 }
 
-.glass-dark {
-  @apply bg-neutral-900/80 backdrop-blur-lg border border-white/10 shadow-floating;
+/* Global Glass Card Style */
+.glass-card {
+  @apply backdrop-blur-xl border border-white/5 shadow-2xl rounded-2xl;
+  background: var(--bg-card);
+}
+
+.glass-panel {
+  @apply backdrop-blur-md border-r border-white/5;
+  background: var(--bg-surface);
 }
 
 /* Button Premium Overhaul */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-95;
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
-.btn-primary {
-  @apply bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50;
+/* Glossy Neon System */
+.btn-glossy {
+  @apply relative overflow-hidden backdrop-blur-md transition-all duration-300 font-bold border rounded-xl;
 }
 
-.btn-secondary {
-  @apply bg-white/50 backdrop-blur-sm text-neutral-800 border border-neutral-200 hover:bg-white hover:border-primary/50 shadow-soft;
+.btn-glossy-cyan {
+  @apply text-[var(--color-primary)] shadow-[0_0_15px_var(--glass-glow-cyan)] hover:shadow-[0_0_25px_rgba(37,209,244,0.3)];
+  border-color: color-mix(in srgb, var(--color-primary), transparent 60%);
+  background-color: color-mix(in srgb, var(--color-primary), transparent 90%);
+}
+.btn-glossy-cyan:hover {
+  border-color: color-mix(in srgb, var(--color-primary), transparent 40%);
+  background-color: color-mix(in srgb, var(--color-primary), transparent 80%);
 }
 
-.btn-danger {
-  @apply bg-gradient-to-r from-danger to-danger-dark text-white shadow-lg shadow-danger/20 hover:-translate-y-0.5;
+.btn-glossy-purple {
+  @apply text-[var(--color-secondary)] shadow-[0_0_15px_var(--glass-glow-purple)] hover:shadow-[0_0_25px_rgba(208,6,249,0.3)];
+  border-color: color-mix(in srgb, var(--color-secondary), transparent 60%);
+  background-color: color-mix(in srgb, var(--color-secondary), transparent 90%);
+}
+.btn-glossy-purple:hover {
+  border-color: color-mix(in srgb, var(--color-secondary), transparent 40%);
+  background-color: color-mix(in srgb, var(--color-secondary), transparent 80%);
 }
 
-/* Card Overhaul */
-.card {
-  @apply bg-white rounded-2xl shadow-dashboard-card border border-neutral-100/50 transition-all duration-300;
+.btn-glossy-green {
+  @apply text-[var(--color-tertiary)] shadow-[0_0_15px_var(--glass-glow-green)] hover:shadow-[0_0_25px_rgba(13,242,89,0.3)];
+  border-color: color-mix(in srgb, var(--color-tertiary), transparent 60%);
+  background-color: color-mix(in srgb, var(--color-tertiary), transparent 90%);
+}
+.btn-glossy-green:hover {
+  border-color: color-mix(in srgb, var(--color-tertiary), transparent 40%);
+  background-color: color-mix(in srgb, var(--color-tertiary), transparent 80%);
 }
 
-.card-premium {
-  @apply glass hover:shadow-floating hover:-translate-y-1;
+.btn-glossy-orange {
+  @apply text-[var(--color-quaternary)] shadow-[0_0_15px_var(--glass-glow-orange)] hover:shadow-[0_0_25px_rgba(236,55,19,0.3)];
+  border-color: color-mix(in srgb, var(--color-quaternary), transparent 60%);
+  background-color: color-mix(
+    in srgb,
+    var(--color-quaternary),
+    transparent 90%
+  );
+}
+.btn-glossy-orange:hover {
+  border-color: color-mix(in srgb, var(--color-quaternary), transparent 40%);
+  background-color: color-mix(
+    in srgb,
+    var(--color-quaternary),
+    transparent 80%
+  );
+}
+
+.glass-reflection {
+  @apply absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 transition-all duration-1000 group-hover:left-[200%];
+}
+
+.btn:hover .glass-reflection,
+.btn-glossy:hover .glass-reflection {
+  @apply translate-x-[600%];
 }
 
 /* Custom Scrollbar */
@@ -67,7 +151,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-neutral-300 rounded-full hover:bg-neutral-400 transition-colors;
+  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
 }
 
 /* Animations */
@@ -76,6 +160,12 @@ body {
 }
 
 @keyframes staggerFade {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

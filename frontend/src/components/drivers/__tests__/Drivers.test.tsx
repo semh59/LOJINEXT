@@ -20,12 +20,13 @@ describe('DriverCard', () => {
                 driver={mockDriver}
                 onEdit={vi.fn()}
                 onDelete={vi.fn()}
+                onScoreClick={vi.fn()}
             />
         )
 
         expect(screen.getByText('Ahmet Yılmaz')).toBeInTheDocument()
         expect(screen.getByText('E Sınıfı')).toBeInTheDocument()
-        expect(screen.getByText('95')).toBeInTheDocument()
+        expect(screen.getByText('95.00')).toBeInTheDocument()
         expect(screen.getByText('5551234567')).toBeInTheDocument()
     })
 
@@ -35,6 +36,7 @@ describe('DriverCard', () => {
                 driver={mockDriver}
                 onEdit={vi.fn()}
                 onDelete={vi.fn()}
+                onScoreClick={vi.fn()}
             />
         )
         // Check for active indicator (green dot)

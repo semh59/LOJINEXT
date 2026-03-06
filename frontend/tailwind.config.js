@@ -12,10 +12,10 @@ export default {
             colors: {
                 // Design System Colors
                 primary: {
-                    DEFAULT: '#2563EB', // Primary
+                    DEFAULT: '#3B82F6', // Primary Blue
                     dark: '#1D4ED8',    // Primary Dark
-                    light: '#DBEAFE',   // Primary Light
-                    900: '#1E3A8A',     // Deep Blue for headers
+                    light: '#EFF6FF',   // Primary Light
+                    900: '#1e3a8a',     // Deep Blue for headers
                 },
                 secondary: '#64748B',   // Secondary Text
                 accent: '#10B981',      // Accent Green

@@ -2,16 +2,17 @@
 Request Context - Correlation ID management
 Distributed tracing ve log korelasyonu için
 """
+
 import contextvars
 import uuid
 from typing import Optional
 
 # Async-safe context variables
 _correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    'correlation_id', default=''
+    "correlation_id", default=""
 )
 _user_id: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar(
-    'user_id', default=None
+    "user_id", default=None
 )
 
 
@@ -41,5 +42,5 @@ def set_current_user_id(user_id: int) -> None:
 
 def clear_context() -> None:
     """Context'i temizle (request sonunda)"""
-    _correlation_id.set('')
+    _correlation_id.set("")
     _user_id.set(None)

@@ -9,6 +9,7 @@ export const MOCK_DASHBOARD_STATS: DashboardStats = {
     aktif_arac: 25,
     aktif_sofor: 18,
     bugun_sefer: 5,
+    toplam_arac: 42,
     trends: {
         sefer: 5,
         km: 12,

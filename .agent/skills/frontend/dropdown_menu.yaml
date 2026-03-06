@@ -1,0 +1,205 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Dropdown Menu Pattern
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Dropdown Menu"
+version: "1.0"
+agent: "frontend"
+
+trigger_keywords:
+  - "dropdown"
+  - "menu"
+  - "select"
+  - "açılır menü"
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  basic_dropdown:
+    description: "Temel dropdown"
+    code: |
+      interface DropdownProps {
+        trigger: React.ReactNode;
+        children: React.ReactNode;
+        align?: 'left' | 'right';
+      }
+
+      export function Dropdown({ trigger, children, align = 'left' }: DropdownProps) {
+        const [isOpen, setIsOpen] = useState(false);
+        const ref = useRef<HTMLDivElement>(null);
+        
+        // Click outside to close
+        useEffect(() => {
+          const handleClickOutside = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+              setIsOpen(false);
+            }
+          };
+          
+          document.addEventListener('mousedown', handleClickOutside);
+          return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, []);
+        
+        return (
+          <div ref={ref} className="relative inline-block">
+            <button onClick={() => setIsOpen(!isOpen)}>
+              {trigger}
+            </button>
+            
+            {isOpen && (
+              <div className={clsx(
+                "absolute z-50 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black/5",
+                align === 'right' ? 'right-0' : 'left-0'
+              )}>
+                {children}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+  dropdown_item:
+    description: "Dropdown item component"
+    code: |
+      interface DropdownItemProps {
+        onClick?: () => void;
+        icon?: React.ReactNode;
+        children: React.ReactNode;
+        variant?: 'default' | 'danger';
+        disabled?: boolean;
+      }
+
+      export function DropdownItem({ 
+        onClick, icon, children, variant = 'default', disabled 
+      }: DropdownItemProps) {
+        return (
+          <button
+            onClick={onClick}
+            disabled={disabled}
+            className={clsx(
+              "flex w-full items-center gap-2 px-4 py-2 text-sm",
+              "hover:bg-gray-100 disabled:opacity-50",
+              variant === 'danger' && "text-red-600 hover:bg-red-50"
+            )}
+          >
+            {icon}
+            {children}
+          </button>
+        );
+      }
+
+  portal_dropdown:
+    description: "Portal ile dropdown (overflow issues için)"
+    code: |
+      import { createPortal } from 'react-dom';
+      import { useFloating, offset, flip, shift } from '@floating-ui/react';
+
+      export function PortalDropdown({ trigger, children }: DropdownProps) {
+        const [isOpen, setIsOpen] = useState(false);
+        
+        const { refs, floatingStyles } = useFloating({
+          open: isOpen,
+          onOpenChange: setIsOpen,
+          middleware: [offset(8), flip(), shift()],
+        });
+        
+        return (
+          <>
+            <button ref={refs.setReference} onClick={() => setIsOpen(!isOpen)}>
+              {trigger}
+            </button>
+            
+            {isOpen && createPortal(
+              <div ref={refs.setFloating} style={floatingStyles} className="z-50">
+                <div className="bg-white rounded-md shadow-lg ring-1 ring-black/5 py-1">
+                  {children}
+                </div>
+              </div>,
+              document.body
+            )}
+          </>
+        );
+      }
+
+  action_menu:
+    description: "Tablo satır action menu"
+    code: |
+      interface ActionMenuProps {
+        onEdit: () => void;
+        onDelete: () => void;
+        onView?: () => void;
+      }
+
+      export function ActionMenu({ onEdit, onDelete, onView }: ActionMenuProps) {
+        return (
+          <Dropdown trigger={<MoreHorizontal className="w-5 h-5" />} align="right">
+            {onView && (
+              <DropdownItem icon={<Eye className="w-4 h-4" />} onClick={onView}>
+                Görüntüle
+              </DropdownItem>
+            )}
+            <DropdownItem icon={<Edit className="w-4 h-4" />} onClick={onEdit}>
+              Düzenle
+            </DropdownItem>
+            <DropdownItem 
+              icon={<Trash className="w-4 h-4" />} 
+              onClick={onDelete}
+              variant="danger"
+            >
+              Sil
+            </DropdownItem>
+          </Dropdown>
+        );
+      }
+
+  select_dropdown:
+    description: "Seçim dropdown'u"
+    code: |
+      interface SelectOption {
+        value: string;
+        label: string;
+      }
+
+      interface SelectDropdownProps {
+        options: SelectOption[];
+        value: string;
+        onChange: (value: string) => void;
+        placeholder?: string;
+      }
+
+      export function SelectDropdown({ 
+        options, value, onChange, placeholder = "Seçiniz" 
+      }: SelectDropdownProps) {
+        const selected = options.find(o => o.value === value);
+        
+        return (
+          <Dropdown 
+            trigger={
+              <div className="flex items-center justify-between w-full px-3 py-2 border rounded">
+                <span className={!selected ? 'text-gray-400' : ''}>
+                  {selected?.label || placeholder}
+                </span>
+                <ChevronDown className="w-4 h-4" />
+              </div>
+            }
+          >
+            {options.map(option => (
+              <DropdownItem 
+                key={option.value}
+                onClick={() => onChange(option.value)}
+              >
+                {option.label}
+                {option.value === value && <Check className="w-4 h-4 ml-auto" />}
+              </DropdownItem>
+            ))}
+          </Dropdown>
+        );
+      }
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Click outside ile kapat"
+  - "ESC ile kapat"
+  - "Overflow clip için Portal kullan"
+  - "Keyboard navigation (arrow keys)"
+  - "Focus management"
+  - "Mobile'da full-width"

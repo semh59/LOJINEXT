@@ -3,21 +3,17 @@ Infrastructure Audit için Kapsamlı Test Suite
 Tüm kritik, yüksek ve orta öncelikli bulgular için testler
 """
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-import asyncio
 import time
 import logging
-import json
 import threading
-from datetime import datetime
 
 # Import infrastructure components
-from app.infrastructure.cache.cache_manager import get_cache_manager, CacheManager, SENSITIVE_KEY_PATTERNS
-from app.infrastructure.cache.redis_cache import RedisCache, get_redis_cache
+from app.infrastructure.cache.cache_manager import get_cache_manager, SENSITIVE_KEY_PATTERNS
+from app.infrastructure.cache.redis_cache import get_redis_cache
 from app.infrastructure.events.event_bus import EventBus, Event, EventType
-from app.infrastructure.logging.logger import get_logger, JSONFormatter, PIIFilter
+from app.infrastructure.logging.logger import PIIFilter
 from app.infrastructure.routing.openroute_client import OpenRouteClient
-from app.infrastructure.resilience.circuit_breaker import CircuitBreaker, CircuitBreakerRegistry, CircuitState
+from app.infrastructure.resilience.circuit_breaker import CircuitBreaker, CircuitState
 from app.infrastructure.resilience.rate_limiter import AsyncRateLimiter
 
 

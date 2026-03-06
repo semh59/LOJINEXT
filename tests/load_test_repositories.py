@@ -6,7 +6,6 @@ Verifies thread-safety of singletons and LoginAttemptTracker under high concurre
 import asyncio
 import threading
 import time
-import pytest
 from app.database.repositories.arac_repo import get_arac_repo
 from app.database.repositories.kullanici_repo import get_login_tracker, get_kullanici_repo
 from app.database.repositories.sefer_repo import get_sefer_repo

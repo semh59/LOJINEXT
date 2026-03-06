@@ -36,25 +36,30 @@ def setup_skara_admin():
     with db.get_connection() as conn:
         # skara kullanıcısı var mı kontrol et
         existing = conn.execute(
-            "SELECT id FROM kullanicilar WHERE kullanici_adi = ?",
-            ("skara",)
+            "SELECT id FROM kullanicilar WHERE kullanici_adi = ?", ("skara",)
         ).fetchone()
 
         if existing:
             # Güncelle (şifreyi yenile)
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE kullanicilar 
-                SET sifre_hash = ?, rol = 'admin', aktif = 1
+                SET sifre_hash = ?, rol = 'superadmin', aktif = 1
                 WHERE kullanici_adi = ?
-            """, (sifre_hash, "skara"))
+            """,
+                (sifre_hash, "skara"),
+            )
             print("✅ 'skara' kullanıcısı güncellendi!")
         else:
             # Yeni ekle
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO kullanicilar 
                 (kullanici_adi, sifre_hash, ad_soyad, rol, aktif)
                 VALUES (?, ?, ?, ?, ?)
-            """, ("skara", sifre_hash, "Sistem Yöneticisi", "admin", 1))
+            """,
+                ("skara", sifre_hash, "Sistem Yöneticisi", "superadmin", 1),
+            )
             print("✅ 'skara' kullanıcısı oluşturuldu!")
 
     print("\n📋 Giriş Bilgileri:")

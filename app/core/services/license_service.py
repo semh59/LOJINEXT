@@ -15,19 +15,19 @@ logger = get_logger(__name__)
 class LicenseEngine:
     """
     LojiNext AI Ticari Kısıt ve Lisans Yönetim Sistemi.
-    
+
     Güvenlik:
         - License key'ler kaynak kodda açık değil (hash-based validation)
         - Environment variable ile konfigüre edilebilir
         - Audit logging aktif
     """
-    
+
     LIMITS = {
         "FREE": {"max_cars": 5, "max_trips_monthly": 100},
         "PRO": {"max_cars": 50, "max_trips_monthly": 2000},
-        "ENTERPRISE": {"max_cars": 999999, "max_trips_monthly": 999999}
+        "ENTERPRISE": {"max_cars": 999999, "max_trips_monthly": 999999},
     }
-    
+
     # License key hash'leri (SHA-256) - Environment variable'lardan okunur
     # Fallback: Geliştirme ortamı için test hash'leri
     _LICENSE_HASHES: Dict[str, str] = {}
@@ -47,7 +47,7 @@ class LicenseEngine:
                 pro_hash = hashlib.sha256(pro_key.encode()).hexdigest()
         if pro_hash:
             self._LICENSE_HASHES[pro_hash] = "PRO"
-        
+
         # ENTERPRISE tier hash
         ent_hash = os.getenv("LICENSE_ENTERPRISE_HASH")
         if not ent_hash:
@@ -61,13 +61,13 @@ class LicenseEngine:
         """License key'i hash ile doğrula ve tier döndür"""
         if not key:
             return "FREE"
-        
+
         key_hash = hashlib.sha256(key.encode()).hexdigest()
         tier = self._LICENSE_HASHES.get(key_hash, "FREE")
-        
+
         if tier != "FREE":
             logger.info(f"License doğrulandı: {tier} tier aktif")
-        
+
         return tier
 
     async def get_current_tier(self) -> str:
@@ -76,18 +76,20 @@ class LicenseEngine:
             stmt = select(Ayarlar.deger).where(Ayarlar.anahtar == "LICENSE_KEY")
             result = await session.execute(stmt)
             key = result.scalar_one_or_none()
-            
+
             return self._validate_license_key(key or "")
 
     async def check_car_limit(self) -> bool:
         """Araç ekleme limiti kontrolü"""
         tier = await self.get_current_tier()
         limit = self.LIMITS[tier]["max_cars"]
-        
+
         async with AsyncSessionLocal() as session:
             count = await session.scalar(select(func.count(Arac.id)))
             if count >= limit:
-                logger.warning(f"Lisans Limiti: Araç sınırına ulaşıldı ({count}/{limit}). Seviye: {tier}")
+                logger.warning(
+                    f"Lisans Limiti: Araç sınırına ulaşıldı ({count}/{limit}). Seviye: {tier}"
+                )
                 return False
         return True
 
@@ -95,23 +97,23 @@ class LicenseEngine:
         """Aylık sefer limiti kontrolü"""
         tier = await self.get_current_tier()
         limit = self.LIMITS[tier]["max_trips_monthly"]
-        
+
         today = date.today()
         first_day = today.replace(day=1)
-        
+
         async with AsyncSessionLocal() as session:
             count = await session.scalar(
-                select(func.count(Sefer.id))
-                .where(Sefer.tarih >= first_day)
+                select(func.count(Sefer.id)).where(Sefer.tarih >= first_day)
             )
             if count >= limit:
-                logger.warning(f"Lisans Limiti: Aylık sefer sınırına ulaşıldı ({count}/{limit}). Seviye: {tier}")
+                logger.warning(
+                    f"Lisans Limiti: Aylık sefer sınırına ulaşıldı ({count}/{limit}). Seviye: {tier}"
+                )
                 return False
         return True
 
 
 def get_license_engine() -> LicenseEngine:
     from app.core.container import get_container
+
     return get_container().license_service
-
-

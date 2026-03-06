@@ -1,0 +1,165 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Pagination Pattern
+# ════════════════════════════════════════════════════════════════════════════
+
+name: "Pagination Pattern"
+version: "1.0"
+agent: "backend"
+
+trigger_keywords:
+  - "pagination"
+  - "sayfalama"
+  - "limit"
+  - "offset"
+  - "cursor"
+
+# ════════════════════════════════════════════════════════════════════════════
+project_convention:
+  default_limit: 100
+  max_limit: 1000
+
+# ════════════════════════════════════════════════════════════════════════════
+patterns:
+  offset_pagination:
+    description: "Offset-based pagination (basit)"
+    code: |
+      from fastapi import Query
+
+      @router.get("/", response_model=list[VehicleResponse])
+      async def list_vehicles(
+          skip: int = Query(0, ge=0, description="Offset"),
+          limit: int = Query(100, ge=1, le=1000, description="Limit"),
+          db: AsyncSession = Depends(get_db)
+      ):
+          query = select(Vehicle).where(Vehicle.is_active == True)
+          query = query.offset(skip).limit(limit)
+          result = await db.execute(query)
+          return result.scalars().all()
+
+  paginated_response:
+    description: "Paginated response with metadata"
+    code: |
+      from pydantic import BaseModel
+      from typing import Generic, TypeVar
+
+      T = TypeVar('T')
+
+      class PaginatedResponse(BaseModel, Generic[T]):
+          items: list[T]
+          total: int
+          page: int
+          page_size: int
+          total_pages: int
+          
+          @classmethod
+          def create(cls, items: list, total: int, page: int, page_size: int):
+              return cls(
+                  items=items,
+                  total=total,
+                  page=page,
+                  page_size=page_size,
+                  total_pages=(total + page_size - 1) // page_size
+              )
+
+      # Endpoint
+      @router.get("/", response_model=PaginatedResponse[VehicleResponse])
+      async def list_vehicles(
+          page: int = Query(1, ge=1),
+          page_size: int = Query(20, ge=1, le=100),
+          db: AsyncSession = Depends(get_db)
+      ):
+          offset = (page - 1) * page_size
+          
+          # Count total
+          count_query = select(func.count()).select_from(Vehicle)
+          total = (await db.execute(count_query)).scalar()
+          
+          # Get items
+          query = select(Vehicle).offset(offset).limit(page_size)
+          items = (await db.execute(query)).scalars().all()
+          
+          return PaginatedResponse.create(items, total, page, page_size)
+
+  cursor_pagination:
+    description: "Cursor-based pagination (large datasets)"
+    code: |
+      @router.get("/")
+      async def list_vehicles(
+          cursor: int | None = Query(None, description="Son görülen ID"),
+          limit: int = Query(20, ge=1, le=100),
+          db: AsyncSession = Depends(get_db)
+      ):
+          query = select(Vehicle).where(Vehicle.is_active == True)
+          
+          if cursor:
+              query = query.where(Vehicle.id > cursor)
+          
+          query = query.order_by(Vehicle.id).limit(limit + 1)
+          
+          result = (await db.execute(query)).scalars().all()
+          
+          has_more = len(result) > limit
+          items = result[:limit]
+          next_cursor = items[-1].id if items else None
+          
+          return {
+              "items": items,
+              "next_cursor": next_cursor if has_more else None,
+              "has_more": has_more
+          }
+
+  search_with_pagination:
+    description: "Filter + Sort + Pagination"
+    code: |
+      @router.get("/")
+      async def list_vehicles(
+          search: str | None = Query(None),
+          sort_by: str = Query("created_at"),
+          sort_order: str = Query("desc"),
+          page: int = Query(1, ge=1),
+          page_size: int = Query(20, ge=1, le=100),
+          db: AsyncSession = Depends(get_db)
+      ):
+          query = select(Vehicle).where(Vehicle.is_active == True)
+          
+          # Filter
+          if search:
+              query = query.where(
+                  or_(
+                      Vehicle.plaka.ilike(f"%{search}%"),
+                      Vehicle.marka.ilike(f"%{search}%")
+                  )
+              )
+          
+          # Sort
+          sort_column = getattr(Vehicle, sort_by, Vehicle.created_at)
+          if sort_order == "desc":
+              query = query.order_by(sort_column.desc())
+          else:
+              query = query.order_by(sort_column.asc())
+          
+          # Paginate
+          offset = (page - 1) * page_size
+          query = query.offset(offset).limit(page_size)
+          
+          return (await db.execute(query)).scalars().all()
+
+# ════════════════════════════════════════════════════════════════════════════
+comparison:
+  offset:
+    pros: ["Basit", "Random access", "Total count kolay"]
+    cons: ["Büyük offset yavaş", "Data değişirse tutarsız"]
+    use_when: "Küçük-orta veri, sayfa numarası gerekli"
+
+  cursor:
+    pros: ["Büyük veri için hızlı", "Tutarlı sonuçlar"]
+    cons: ["Random access yok", "Total count ek query"]
+    use_when: "Büyük veri, infinite scroll"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Max limit koy (1000)"
+  - "Default limit makul (20-100)"
+  - "Total count separate query (gerekirse)"
+  - "Sıralama her zaman belirli olsun"
+  - "Büyük veri için cursor pagination"

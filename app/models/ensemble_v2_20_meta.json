@@ -1,0 +1,65 @@
+{
+  "physics_weight": 0.1,
+  "training_stats": {
+    "sample_count": 500,
+    "test_size": 100,
+    "ensemble_r2": 0.9671,
+    "measurements": {
+      "mae": 0.74,
+      "rmse": 0.95,
+      "mape": 3.43,
+      "physics_mae": 3.73
+    },
+    "metrics": {
+      "gb_test_r2": 0.933,
+      "rf_test_r2": 0.914,
+      "xgb_test_r2": 0.842,
+      "lgb_test_r2": 0.943,
+      "gb_cv_mean": 0.921
+    },
+    "feature_importance": {
+      "ton": 0.008,
+      "ascent_m": 0.0024,
+      "descent_m": 0.0029,
+      "net_elevation": 0.0029,
+      "yuk_yogunlugu": 0.0045,
+      "zorluk": 0.0002,
+      "arac_yasi": 0.0,
+      "yas_faktoru": 0.0,
+      "mevsim_faktor": 0.0,
+      "sofor_katsayi": 0.1363,
+      "motorway_ratio": 0.0248,
+      "trunk_ratio": 0.0082,
+      "primary_ratio": 0.0186,
+      "residential_ratio": 0.0,
+      "unclassified_ratio": 0.0,
+      "flat_km": 0.003,
+      "grade_gentle_ratio": 0.0109,
+      "grade_moderate_ratio": 0.0075,
+      "grade_steep_ratio": 0.0114,
+      "weight_x_gradient": 0.015,
+      "stopgo_proxy": 0.0,
+      "aero_speed_factor": 0.0251,
+      "engine_load_proxy": 0.7159,
+      "route_fatigue": 0.0022
+    },
+    "model_weights": {
+      "physics": 0.1,
+      "gb": 0.231,
+      "rf": 0.226,
+      "xgboost": 0.209,
+      "lightgbm": 0.234
+    },
+    "is_honest_test": true
+  },
+  "is_trained": true,
+  "last_updated": "2026-02-18",
+  "sklearn_checksum": "d25d5108da5154506f67fed26f0c90f9203a6afe22c93b2118dc21932b783700",
+  "model_weights": {
+    "physics": 0.1,
+    "gb": 0.231,
+    "rf": 0.226,
+    "xgboost": 0.209,
+    "lightgbm": 0.234
+  }
+}

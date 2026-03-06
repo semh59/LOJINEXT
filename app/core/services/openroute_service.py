@@ -4,20 +4,24 @@ Rota profili, yükseklik, bayır/düzlük hesaplama
 REFACTORED: blocking requests → httpx.AsyncClient, thread-safe singleton
 """
 
-import os
 import threading
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
 
+from app.config import settings
 from app.infrastructure.logging.logger import get_logger
+from app.infrastructure.resilience.circuit_breaker import (
+    CircuitBreakerError,
+    CircuitBreakerRegistry,
+)
 from app.infrastructure.resilience.rate_limiter import RateLimiterRegistry
-from app.infrastructure.resilience.circuit_breaker import CircuitBreakerRegistry, CircuitBreakerError
 
 logger = get_logger(__name__)
 
@@ -25,6 +29,7 @@ logger = get_logger(__name__)
 @dataclass
 class RouteProfile:
     """Rota profili verisi"""
+
     distance_km: float
     duration_hours: float
     ascent_m: float  # Toplam tırmanış (bayır)
@@ -36,7 +41,7 @@ class OpenRouteService:
     """
     OpenRouteService API entegrasyonu (Async)
     https://openrouteservice.org/
-    
+
     Ücretsiz Tier: 2,000 istek/gün
     """
 
@@ -44,7 +49,7 @@ class OpenRouteService:
     TIMEOUT = 15.0  # seconds
 
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.environ.get("OPENROUTE_API_KEY", "")
+        self.api_key = api_key or settings.OPENROUTESERVICE_API_KEY
         self._client: Optional[httpx.AsyncClient] = None
 
     async def _get_client(self) -> "httpx.AsyncClient":
@@ -57,53 +62,53 @@ class OpenRouteService:
         """API key var mı kontrol et"""
         return bool(self.api_key) and HTTPX_AVAILABLE
 
-    def _haversine_distance(self, lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    def _haversine_distance(
+        self, lon1: float, lat1: float, lon2: float, lat2: float
+    ) -> float:
         """İki nokta arasındaki kuş uçuşu mesafeyi (KM) hesaplar"""
         import math
+
         R = 6371  # Dünya yarıçapı (km)
         dLat = math.radians(lat2 - lat1)
         dLon = math.radians(lon2 - lon1)
-        a = (math.sin(dLat / 2) * math.sin(dLat / 2) +
-             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-             math.sin(dLon / 2) * math.sin(dLon / 2))
+        a = math.sin(dLat / 2) * math.sin(dLat / 2) + math.cos(
+            math.radians(lat1)
+        ) * math.cos(math.radians(lat2)) * math.sin(dLon / 2) * math.sin(dLon / 2)
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
 
     def get_route_profile_offline(
-        self,
-        start_coords: Tuple[float, float],
-        end_coords: Tuple[float, float]
+        self, start_coords: Tuple[float, float], end_coords: Tuple[float, float]
     ) -> RouteProfile:
         """
         İnternet yoksa kuş uçuşu mesafe üzerinden tahmini profil döndür.
         """
         # Kuş uçuşu mesafeyi hesapla ve %25 yol kıvrım payı ekle
         air_distance = self._haversine_distance(
-            start_coords[0], start_coords[1], 
-            end_coords[0], end_coords[1]
+            start_coords[0], start_coords[1], end_coords[0], end_coords[1]
         )
         distance_km = air_distance * 1.25
-        
+
         # Ortalama 70 km/s hız varsayımı
         duration_hours = distance_km / 70.0
-        
+
         # Türkiye geneli için ortalama yükseklik tırmanışı
         ascent = (distance_km / 100) * 450
         descent = (distance_km / 100) * 400
-        
+
         return RouteProfile(
             distance_km=round(distance_km, 1),
             duration_hours=round(duration_hours, 2),
             ascent_m=round(ascent, 0),
             descent_m=round(descent, 0),
-            elevation_gain_ratio=0.53
+            elevation_gain_ratio=0.53,
         )
 
     async def get_route_profile(
         self,
         start_coords: Tuple[float, float],  # (lon, lat)
-        end_coords: Tuple[float, float],    # (lon, lat)
-        vehicle_type: str = "driving-hgv"   # Heavy Goods Vehicle (TIR)
+        end_coords: Tuple[float, float],  # (lon, lat)
+        vehicle_type: str = "driving-hgv",  # Heavy Goods Vehicle (TIR)
     ) -> Optional[RouteProfile]:
         """
         İki nokta arasındaki rota profilini al (Async).
@@ -115,27 +120,31 @@ class OpenRouteService:
 
         try:
             # Rate Limiter: 2 istek/saniye (günlük 2000 limit)
-            rate_limiter = RateLimiterRegistry.get_sync("openroute", rate=2.0, period=1.0)
+            rate_limiter = RateLimiterRegistry.get_sync(
+                "openroute", rate=2.0, period=1.0
+            )
             await rate_limiter.acquire()
-            
+
             # Circuit Breaker: 5 hata → 60 saniye bekleme
-            circuit = CircuitBreakerRegistry.get_sync("openroute", fail_max=5, reset_timeout=60.0)
-            
+            circuit = CircuitBreakerRegistry.get_sync(
+                "openroute", fail_max=5, reset_timeout=60.0
+            )
+
             client = await self._get_client()
             url = f"{self.BASE_URL}/directions/{vehicle_type}"
             headers = {
-                "Authorization": self.api_key,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
+            params = {"api_key": self.api_key}
             body = {
                 "coordinates": [list(start_coords), list(end_coords)],
                 "elevation": True,
-                "instructions": False
+                "instructions": False,
             }
 
             async def _make_request():
-                return await client.post(url, json=body, headers=headers)
-            
+                return await client.post(url, json=body, headers=headers, params=params)
+
             response = await circuit.call(_make_request)
 
             if response.status_code == 200:
@@ -157,17 +166,21 @@ class OpenRouteService:
                     duration_hours=round(duration_sec / 3600, 2),
                     ascent_m=round(ascent, 0),
                     descent_m=round(descent, 0),
-                    elevation_gain_ratio=round(ratio, 2)
+                    elevation_gain_ratio=round(ratio, 2),
                 )
             else:
-                logger.warning(f"OpenRouteService error {response.status_code}, falling back to offline.")
+                logger.warning(
+                    f"OpenRouteService error {response.status_code}, falling back to offline."
+                )
                 return self.get_route_profile_offline(start_coords, end_coords)
 
         except httpx.TimeoutException:
             logger.warning("OpenRouteService timeout, falling back to offline.")
             return self.get_route_profile_offline(start_coords, end_coords)
         except CircuitBreakerError:
-            logger.warning("OpenRouteService circuit breaker open, falling back to offline.")
+            logger.warning(
+                "OpenRouteService circuit breaker open, falling back to offline."
+            )
             return self.get_route_profile_offline(start_coords, end_coords)
         except Exception as e:
             logger.error(f"OpenRouteService exception: {e}, falling back to offline.")
@@ -187,7 +200,7 @@ class OpenRouteService:
                 "api_key": self.api_key,
                 "text": address,
                 "size": 1,
-                "boundary.country": "TR"
+                "boundary.country": "TR",
             }
             response = await client.get(url, params=params)
 
@@ -198,7 +211,7 @@ class OpenRouteService:
                     coords = features[0].get("geometry", {}).get("coordinates", [])
                     if len(coords) >= 2:
                         return (coords[0], coords[1])
-            
+
             return self.geocode_offline(address)
 
         except httpx.TimeoutException:
@@ -217,7 +230,7 @@ class OpenRouteService:
             "bursa": (29.0610, 40.1815),
             "antalya": (30.7133, 36.8969),
             "gebze": (29.4300, 40.8000),
-            "kocaeli": (29.9167, 40.7667)
+            "kocaeli": (29.9167, 40.7667),
         }
         addr_lower = str(address).lower()
         for city, coords in major_cities.items():

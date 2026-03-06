@@ -10,7 +10,7 @@ from app.database.repositories.yakit_repo import get_yakit_repo
 from app.database.repositories.arac_repo import get_arac_repo
 from app.database.repositories.sefer_repo import get_sefer_repo
 from app.database.models import YakitPeriyodu
-from datetime import date, datetime
+from datetime import date
 
 class TestSQLInjectionProtection:
     """SQL Injection koruması testleri"""

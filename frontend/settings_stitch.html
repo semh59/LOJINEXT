@@ -1,0 +1,211 @@
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#f4af25",
+            "background-light": "#f8f7f5",
+            "background-dark": "#0a0907",
+            "glass": "rgba(255, 255, 255, 0.03)",
+            "glass-border": "rgba(255, 255, 255, 0.1)",
+          },
+          fontFamily: {
+            "display": ["Inter", "sans-serif"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+<style>
+    .glass-panel {
+      background: rgba(35, 29, 16, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(244, 175, 37, 0.15);
+    }
+    .amber-glow {
+      box-shadow: 0 0 15px rgba(244, 175, 37, 0.2);
+    }
+    .active-tab-glow {
+      box-shadow: 0 4px 12px -2px rgba(244, 175, 37, 0.5);
+    }
+    ::-webkit-scrollbar {
+      width: 0px;
+      background: transparent;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-20">
+<!-- Header -->
+<div class="sticky top-0 z-50 flex items-center bg-background-dark/80 backdrop-blur-lg p-4 justify-between border-b border-white/5">
+<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/5">
+<span class="material-symbols-outlined text-slate-100">arrow_back_ios_new</span>
+</div>
+<h2 class="text-slate-100 text-lg font-semibold tracking-tight flex-1 text-center">Sistem Ayarları</h2>
+<div class="flex size-10 items-center justify-end">
+<button class="relative flex size-10 items-center justify-center rounded-full bg-white/5">
+<span class="material-symbols-outlined text-slate-100">notifications</span>
+<span class="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-primary amber-glow"></span>
+</button>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="bg-background-dark pt-2 sticky top-[72px] z-40">
+<div class="flex overflow-x-auto no-scrollbar border-b border-white/10 px-4 gap-6">
+<a class="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 pb-3 pt-2 whitespace-nowrap" href="#">
+<span class="text-sm font-medium">Genel</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-2 border-primary text-primary pb-3 pt-2 whitespace-nowrap active-tab-glow" href="#">
+<span class="text-sm font-bold">Fiziksel Parametreler</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 pb-3 pt-2 whitespace-nowrap" href="#">
+<span class="text-sm font-medium">Kullanıcılar</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 pb-3 pt-2 whitespace-nowrap" href="#">
+<span class="text-sm font-medium">Otomasyon</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 pb-3 pt-2 whitespace-nowrap" href="#">
+<span class="text-sm font-medium">Güvenlik</span>
+</a>
+</div>
+</div>
+<!-- Main Content -->
+<div class="p-4 space-y-4">
+<div class="flex items-center justify-between mb-2">
+<h3 class="text-slate-100 text-xl font-bold">Parametre Yapılandırması</h3>
+<span class="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full border border-primary/20">5 Aktif İzleme</span>
+</div>
+<!-- Card 1 -->
+<div class="glass-panel rounded-xl p-5 shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary/40"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="text-slate-100 text-base font-semibold">Ortalama Dizel Yoğunluğu</h4>
+<p class="text-slate-400 text-xs mt-1 leading-relaxed">Yakıt transfer hesaplamaları için standart yoğunluk değeri.</p>
+</div>
+<span class="material-symbols-outlined text-primary/50">info</span>
+</div>
+<div class="flex items-baseline gap-2 my-4">
+<span class="text-3xl font-bold text-slate-100 tracking-tight">835</span>
+<span class="text-slate-400 text-sm font-medium">kg/m³</span>
+</div>
+<div class="flex items-center justify-between py-3 border-t border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Limit Aralığı</span>
+<span class="text-xs text-slate-300 font-mono">Min: 820 — Max: 860</span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-background-dark text-xs font-bold px-4 py-2 rounded-lg transition-colors amber-glow">
+            DÜZENLE
+          </button>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-white/5">
+<span class="text-xs text-slate-400 italic">Yeniden Başlatma Gerektirir</span>
+<div class="relative inline-flex h-5 w-10 items-center rounded-full bg-primary/20">
+<span class="inline-block h-3.5 w-3.5 transform rounded-full bg-primary translate-x-5 transition-transform"></span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="glass-panel rounded-xl p-5 shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-slate-700"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="text-slate-100 text-base font-semibold">Viskozite Katsayısı</h4>
+<p class="text-slate-400 text-xs mt-1 leading-relaxed">Akışkan direnci hesaplamaları için dinamik katsayı.</p>
+</div>
+<span class="material-symbols-outlined text-slate-600">settings_suggest</span>
+</div>
+<div class="flex items-baseline gap-2 my-4">
+<span class="text-3xl font-bold text-slate-100 tracking-tight">2.45</span>
+<span class="text-slate-400 text-sm font-medium">mPa·s</span>
+</div>
+<div class="flex items-center justify-between py-3 border-t border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Limit Aralığı</span>
+<span class="text-xs text-slate-300 font-mono">Min: 1.80 — Max: 3.20</span>
+</div>
+<button class="bg-white/5 hover:bg-white/10 text-slate-100 text-xs font-bold px-4 py-2 rounded-lg transition-colors border border-white/10">
+            DÜZENLE
+          </button>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-white/5">
+<span class="text-xs text-slate-400 italic">Yeniden Başlatma Gerektirir</span>
+<div class="relative inline-flex h-5 w-10 items-center rounded-full bg-white/10">
+<span class="inline-block h-3.5 w-3.5 transform rounded-full bg-slate-500 translate-x-1 transition-transform"></span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="glass-panel rounded-xl p-5 shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary/40"></div>
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="text-slate-100 text-base font-semibold">Basınç Eşiği (Alarm)</h4>
+<p class="text-slate-400 text-xs mt-1 leading-relaxed">Sistem güvenlik valfleri için kritik basınç noktası.</p>
+</div>
+<span class="material-symbols-outlined text-primary/50">warning</span>
+</div>
+<div class="flex items-baseline gap-2 my-4">
+<span class="text-3xl font-bold text-slate-100 tracking-tight">12.8</span>
+<span class="text-slate-400 text-sm font-medium">Bar</span>
+</div>
+<div class="flex items-center justify-between py-3 border-t border-white/5">
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Limit Aralığı</span>
+<span class="text-xs text-slate-300 font-mono">Min: 10.0 — Max: 15.0</span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-background-dark text-xs font-bold px-4 py-2 rounded-lg transition-colors amber-glow">
+            DÜZENLE
+          </button>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-white/5">
+<span class="text-xs text-slate-400 italic">Yeniden Başlatma Gerektirir</span>
+<div class="relative inline-flex h-5 w-10 items-center rounded-full bg-primary/20">
+<span class="inline-block h-3.5 w-3.5 transform rounded-full bg-primary translate-x-5 transition-transform"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<div class="fixed bottom-0 left-0 right-0 z-50 flex border-t border-white/10 bg-background-dark/95 backdrop-blur-xl px-4 pb-6 pt-2">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined text-[24px]">dashboard</span>
+<p class="text-[10px] font-medium leading-normal tracking-wide">Dashboard</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined text-[24px]">local_shipping</span>
+<p class="text-[10px] font-medium leading-normal tracking-wide">Sevkiyat</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-primary" href="#">
+<span class="material-symbols-outlined text-[24px] fill-current">settings</span>
+<p class="text-[10px] font-bold leading-normal tracking-wide">Ayarlar</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined text-[24px]">account_circle</span>
+<p class="text-[10px] font-medium leading-normal tracking-wide">Profil</p>
+</a>
+</div>
+<!-- Ambient Glow Background Decoration -->
+<div class="fixed top-1/4 -right-20 w-64 h-64 bg-primary/10 blur-[100px] rounded-full pointer-events-none"></div>
+<div class="fixed bottom-1/4 -left-20 w-64 h-64 bg-primary/5 blur-[100px] rounded-full pointer-events-none"></div>
+</div>
+</body></html>

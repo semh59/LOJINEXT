@@ -5,7 +5,7 @@ Güvenlik, async safety ve resilience kontrolleri
 BOLUM_1_1_SERVISLER_AUDIT.md gereksinimlerine göre hazırlanmıştır.
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 import asyncio
 
 
@@ -211,7 +211,7 @@ class TestLoadScenarios:
     @pytest.mark.asyncio
     async def test_concurrent_health_checks(self):
         """100 eşzamanlı health check başarılı olmalı"""
-        from app.core.services.health_service import get_health_service, HealthService
+        from app.core.services.health_service import get_health_service
         
         service = get_health_service()
         

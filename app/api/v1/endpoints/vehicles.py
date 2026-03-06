@@ -1,15 +1,22 @@
-from typing import List, Annotated, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Annotated, List, Optional
 
-from app.api.deps import SessionDep, get_current_user, get_current_active_admin
-from app.database.models import Arac, Kullanici
-from app.schemas.arac import AracCreate, AracResponse, AracUpdate
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from sqlalchemy import select
+
+from app.api.deps import (
+    SessionDep,
+    UOWDep,
+    get_arac_service,
+    get_current_active_admin,
+    get_current_user,
+)
+from app.core.entities.models import VehicleStats
+from app.core.services.arac_service import AracService
 from app.core.services.excel_service import ExcelService
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Query, Response
-from sqlalchemy import select, or_
-
+from app.database.models import Arac, Kullanici
 from app.infrastructure.logging.logger import get_logger
-from app.core.services.arac_service import get_arac_service
+from app.schemas.arac import AracCreate, AracResponse, AracUpdate
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -19,10 +26,12 @@ router = APIRouter()
 # Service does wrap it: get_all_vehicles. But read_araclar has complex filtering.
 # Let's clean up Create/Update/Delete first.
 
+
 @router.get("/", response_model=List[AracResponse])
 async def read_araclar(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
+    service: AracService = Depends(get_arac_service),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     aktif_only: bool = True,
@@ -30,10 +39,9 @@ async def read_araclar(
     marka: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
     min_yil: Optional[int] = Query(None),
-    max_yil: Optional[int] = Query(None)
+    max_yil: Optional[int] = Query(None),
 ):
     """Araçları listele (Service Layer)."""
-    service = get_arac_service()
     try:
         # Centralized listing with safety and filtering
         return await service.get_all_paged(
@@ -44,7 +52,7 @@ async def read_araclar(
             marka=marka,
             model=model,
             min_yil=min_yil,
-            max_yil=max_yil
+            max_yil=max_yil,
         )
     except Exception as e:
         logger.error(f"Error listing vehicles via service: {e}")
@@ -53,98 +61,108 @@ async def read_araclar(
         logger.error(f"CRITICAL API ERROR in read_araclar: {glob_e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {glob_e}")
 
+
 @router.get("/export")
 async def export_araclar(
     current_user: Annotated[Kullanici, Depends(get_current_user)],
+    service: AracService = Depends(get_arac_service),
     aktif_only: bool = True,
     search: str = Query(None, min_length=1),
     marka: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
     min_yil: Optional[int] = Query(None),
-    max_yil: Optional[int] = Query(None)
+    max_yil: Optional[int] = Query(None),
 ):
     """Araç listesini Excel olarak dışa aktar (Filtreli)."""
-    service = get_arac_service()
     try:
         # Export için limit kaldırılır (veya çok yüksek tutulur)
         vehicles = await service.get_all_paged(
             skip=0,
-            limit=10000, # Makul bir üst sınır
+            limit=10000,  # Makul bir üst sınır
             aktif_only=aktif_only,
             search=search,
             marka=marka,
             model=model,
             min_yil=min_yil,
-            max_yil=max_yil
+            max_yil=max_yil,
         )
-        
+
         # Pydantic modellerini dict'e çevir
         data = [v.model_dump() for v in vehicles]
-        
+
         # Excel oluştur
         content = ExcelService.export_data(data, type="arac_listesi")
-        
-        filename = f"arac_listesi_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-        
+
+        filename = (
+            f"arac_listesi_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.xlsx"
+        )
+
         return Response(
             content=content,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except Exception as e:
         logger.error(f"Error exporting vehicles: {e}")
         raise HTTPException(status_code=500, detail="Excel oluşturulurken hata oluştu")
 
-@router.post("/", response_model=AracResponse)
+
+@router.post("/", response_model=AracResponse, status_code=201)
 async def create_arac(
-    arac: AracCreate, 
-    db: SessionDep,
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)]
+    arac: AracCreate,
+    uow: UOWDep,
+    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    service: AracService = Depends(get_arac_service),
 ):
     """Yeni araç oluştur (Service: Duplicate Check + Reactivation)."""
-    service = get_arac_service()
     try:
-        arac_id = await service.create_arac(arac)
-        
-        # Fetch created
-        created = await db.get(Arac, arac_id)
+        # Service handles Duplicate Check + Reactivation within the same UOW transaction
+        arac_id = await service.create_arac(arac, uow=uow)
+
+        # Fetch created (Use UOW for consistency)
+        created = await uow.arac_repo.get_by_id(arac_id)
         if not created:
-             raise HTTPException(status_code=500, detail="Araç oluşturuldu ancak okunamadı.")
-             
-        logger.info(f"Vehicle processed via Service: {created.plaka} by {current_admin.kullanici_adi}")
+            raise HTTPException(
+                status_code=500, detail="Araç oluşturuldu ancak okunamadı."
+            )
+
+        logger.info(
+            f"Vehicle processed via Service: {created.get('plaka')} by {current_admin.email}"
+        )
         return created
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating vehicle: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Sunucu hatası")
 
+
 @router.get("/template")
 async def get_vehicle_template(
-    current_user: Annotated[Kullanici, Depends(get_current_user)]
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
 ):
     """Araç yükleme Excel şablonunu indir."""
     from fastapi.responses import Response
+
     from app.core.services.excel_service import ExcelService
-    
+
     content = ExcelService.generate_template("arac")
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": "attachment; filename=arac_yukleme_sablonu.xlsx"
-        }
+        },
     )
+
 
 @router.delete("/clear-all")
 async def clear_all_vehicles(
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)]
+    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    service: AracService = Depends(get_arac_service),
 ):
     """Tüm araçları temizle (Admin Only)."""
-    service = get_arac_service()
     try:
         count = await service.delete_all_vehicles()
         return {"status": "success", "message": f"{count} araç temizlendi."}
@@ -152,19 +170,22 @@ async def clear_all_vehicles(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error clearing all vehicles: {e}")
-        raise HTTPException(status_code=500, detail="Temizleme işlemi sırasında hata oluştu")
+        raise HTTPException(
+            status_code=500, detail="Temizleme işlemi sırasında hata oluştu"
+        )
+
 
 @router.delete("/{arac_id}")
 async def delete_arac(
     arac_id: int,
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)]
+    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    service: AracService = Depends(get_arac_service),
 ):
     """Araç sil (Soft/Hard delete)."""
-    service = get_arac_service()
     try:
         success = await service.delete_arac(arac_id)
         if not success:
-             raise HTTPException(status_code=404, detail="Araç bulunamadı")
+            raise HTTPException(status_code=404, detail="Araç bulunamadı")
         return {"status": "success", "message": "Araç silindi"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -172,11 +193,12 @@ async def delete_arac(
         logger.error(f"Error deleting vehicle {arac_id}: {e}")
         raise HTTPException(status_code=500, detail="Silme işlemi başarısız")
 
+
 @router.get("/{arac_id}", response_model=AracResponse)
 async def read_arac(
-    arac_id: int, 
+    arac_id: int,
     db: SessionDep,
-    current_user: Annotated[Kullanici, Depends(get_current_user)]
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
 ):
     """Araç detayını getir."""
     arac = await db.get(Arac, arac_id)
@@ -184,84 +206,98 @@ async def read_arac(
         raise HTTPException(status_code=404, detail="Araç bulunamadı")
     return arac
 
+
 @router.put("/{arac_id}", response_model=AracResponse)
 async def update_arac(
     arac_id: int,
     arac_update: AracUpdate,
     db: SessionDep,
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)]
+    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    service: AracService = Depends(get_arac_service),
 ):
     """Araç güncelle."""
-    from sqlalchemy import select
-    
-    # Mevcut aracı bul
-    result = await db.execute(select(Arac).where(Arac.id == arac_id))
-    existing = result.scalar_one_or_none()
-    
-    if not existing:
+
+    # Use Service for atomic update and logging
+    try:
+        success = await service.update_arac(arac_id, arac_update)
+        if not success:
+            raise HTTPException(status_code=404, detail="Araç bulunamadı")
+
+        # Refresh from DB to return updated state
+        result = await db.execute(select(Arac).where(Arac.id == arac_id))
+        existing = result.scalar_one_or_none()
+        return existing
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+
+@router.get("/{arac_id}/stats", response_model=VehicleStats)
+async def get_vehicle_stats(
+    arac_id: int,
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
+    service: AracService = Depends(get_arac_service),
+):
+    """Araç istatistiklerini getir (Sefer sayısı, KM, Tüketim vs)."""
+    stats = await service.get_vehicle_stats(arac_id)
+    if not stats:
+        # Eğer araç yoksa 404
+        # Eğer araç var ama hiç seferi yoksa service yine de boş istatistik (0) dönebilir
+        # Service implementation: returns None if vehicle not found
         raise HTTPException(status_code=404, detail="Araç bulunamadı")
-    
-    # Güncelleme verilerini uygula
-    update_data = arac_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(existing, field, value)
-    
-    await db.commit()
-    await db.refresh(existing)
-    
-    logger.info(f"Vehicle updated: {existing.plaka} by {current_admin.kullanici_adi}")
-    return existing
+    return stats
+
 
 @router.post("/upload")
 async def upload_vehicles(
     current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
 ):
     # ... existing implementation ...
-    from app.core.services.import_service import get_import_service
-    
+    from app.api.deps import get_import_service
+
     # MIME Type Validation
     ALLOWED_MIME_TYPES = {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # xlsx
         "application/vnd.ms-excel",  # xls
-        "application/octet-stream"  # Some browsers send this
+        "application/octet-stream",  # Some browsers send this
     }
     if file.content_type and file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(status_code=400, detail="Sadece Excel dosyaları (.xlsx, .xls) kabul edilir.")
-    
+        raise HTTPException(
+            status_code=400, detail="Sadece Excel dosyaları (.xlsx, .xls) kabul edilir."
+        )
+
     # File extension validation (double check)
     if file.filename:
-        if not file.filename.lower().endswith(('.xlsx', '.xls')):
-            raise HTTPException(status_code=400, detail="Dosya uzantısı .xlsx veya .xls olmalıdır.")
-    
+        if not file.filename.lower().endswith((".xlsx", ".xls")):
+            raise HTTPException(
+                status_code=400, detail="Dosya uzantısı .xlsx veya .xls olmalıdır."
+            )
+
     # 10MB Limit Check
     MAX_FILE_SIZE = 10 * 1024 * 1024
-    
+
     # 1. Check Content-Length header (fast fail)
     if file.size and file.size > MAX_FILE_SIZE:
-         raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'ı geçemez.")
+        raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'ı geçemez.")
 
     # 2. Secure Read (Chunked) protecting RAM
     content = bytearray()
-    chunk_size = 1024 * 1024 # 1MB chunks
-    
+    chunk_size = 1024 * 1024  # 1MB chunks
+
     while True:
         chunk = await file.read(chunk_size)
         if not chunk:
             break
         content.extend(chunk)
         if len(content) > MAX_FILE_SIZE:
-             raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'ı geçemez.")
-    
+            raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'ı geçemez.")
+
     import_service = get_import_service()
-    
+
     created_count, errors = await import_service.process_vehicle_import(bytes(content))
-    
+
     return {
         "status": "success",
         "message": f"{created_count} araç yüklendi.",
-        "errors": errors
+        "errors": errors,
     }
-
-
-

@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils"
 
 export interface ButtonProps
     extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: "primary" | "secondary" | "danger" | "ghost" | "outline"
+    variant?: "primary" | "secondary" | "danger" | "ghost" | "outline" | "glossy-cyan" | "glossy-purple" | "glossy-green" | "glossy-orange"
     size?: "sm" | "md" | "lg" | "icon"
     isLoading?: boolean
     asChild?: boolean
@@ -21,7 +21,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             danger: "btn-danger",
             ghost: "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
             outline: "border border-neutral-200 bg-transparent hover:bg-neutral-100 text-neutral-900 dark:border-neutral-800 dark:text-neutral-100",
+            "glossy-cyan": "btn-glossy btn-glossy-cyan",
+            "glossy-purple": "btn-glossy btn-glossy-purple",
+            "glossy-green": "btn-glossy btn-glossy-green",
+            "glossy-orange": "btn-glossy btn-glossy-orange",
         }
+
+        const isGlossy = variant?.startsWith("glossy-")
 
         const sizes = {
             sm: "h-8 px-3 text-xs",
@@ -43,6 +49,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 disabled={isLoading || disabled}
                 {...props}
             >
+                {isGlossy && <span className="glass-reflection" />}
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {children}
             </Comp>

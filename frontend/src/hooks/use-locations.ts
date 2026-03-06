@@ -89,6 +89,21 @@ export const useLocations = (filters: LocationFilters = {}) => {
         });
     };
 
+    // Rota bilgilerini koordinatlara göre getir (Fetch)
+    const useGetRouteInfo = () => {
+        return useMutation({
+            mutationFn: (params: {
+                cikis_lat: number;
+                cikis_lon: number;
+                varis_lat: number;
+                varis_lon: number;
+            }) => locationService.getRouteInfo(params),
+            onError: (error: any) => {
+                toast.error(error?.message || 'Rota bilgileri çekilirken bir hata oluştu.');
+            }
+        });
+    };
+
     return {
         useGetLocations,
         useGetLocation,
@@ -96,6 +111,7 @@ export const useLocations = (filters: LocationFilters = {}) => {
         useUpdateLocation,
         useDeleteLocation,
         useAnalyzeLocation,
-        useLocationNames
+        useLocationNames,
+        useGetRouteInfo
     };
 };

@@ -3,10 +3,12 @@ TIR Yakıt Takip - Lokasyon Repository
 Lokasyon/güzergah CRUD operasyonları
 """
 
-from typing import Dict, List, Optional
 import difflib
+import threading
+from typing import Dict, List, Optional
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.base_repository import BaseRepository
 from app.database.models import Lokasyon
@@ -23,32 +25,35 @@ class LokasyonRepository(BaseRepository[Lokasyon]):
 
     async def get_all(self, **kwargs) -> List[Dict]:
         """Tüm lokasyonları getir"""
-        order_by = kwargs.pop('order_by', "cikis_yeri asc, varis_yeri asc")
-        limit = kwargs.pop('limit', 200)
-        include_inactive = kwargs.pop('include_inactive', True)
-        
+        order_by = kwargs.pop("order_by", "cikis_yeri asc, varis_yeri asc")
+        limit = kwargs.pop("limit", 200)
+        include_inactive = kwargs.pop("include_inactive", True)
+
         return await super().get_all(
-            order_by=order_by,
-            limit=limit,
-            include_inactive=include_inactive,
-            **kwargs
+            order_by=order_by, limit=limit, include_inactive=include_inactive, **kwargs
         )
 
     async def get_by_route(self, cikis: str, varis: str) -> Optional[Dict]:
-        """Çıkış ve varış noktasına göre güzergah getir"""
-        async with self._get_session() as session:
-            stmt = select(self.model).where(
-                self.model.cikis_yeri == cikis,
-                self.model.varis_yeri == varis
-            )
-            result = await session.execute(stmt)
-            obj = result.scalar_one_or_none()
-            return self._to_dict(obj)
+        """Çıkış ve varış noktasına göre güzergah getir (Case Insensitive)"""
+        session = self.session
+        from sqlalchemy import func
+
+        # Neutralize dotted/dotless i for Turkish resilience
+        def neutralize_sql(col):
+            return func.replace(func.replace(func.lower(col), "İ", "i"), "ı", "i")
+
+        stmt = select(self.model).where(
+            neutralize_sql(self.model.cikis_yeri) == neutralize_sql(cikis),
+            neutralize_sql(self.model.varis_yeri) == neutralize_sql(varis),
+        )
+        result = await session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        return self._to_dict(obj)
 
     async def get_mesafe(self, cikis: str, varis: str) -> Optional[int]:
         """Lokasyonlar arası mesafeyi getir"""
         loc = await self.get_by_route(cikis, varis)
-        return loc.get('mesafe_km') if loc else None
+        return loc.get("mesafe_km") if loc else None
 
     async def get_benzersiz_lokasyonlar(self) -> List[str]:
         """Benzersiz lokasyon isimlerini getir (çıkış + varış)"""
@@ -59,7 +64,7 @@ class LokasyonRepository(BaseRepository[Lokasyon]):
             ORDER BY yer
         """
         rows = await self.execute_query(query)
-        return [row['yer'] for row in rows]
+        return [row["yer"] for row in rows]
 
     async def add(
         self,
@@ -73,10 +78,14 @@ class LokasyonRepository(BaseRepository[Lokasyon]):
         cikis_lon: float = None,
         varis_lat: float = None,
         varis_lon: float = None,
-        api_mesafe_km: int = None,
+        api_mesafe_km: float = None,
         api_sure_saat: float = None,
         ascent_m: float = None,
-        descent_m: float = None
+        descent_m: float = None,
+        flat_distance_km: float = 0.0,
+        otoban_mesafe_km: float = None,
+        sehir_ici_mesafe_km: float = None,
+        aktif: bool = True,
     ) -> int:
         """Yeni güzergah ekle"""
         return await self.create(
@@ -93,7 +102,11 @@ class LokasyonRepository(BaseRepository[Lokasyon]):
             api_mesafe_km=api_mesafe_km,
             api_sure_saat=api_sure_saat,
             ascent_m=ascent_m,
-            descent_m=descent_m
+            descent_m=descent_m,
+            flat_distance_km=flat_distance_km,
+            otoban_mesafe_km=otoban_mesafe_km,
+            sehir_ici_mesafe_km=sehir_ici_mesafe_km,
+            aktif=aktif,
         )
 
     async def get_with_elevation(self, lokasyon_id: int) -> Optional[Dict]:
@@ -102,8 +115,8 @@ class LokasyonRepository(BaseRepository[Lokasyon]):
         loc = await self.get_by_id(lokasyon_id)
         if loc:
             # Add alias keys if frontend expects them
-            loc['ascent'] = loc.get('ascent_m') or 0
-            loc['descent'] = loc.get('descent_m') or 0
+            loc["ascent"] = loc.get("ascent_m") or 0
+            loc["descent"] = loc.get("descent_m") or 0
         return loc
 
     async def get_route_for_prediction(self, cikis: str, varis: str) -> Dict:
@@ -111,44 +124,51 @@ class LokasyonRepository(BaseRepository[Lokasyon]):
         loc = await self.get_by_route(cikis, varis)
         if loc:
             return {
-                'mesafe_km': loc.get('mesafe_km', 0),
-                'ascent_m': loc.get('ascent_m') or 0,
-                'descent_m': loc.get('descent_m') or 0,
-                'zorluk': loc.get('zorluk', 'Normal')
+                "mesafe_km": loc.get("mesafe_km", 0),
+                "ascent_m": loc.get("ascent_m") or 0,
+                "descent_m": loc.get("descent_m") or 0,
+                "zorluk": loc.get("zorluk", "Normal"),
             }
-        return {'mesafe_km': 0, 'ascent_m': 0, 'descent_m': 0, 'zorluk': 'Normal'}
+        return {"mesafe_km": 0, "ascent_m": 0, "descent_m": 0, "zorluk": "Normal"}
 
-    async def find_closest_match(self, input_name: str, threshold: float = 0.6, pre_fetched_names: List[str] = None) -> Optional[str]:
+    async def find_closest_match(
+        self,
+        input_name: str,
+        threshold: float = 0.6,
+        pre_fetched_names: List[str] = None,
+    ) -> Optional[str]:
         """
         Akıllı İsim Eşleme (Fuzzy Matching).
         Bulk işlemlerde pre_fetched_names verilerek N+1 sorgu önlenir.
         """
-        if not input_name: return None
-        
+        if not input_name:
+            return None
+
         all_names = pre_fetched_names
         if all_names is None:
             all_names = await self.get_benzersiz_lokasyonlar()
-            
-        if not all_names: return None
-        
+
+        if not all_names:
+            return None
+
         # Büyük/küçük harf duyarsız eşleme
         input_name = input_name.upper().strip()
-        matches = difflib.get_close_matches(input_name, [n.upper() for n in all_names], n=1, cutoff=threshold)
-        
+        matches = difflib.get_close_matches(
+            input_name, [n.upper() for n in all_names], n=1, cutoff=threshold
+        )
+
         if matches:
             # Orijinal ismi bul (all_names içinden)
             idx = [n.upper() for n in all_names].index(matches[0])
             return all_names[idx]
-            
+
         return None
 
 
 # Thread-safe Singleton
-import threading
-from sqlalchemy.ext.asyncio import AsyncSession
-
 _lokasyon_repo_lock = threading.Lock()
 _lokasyon_repo: Optional[LokasyonRepository] = None
+
 
 def get_lokasyon_repo(session: Optional[AsyncSession] = None) -> LokasyonRepository:
     """LokasyonRepo Provider. Eğer session verilirse yeni instance döner (UoW için)."""

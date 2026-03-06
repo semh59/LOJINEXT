@@ -1,9 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, User, Save, Phone, Calendar, FileText } from 'lucide-react'
+import { X, User, Phone, Calendar, FileText } from 'lucide-react'
+import { useForm, Controller, SubmitHandler } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Driver } from '../../types'
+
+const driverSchema = z.object({
+    ad_soyad: z.string()
+        .min(3, 'İsim en az 3 karakter olmalı')
+        .max(100, 'İsim en fazla 100 karakter olabilir'),
+    telefon: z.string()
+        .optional()
+        .refine(val => !val || /^[0-9\s]{10,14}$/.test(val), 'Geçerli bir telefon numarası giriniz'),
+    ise_baslama: z.string().optional(),
+    ehliyet_sinifi: z.string().min(1, 'Ehliyet sınıfı seçiniz'),
+    manual_score: z.number().min(0.1).max(2.0),
+    notlar: z.string().max(500, 'Notlar en fazla 500 karakter olabilir').optional(),
+    aktif: z.boolean()
+})
+
+type DriverFormData = z.infer<typeof driverSchema>
 
 interface DriverModalProps {
     isOpen: boolean
@@ -12,69 +31,71 @@ interface DriverModalProps {
     driver?: Driver | null
 }
 
-// Ehliyet sınıfları
 const EHLIYET_OPTIONS = ['B', 'C', 'CE', 'D', 'D1E', 'E', 'G'] as const
 
 export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProps) {
-    const [formData, setFormData] = useState<Partial<Driver>>({
-        ad_soyad: '',
-        telefon: '',
-        ise_baslama: '',
-        ehliyet_sinifi: 'E',
-        manual_score: 1.0,
-        notlar: '',
-        aktif: true
+    const {
+        register,
+        handleSubmit,
+        control,
+        reset,
+        watch,
+        formState: { errors, isSubmitting }
+    } = useForm<DriverFormData>({
+        resolver: zodResolver(driverSchema),
+        defaultValues: {
+            ad_soyad: '',
+            telefon: '',
+            ise_baslama: new Date().toISOString().split('T')[0],
+            ehliyet_sinifi: 'E',
+            manual_score: 1.0,
+            notlar: '',
+            aktif: true
+        }
     })
-    const [loading, setLoading] = useState(false)
-    const [errors, setErrors] = useState<Record<string, string>>({})
+
+    const notlar = watch('notlar') || ''
+    const manualScore = watch('manual_score')
 
     useEffect(() => {
-        if (driver) {
-            setFormData({
-                ad_soyad: driver.ad_soyad || '',
-                telefon: driver.telefon || '',
-                ise_baslama: driver.ise_baslama?.split('T')[0] || '',
-                ehliyet_sinifi: driver.ehliyet_sinifi || 'E',
-                manual_score: driver.manual_score || 1.0,
-                notlar: driver.notlar || '',
-                aktif: driver.aktif ?? true
-            })
-        } else {
-            setFormData({
-                ad_soyad: '',
-                telefon: '',
-                ise_baslama: new Date().toISOString().split('T')[0],
-                ehliyet_sinifi: 'E',
-                manual_score: 1.0,
-                notlar: '',
-                aktif: true
-            })
+        if (isOpen) {
+            if (driver) {
+                reset({
+                    ad_soyad: driver.ad_soyad || '',
+                    telefon: driver.telefon || '',
+                    ise_baslama: driver.ise_baslama?.split('T')[0] || '',
+                    ehliyet_sinifi: driver.ehliyet_sinifi || 'E',
+                    manual_score: driver.manual_score || 1.0,
+                    notlar: driver.notlar || '',
+                    aktif: driver.aktif ?? true
+                })
+            } else {
+                reset({
+                    ad_soyad: '',
+                    telefon: '',
+                    ise_baslama: new Date().toISOString().split('T')[0],
+                    ehliyet_sinifi: 'E',
+                    manual_score: 1.0,
+                    notlar: '',
+                    aktif: true
+                })
+            }
         }
-        setErrors({})
-    }, [driver, isOpen])
+    }, [driver, isOpen, reset])
 
-    // Form validation
-    const validateForm = (): boolean => {
-        const newErrors: Record<string, string> = {}
-
-        if (!formData.ad_soyad || formData.ad_soyad.length < 3) {
-            newErrors.ad_soyad = 'İsim en az 3 karakter olmalı'
+    const onSubmit: SubmitHandler<DriverFormData> = async (data) => {
+        try {
+            const submitData = {
+                ...data,
+                telefon: data.telefon?.replace(/\s/g, ''),
+            }
+            await onSave(submitData)
+            onClose()
+        } catch (error) {
+            console.error('Driver save error:', error)
         }
-        if (formData.ad_soyad && formData.ad_soyad.length > 100) {
-            newErrors.ad_soyad = 'İsim en fazla 100 karakter olabilir'
-        }
-        if (formData.telefon && !/^[0-9]{10,11}$/.test(formData.telefon.replace(/\s/g, ''))) {
-            newErrors.telefon = 'Geçerli telefon formatı: 05XX XXX XXXX'
-        }
-        if (formData.notlar && formData.notlar.length > 500) {
-            newErrors.notlar = 'Notlar en fazla 500 karakter olabilir'
-        }
-
-        setErrors(newErrors)
-        return Object.keys(newErrors).length === 0
     }
 
-    // Telefon formatla
     const formatPhone = (value: string): string => {
         const digits = value.replace(/\D/g, '').slice(0, 11)
         if (digits.length <= 4) return digits
@@ -83,207 +104,145 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
         return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 9)} ${digits.slice(9)}`
     }
 
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const formatted = formatPhone(e.target.value)
-        setFormData(prev => ({ ...prev, telefon: formatted }))
-        if (errors.telefon) setErrors(prev => ({ ...prev, telefon: '' }))
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-
-        if (!validateForm()) return
-
-        setLoading(true)
-        try {
-            // API'ye gönderilecek data
-            const submitData = {
-                ...formData,
-                telefon: formData.telefon?.replace(/\s/g, ''), // Boşlukları kaldır
-            }
-            await onSave(submitData)
-            onClose()
-        } catch (error) {
-            console.error(error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
     if (!isOpen) return null
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+                    className="bg-[#1a0121]/90 backdrop-blur-xl rounded-[32px] w-full max-w-lg border border-[#d006f9]/30 shadow-[0_0_40px_rgba(208,6,249,0.15)] overflow-hidden flex flex-col"
                 >
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-neutral-100 bg-gradient-to-r from-primary/5 to-transparent">
+                    <div className="flex items-center justify-between p-6 border-b border-[#d006f9]/20 bg-black/40 shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                            <div className="w-12 h-12 bg-[#d006f9]/20 border border-[#d006f9]/40 rounded-xl flex items-center justify-center text-[#d006f9] shadow-[0_0_15px_rgba(208,6,249,0.3)]">
                                 <User className="w-6 h-6" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-neutral-900">
+                                <h2 className="text-xl font-bold text-white">
                                     {driver ? 'Sürücüyü Düzenle' : 'Yeni Sürücü Ekle'}
                                 </h2>
-                                <p className="text-sm text-neutral-500">Sürücü bilgilerini giriniz</p>
+                                <p className="text-sm text-white/50">Sürücü bilgilerini giriniz</p>
                             </div>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-xl transition-colors"
-                        >
+                        <button onClick={onClose} className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-colors">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                        {/* Ad Soyad */}
+                    <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
-                                <User className="w-3.5 h-3.5" />
-                                Ad Soyad *
+                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                                <User className="w-3.5 h-3.5" /> Ad Soyad *
                             </label>
                             <Input
-                                value={formData.ad_soyad}
-                                onChange={e => {
-                                    setFormData(prev => ({ ...prev, ad_soyad: e.target.value }))
-                                    if (errors.ad_soyad) setErrors(prev => ({ ...prev, ad_soyad: '' }))
-                                }}
+                                {...register('ad_soyad')}
                                 placeholder="Örn: Ahmet Yılmaz"
-                                className={errors.ad_soyad ? 'border-danger' : ''}
+                                className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
+                                error={!!errors.ad_soyad}
                             />
-                            {errors.ad_soyad && (
-                                <p className="text-xs text-danger font-medium">{errors.ad_soyad}</p>
-                            )}
+                            {errors.ad_soyad && <p className="text-xs text-red-400 font-medium">{errors.ad_soyad.message}</p>}
                         </div>
 
-                        {/* Telefon & Ehliyet */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
-                                    <Phone className="w-3.5 h-3.5" />
-                                    Telefon
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                                    <Phone className="w-3.5 h-3.5" /> Telefon
                                 </label>
-                                <Input
-                                    value={formData.telefon}
-                                    onChange={handlePhoneChange}
-                                    placeholder="0532 123 45 67"
-                                    className={errors.telefon ? 'border-danger' : ''}
+                                <Controller
+                                    name="telefon"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                                            placeholder="0532 123 45 67"
+                                            className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60"
+                                            error={!!errors.telefon}
+                                        />
+                                    )}
                                 />
-                                {errors.telefon && (
-                                    <p className="text-xs text-danger font-medium">{errors.telefon}</p>
-                                )}
+                                {errors.telefon && <p className="text-xs text-red-400 font-medium">{errors.telefon.message}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider">
                                     Ehliyet Sınıfı
                                 </label>
                                 <select
-                                    className="w-full h-12 px-4 rounded-xl border border-neutral-200 bg-white text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                    value={formData.ehliyet_sinifi}
-                                    onChange={e => setFormData(prev => ({ ...prev, ehliyet_sinifi: e.target.value as any }))}
+                                    {...register('ehliyet_sinifi')}
+                                    className="w-full h-12 px-4 rounded-xl border border-[#d006f9]/30 bg-black/40 text-sm font-medium text-white focus:border-[#d006f9]/60 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
                                 >
                                     {EHLIYET_OPTIONS.map(cls => (
-                                        <option key={cls} value={cls}>{cls} Sınıfı</option>
+                                        <option key={cls} value={cls} className="bg-[#1a0121]">{cls} Sınıfı</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
 
-                        {/* İşe Başlama & Manuel Puan */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    İşe Başlama
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                                    <Calendar className="w-3.5 h-3.5" /> İşe Başlama
                                 </label>
-                                <Input
-                                    type="date"
-                                    value={formData.ise_baslama || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, ise_baslama: e.target.value }))}
-                                />
+                                <Input type="date" {...register('ise_baslama')} className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.ise_baslama} />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
-                                    Manuel Puan: <span className="text-primary">{formData.manual_score?.toFixed(1)}</span>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider">
+                                    Manuel Puan: <span className="text-[#d006f9]">{manualScore?.toFixed(1)}</span>
                                 </label>
                                 <input
                                     type="range"
                                     min="0.1"
                                     max="2.0"
                                     step="0.1"
-                                    value={formData.manual_score || 1.0}
-                                    onChange={e => setFormData(prev => ({ ...prev, manual_score: parseFloat(e.target.value) }))}
-                                    className="w-full h-2 bg-neutral-100 rounded-lg appearance-none cursor-pointer accent-primary"
+                                    {...register('manual_score', { valueAsNumber: true })}
+                                    className="w-full h-2 bg-black/50 rounded-lg appearance-none cursor-pointer accent-[#d006f9]"
                                 />
-                                <div className="flex justify-between text-[10px] text-neutral-400 font-medium">
+                                <div className="flex justify-between text-[10px] text-white/30 font-medium">
                                     <span>0.1 Düşük</span>
                                     <span>2.0 Mükemmel</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Notlar */}
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
+                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
                                 <FileText className="w-3.5 h-3.5" />
-                                Notlar <span className="text-neutral-400 font-normal">({formData.notlar?.length || 0}/500)</span>
+                                Notlar <span className="text-white/30 font-normal">({notlar.length}/500)</span>
                             </label>
                             <textarea
-                                value={formData.notlar || ''}
-                                onChange={e => {
-                                    if (e.target.value.length <= 500) {
-                                        setFormData(prev => ({ ...prev, notlar: e.target.value }))
-                                    }
-                                }}
+                                {...register('notlar')}
                                 placeholder="Sürücü hakkında notlar..."
                                 rows={3}
-                                className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
+                                className={`w-full px-4 py-3 rounded-xl border ${errors.notlar ? 'border-red-500' : 'border-[#d006f9]/30'} bg-black/40 text-sm text-white focus:border-[#d006f9]/60 outline-none transition-all resize-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]`}
                             />
-                            {errors.notlar && (
-                                <p className="text-xs text-danger font-medium">{errors.notlar}</p>
-                            )}
+                            {errors.notlar && <p className="text-xs text-red-400 font-medium">{errors.notlar.message}</p>}
                         </div>
 
-                        {/* Aktif Toggle */}
                         <div className="pt-2">
-                            <label className="flex items-center gap-3 cursor-pointer p-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors">
+                            <label className="flex items-center gap-3 cursor-pointer p-3 border border-white/10 rounded-xl hover:bg-black/30 transition-colors bg-black/20">
                                 <input
                                     type="checkbox"
-                                    checked={formData.aktif}
-                                    onChange={e => setFormData(prev => ({ ...prev, aktif: e.target.checked }))}
-                                    className="w-5 h-5 text-primary rounded border-neutral-300 focus:ring-primary"
+                                    {...register('aktif')}
+                                    className="w-5 h-5 text-[#d006f9] rounded border-white/20 focus:ring-[#d006f9] bg-black/50"
                                 />
                                 <div>
-                                    <span className="text-sm font-bold text-neutral-700">Sürücü Aktif</span>
-                                    <p className="text-xs text-neutral-400">Pasif sürücüler seferlere atanamaz</p>
+                                    <span className="text-sm font-bold text-white">Sürücü Aktif</span>
+                                    <p className="text-xs text-white/50">Pasif sürücüler seferlere atanamaz</p>
                                 </div>
                             </label>
                         </div>
 
-                        {/* Actions */}
-                        <div className="pt-4 flex gap-3">
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                className="flex-1"
-                                onClick={onClose}
+                        <div className="flex gap-4">
+                            <Button type="button" variant="secondary" className="flex-1 h-12" onClick={onClose}>İptal</Button>
+                            <Button 
+                                type="submit" 
+                                variant="glossy-purple"
+                                className="flex-1 h-12" 
+                                isLoading={isSubmitting}
                             >
-                                İptal
-                            </Button>
-                            <Button
-                                type="submit"
-                                className="flex-1"
-                                isLoading={loading}
-                            >
-                                <Save className="w-4 h-4 mr-2" />
                                 {driver ? 'Güncelle' : 'Kaydet'}
                             </Button>
                         </div>
@@ -293,3 +252,4 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
         </AnimatePresence>
     )
 }
+

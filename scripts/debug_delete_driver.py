@@ -7,9 +7,8 @@ import os
 sys.path.append(os.getcwd())
 
 from app.database.connection import AsyncSessionLocal
-from app.database.models import Sofor, Sefer, Alert
-from sqlalchemy import select, text
-from sqlalchemy.exc import IntegrityError
+from app.database.models import Sofor, Sefer
+from sqlalchemy import select
 
 async def debug_driver_deletion(driver_name_fragment: str):
     async with AsyncSessionLocal() as db:

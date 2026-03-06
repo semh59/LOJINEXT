@@ -1,4 +1,3 @@
-
 import sys
 import unittest
 from pathlib import Path
@@ -41,7 +40,10 @@ class TestContainer(unittest.TestCase):
 
         # Import Service Injection
         self.assertEqual(container.import_service.arac_repo, container.arac_repo)
-        self.assertEqual(container.import_service.sefer_service, container.sefer_service)
+        self.assertEqual(
+            container.import_service.sefer_service, container.sefer_service
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

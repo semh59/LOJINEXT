@@ -5,9 +5,9 @@ Abstract base sınıflar - Dependency Inversion için
 
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Generic, List, Optional, TypeVar, Any
+from typing import Any, Generic, List, Optional, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class BaseRepository(ABC, Generic[T]):

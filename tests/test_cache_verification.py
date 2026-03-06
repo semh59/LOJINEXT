@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 import pytest
 import time
-import threading
 try:
     import redis
 except ImportError:
     redis = None
 from app.infrastructure.cache.cache_manager import get_cache_manager, CacheManager
-from app.infrastructure.cache.redis_cache import get_redis_cache, RedisCache
+from app.infrastructure.cache.redis_cache import RedisCache
 
 # Test için CacheManager'ı override edelim
 @pytest.fixture

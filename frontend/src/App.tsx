@@ -6,15 +6,23 @@ import LoginPage from './pages/LoginPage'
 import { PrivateRoute } from './components/auth/PrivateRoute'
 
 // Lazy loaded pages - Code splitting for better performance
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const TripsPage = lazy(() => import('./pages/TripsPage'))
-const VehiclesPage = lazy(() => import('./pages/VehiclesPage'))
-const DriversPage = lazy(() => import('./pages/DriversPage'))
+const FleetPage = lazy(() => import('./pages/FleetPage'))
 const FuelPage = lazy(() => import('./pages/FuelPage'))
+
 const ReportsPage = lazy(() => import('./pages/ReportsPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const LocationsPage = lazy(() => import('./pages/LocationsPage'))
 const DesignSystemTest = lazy(() => import('./pages/DesignSystemTest'))
+
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
+const OverviewPage = lazy(() => import('./pages/admin/OverviewPage'))
+const KonfigurasyonPage = lazy(() => import('./pages/admin/KonfigurasyonPage'))
+const KullanicilarPage = lazy(() => import('./pages/admin/KullanicilarPage'))
+const MLYonetimPage = lazy(() => import('./pages/admin/MLYonetimPage'))
+const BakimPage = lazy(() => import('./pages/admin/BakimPage'))
+const VeriYonetimPage = lazy(() => import('./pages/admin/VeriYonetimPage'))
+const SistemSaglikPage = lazy(() => import('./pages/admin/SistemSaglikPage'))
+const BildirimlerPage = lazy(() => import('./pages/admin/BildirimlerPage'))
 
 // Loading fallback component
 function PageLoader() {
@@ -39,15 +47,37 @@ function App() {
                             <Route path="/design-system" element={<DesignSystemTest />} />
 
                             <Route element={<PrivateRoute />}>
-                                <Route path="/dashboard" element={<DashboardPage />} />
                                 <Route path="/trips" element={<TripsPage />} />
                                 <Route path="/fuel" element={<FuelPage />} />
-                                <Route path="/vehicles" element={<VehiclesPage />} />
-                                <Route path="/drivers" element={<DriversPage />} />
+                                <Route path="/fleet" element={<FleetPage />} />
+                                <Route path="/vehicles" element={<Navigate to="/fleet?tab=vehicles" replace />} />
+                                <Route path="/drivers" element={<Navigate to="/fleet?tab=drivers" replace />} />
                                 <Route path="/locations" element={<LocationsPage />} />
                                 <Route path="/reports" element={<ReportsPage />} />
-                                <Route path="/settings" element={<SettingsPage />} />
-                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                                <Route path="/settings" element={<Navigate to="/admin" replace />} />
+                                
+                                <Route path="/admin" element={<AdminLayout />}>
+                                    <Route index element={<OverviewPage />} />
+                                    <Route path="konfig" element={<KonfigurasyonPage />} />
+                                    <Route path="kullanicilar" element={<KullanicilarPage />} />
+                                    <Route path="ml" element={<MLYonetimPage />} />
+                                    <Route path="bakim" element={<BakimPage />} />
+                                    <Route path="veri" element={<VeriYonetimPage />} />
+                                    <Route path="saglik" element={<SistemSaglikPage />} />
+                                    <Route path="bildirimler" element={<BildirimlerPage />} />
+                                    <Route path="*" element={<div className="p-8 text-center text-neutral-500">Bu modül henüz geliştirme aşamasındadır.</div>} />
+                                </Route>
+
+                                <Route path="/" element={<Navigate to="/trips" replace />} />
+                                
+                                {/* Redirect legacy routes to trips */}
+                                <Route path="/dashboard" element={<Navigate to="/trips" replace />} />
+                                <Route path="/command-center" element={<Navigate to="/trips" replace />} />
+                                <Route path="/intelligence" element={<Navigate to="/trips" replace />} />
+                                <Route path="/monitoring" element={<Navigate to="/trips" replace />} />
+                                <Route path="/efficiency" element={<Navigate to="/trips" replace />} />
+                                <Route path="/alerts" element={<Navigate to="/trips" replace />} />
+                                <Route path="/users" element={<Navigate to="/trips" replace />} />
                             </Route>
                         </Routes>
                     </Suspense>

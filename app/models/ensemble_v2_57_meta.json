@@ -1,0 +1,56 @@
+{
+  "physics_weight": 0.1,
+  "training_stats": {
+    "sample_count": 50,
+    "test_size": 10,
+    "measurements": {
+      "mae": 3.1,
+      "rmse": 3.56,
+      "mape": 29.58,
+      "physics_mae": 8.6
+    },
+    "metrics": {
+      "gb_test_r2": 0.483,
+      "rf_test_r2": 0.57,
+      "xgb_test_r2": 0.555,
+      "lgb_test_r2": -1.075,
+      "gb_cv_mean": 0.632
+    },
+    "feature_importance": {
+      "ton": 0.0,
+      "ascent_m": 0.4282,
+      "descent_m": 0.5096,
+      "net_elevation": 0.0185,
+      "yuk_yogunlugu": 0.0,
+      "zorluk": 0.0,
+      "arac_yasi": 0.0,
+      "yas_faktoru": 0.0,
+      "mevsim_faktor": 0.0,
+      "sofor_katsayi": 0.0437,
+      "motorway_ratio": 0.0,
+      "trunk_ratio": 0.0,
+      "primary_ratio": 0.0,
+      "residential_ratio": 0.0,
+      "unclassified_ratio": 0.0,
+      "flat_km": 0.0
+    },
+    "model_weights": {
+      "physics": 0.1,
+      "gb": 0.27,
+      "rf": 0.319,
+      "xgboost": 0.311,
+      "lightgbm": 0.0
+    },
+    "is_honest_test": true
+  },
+  "is_trained": true,
+  "last_updated": "2026-02-18",
+  "sklearn_checksum": "3439991a565d48cf933c66536a838218bc5d35df071f4e686d2d7fd1f2bef97b",
+  "model_weights": {
+    "physics": 0.1,
+    "gb": 0.27,
+    "rf": 0.319,
+    "xgboost": 0.311,
+    "lightgbm": 0.0
+  }
+}

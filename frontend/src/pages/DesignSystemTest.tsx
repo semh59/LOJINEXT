@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
 import { useNotify } from '../context/NotificationContext'
+import { VehicleStatusCard } from '../components/vehicles/VehicleStatusCard'
 
 export default function DesignSystemTest() {
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -95,6 +96,41 @@ export default function DesignSystemTest() {
                         </div>
                     </div>
                 </Modal>
+            </section>
+
+            {/* Sovereign Components (v3.2) */}
+            <section className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-black tracking-tight text-white bg-indigo-600 px-4 py-1 rounded-xl">Sovereign Components</h2>
+                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">v3.2 Edition</span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <VehicleStatusCard 
+                        plate="34 SOV 032" 
+                        model="Mercedes-Benz Actros" 
+                        fuelLevel={82} 
+                        tirePressure={98} 
+                        engineTemp={85} 
+                        status="active" 
+                    />
+                    <VehicleStatusCard 
+                        plate="06 AGT 101" 
+                        model="Ford F-Max" 
+                        fuelLevel={18} 
+                        tirePressure={92} 
+                        engineTemp={92} 
+                        status="warning" 
+                    />
+                    <VehicleStatusCard 
+                        plate="35 MCP 999" 
+                        model="Volvo FH16" 
+                        fuelLevel={45} 
+                        tirePressure={72} 
+                        engineTemp={112} 
+                        status="critical" 
+                    />
+                </div>
             </section>
 
             {/* Table */}

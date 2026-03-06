@@ -2,7 +2,7 @@
 Database Management için kapsamlı test suite
 """
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import patch, AsyncMock
 import os
 
@@ -303,7 +303,6 @@ class TestGhostTransactionDetection:
         """UoW commit/rollback olmadan çıkıldığında warning olmalı"""
         from app.database.unit_of_work import get_uow
         from unittest.mock import AsyncMock, patch
-        import logging
         
         mock_session = AsyncMock(spec=AsyncSession)
         

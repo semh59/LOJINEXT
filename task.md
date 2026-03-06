@@ -1,0 +1,48 @@
+- [x] **Dürüstlük Protokolü (Data Integrity Reset)** <!-- id: 26 -->
+  - [x] Run `fix_synthetic_labels.py` (Reset all to `is_real=false`)
+  - [x] Reset Ensemble Weights (Back to Physics dominant)
+  - [x] **Frontend Build Fixes** (111 errors -> 0 errors)
+  - [x] **Type Synchronization** (`types/index.ts` consolidated)
+- [ ] **Kapsamlı Test Stratejisi (Pivot)** - `/12_test_stratejisi` <!-- id: 6 -->
+  - [/] **Phase 6: Real-World Data Readiness** (Reset Done, Cold Start Verified)
+    - [x] Reset DB (Postgres TRUNCATE)
+    - [x] Verify Cold Start (Auth + Empty Lists)
+    - [/] Full Regression Suite (574+ Tests)
+    - [x] Resolve Collection Errors: ImportError / ModuleNotFoundError (Standardized security imports)
+    - [x] Fix SQLAlchemy Dialect Blockers (Postgres-to-SQLite type mapping)
+    - [x] Implement Robust Dependency Mocks (GeoAlchemy2/Shapely)
+    - [x] Standardize Schema Usage (KullaniciCreate email/rol_id updates)
+    - [x] Resolve Async IO Conflicts (AsyncClient implementation)
+    - [/] PII Audit & Log Masking Verification
+    - [x] Manual Verification (Data Entry)
+    - [x] **Bug Fix**: Missing Predictions (Added `flat_distance_km` to PredictionService)
+    - [x] **Dashboard Refinement** (Dynamic Titles, Remove Unused Cards)
+    - [x] **Data Quality**: Investigate Highway/Route Details (Backfilled & Patched SeferService)
+  - [x] **Phase 6.1: User Feedback Rectification (Critical)**
+    - [x] **Frontend**: Fix "Total Climb" label & Add "Total Ton" Card
+    - [x] **Frontend**: Debug "Total Highway" Display (Fixed Backend Entity & Schema)
+    - [x] **Search**: Fix "Sefer No" search (Removed default Date Filter & Forced Reset)
+    - [x] **Data**: Verify Smart Route Insight (Schema Updated)
+- [ ] **Deployment Hazırlığı & Uygulama** - `/9_deployment` <!-- id: 9 -->
+  - [x] Env validation (DATABASE_URL, ORS_API_KEY)
+  - [x] Regression Test Stabilization (Async IO & Auth)
+  - [x] Environment Validation & Docker Check
+- [x] Zero Failed Tests (Final Polish)
+
+- [ ] **Admin Panel Geliştirme (Elite Backend)**
+  - [x] Veritabanı Migrationları (Admin Base, Sistem Konfig)
+  - [x] Auth Backend (Dual-token, Database Sessions)
+  - [x] Admin APIs (Config, Users, Roles, Audit)
+  - [x] **Derin & Detaylı Test (Hafta 1 Doğrulama)**
+    - [x] DB Şema & Seed Veri Doğrulama
+    - [x] Login & Session Lifecycle Testi
+    - [x] RBAC & Permission Matrix Testi
+    - [x] Audit Log & Tarihçe Testi
+  - [ ] **Hafta 2:** Panel UI & Monitoring Setup
+
+## 🌟 Gelecek Vizyonu (Future Roadmap)
+
+- [ ] **Faz 7: Finansal Entegrasyon** (Yakıt Kartı API'leri & Otomatik Fatura)
+- [ ] **Faz 8: Oyunlaştırma (Gamification)** (Sürücü Ligi & Puanlama)
+- [ ] **Faz 9: IoT & Telematik** (CANBus & Canlı GPS Entegrasyonu)
+- [ ] **Faz 10: Digital Twin & Advanced AI** (Kestirimci Bakım & Dijital İkiz)

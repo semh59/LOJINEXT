@@ -1,0 +1,68 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SKILL: Git Operations
+# ════════════════════════════════════════════════════════════════════════════
+# Common git workflows
+
+name: "Git Operations"
+version: "1.0"
+agent: "common"
+
+trigger_keywords:
+  - "git"
+  - "commit"
+  - "branch"
+  - "merge"
+
+# ════════════════════════════════════════════════════════════════════════════
+workflows:
+  feature_branch:
+    description: "Yeni feature branch oluştur"
+    steps:
+      - "git checkout main"
+      - "git pull origin main"
+      - "git checkout -b feature/{ticket}-{description}"
+
+  commit:
+    description: "Conventional commit"
+    format: "{type}({scope}): {description}"
+    types:
+      - "feat: Yeni özellik"
+      - "fix: Bug fix"
+      - "refactor: Refactoring"
+      - "docs: Dokümantasyon"
+      - "style: Formatting"
+      - "test: Test ekleme"
+      - "chore: Maintenance"
+    examples:
+      - "feat(drivers): add notes field"
+      - "fix(trips): resolve dropdown overflow"
+      - "refactor(api): extract vehicle service"
+
+  stash:
+    description: "Değişiklikleri sakla"
+    commands:
+      save: "git stash push -m '{message}'"
+      list: "git stash list"
+      apply: "git stash pop"
+
+# ════════════════════════════════════════════════════════════════════════════
+safe_commands:
+  - "git status"
+  - "git log -n 10"
+  - "git diff"
+  - "git branch -a"
+  - "git stash list"
+
+approval_required:
+  - "git push"
+  - "git merge"
+  - "git rebase"
+  - "git reset"
+
+# ════════════════════════════════════════════════════════════════════════════
+best_practices:
+  - "Commit message'ları açıklayıcı yaz"
+  - "Küçük, focused commit'ler yap"
+  - "Feature branch'te çalış"
+  - "Push öncesi pull yap"
+  - "Merge conflict'leri dikkatli çöz"

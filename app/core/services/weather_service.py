@@ -4,6 +4,7 @@ Hava durumu verilerini işleme ve yakıt etkisini hesaplama mantığını içeri
 """
 
 import threading
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.config import settings
@@ -18,13 +19,38 @@ class WeatherService:
 
     def __init__(self, external_service: Optional[ExternalService] = None):
         self.external_service = external_service or ExternalService()
+        self._cache: Dict[str, Any] = {}
+        self._cache_ttl = 10800  # 3 Saat (saniye)
+
+    async def _get_cached_forecast(self, lat: float, lon: float) -> Dict[str, Any]:
+        """Önbellekli hava durumu sorgusu (TTL: 3 Saat)."""
+        import time
+
+        # Koordinatları yuvarlayarak cache hit oranını artır (Yaklaşık 1km hassasiyet)
+        key = f"{round(lat, 2)}_{round(lon, 2)}"
+        now = time.time()
+
+        if key in self._cache:
+            entry = self._cache[key]
+            if now - entry["timestamp"] < self._cache_ttl:
+                return entry["data"]
+
+        # Cache miss or expired
+        result = await self.external_service.get_weather_forecast(lat, lon)
+
+        if "error" not in result:
+            self._cache[key] = {"timestamp": now, "data": result}
+
+        return result
 
     async def get_forecast_analysis(self, lat: float, lon: float) -> Dict[str, Any]:
         """Koordinatlar için hava durumu tahmini ve yakıt etkisi analizi yapar."""
-        result = await self.external_service.get_weather_forecast(lat, lon)
+        result = await self._get_cached_forecast(lat, lon)
 
         if "error" in result:
-            logger.warning(f"Weather forecast error, falling back to offline: {result['error']}")
+            logger.warning(
+                f"Weather forecast error, falling back to offline: {result['error']}"
+            )
             return self.get_forecast_analysis_offline()
 
         daily_data = result.get("daily", {})
@@ -67,9 +93,8 @@ class WeatherService:
 
     def get_forecast_analysis_offline(self) -> Dict[str, Any]:
         """İnternet yoksa mevsime dayalı kaba tahminler üretir."""
-        from datetime import datetime
 
-        month = datetime.now().month
+        month = datetime.now(timezone.utc).month
 
         # Mevsime göre ortalama Türkiye değerleri
         seasonal_defaults = {
@@ -96,7 +121,8 @@ class WeatherService:
             "success": True,
             "daily": [],
             "fuel_impact_factor": round(impact, 3),
-            "recommendation": self.generate_weather_recommendation(impact) + " (Mevsimsel Tahmin)",
+            "recommendation": self.generate_weather_recommendation(impact)
+            + " (Mevsimsel Tahmin)",
             "offline": True,
         }
 
@@ -105,8 +131,9 @@ class WeatherService:
     ) -> Dict[str, Any]:
         """Bir sefer hattı üzerindeki hava durumu etkisini analiz eder (Parallel)."""
         import asyncio
-        start_task = self.external_service.get_weather_forecast(cikis_lat, cikis_lon)
-        end_task = self.external_service.get_weather_forecast(varis_lat, varis_lon)
+
+        start_task = self._get_cached_forecast(cikis_lat, cikis_lon)
+        end_task = self._get_cached_forecast(varis_lat, varis_lon)
 
         start_weather, end_weather = await asyncio.gather(start_task, end_task)
 
@@ -131,7 +158,9 @@ class WeatherService:
             + end_daily.get("wind_speed_10m_max", [10])[0]
         ) / 2
 
-        impact_factor = self.calculate_weather_fuel_impact(avg_temp, avg_precip, avg_wind)
+        impact_factor = self.calculate_weather_fuel_impact(
+            avg_temp, avg_precip, avg_wind
+        )
         conditions = self._get_condition_warnings(avg_temp, avg_precip, avg_wind)
 
         return {
@@ -147,7 +176,9 @@ class WeatherService:
             "recommendation": self.generate_weather_recommendation(impact_factor),
         }
 
-    def calculate_weather_fuel_impact(self, temp: float, precip: float, wind: float) -> float:
+    def calculate_weather_fuel_impact(
+        self, temp: float, precip: float, wind: float
+    ) -> float:
         """Hava koşullarının yakıt tüketimine etkisini hesaplar (Config-driven)."""
         impact = 1.0
 
@@ -190,16 +221,50 @@ class WeatherService:
         else:
             return "Olumsuz hava! %15+ tüketim artışı bekleniyor. Dikkat!"
 
-    def _get_condition_warnings(self, temp: float, precip: float, wind: float) -> List[str]:
+    def _get_condition_warnings(
+        self, temp: float, precip: float, wind: float
+    ) -> List[str]:
         """Spesifik uyarı mesajlarını döner."""
         warnings = []
         if temp < 5:
-            warnings.append("Soğuk hava - motor ısınma süresi ve rölanti tüketimi artabilir.")
+            warnings.append(
+                "Soğuk hava - motor ısınma süresi ve rölanti tüketimi artabilir."
+            )
         if precip > 5:
             warnings.append("Yağışlı yol - sürtünme direnci artışı ve güvenlik riski.")
         if wind > 30:
             warnings.append("Şiddetli rüzgar - aerodinamik dirençte belirgin artış.")
         return warnings
+
+    def get_seasonal_factor(self, target_date: Any) -> float:
+        """
+        Tarihe göre mevsimsel yakıt tüketim katsayısı döner.
+        Kışın (soğukta) tüketim artar, yazın (klimadan dolayı) hafif artar.
+        """
+        from datetime import date as dt_date
+        from datetime import datetime as dt_datetime
+
+        target = target_date
+        if isinstance(target, str):
+            try:
+                target = dt_date.fromisoformat(target)
+            except:
+                target = dt_date.today()
+        elif not isinstance(target, (dt_date, dt_datetime)):
+            target = dt_date.today()
+
+        month = target.month
+        # Kış (Aralık, Ocak, Şubat): +%10
+        if month in (12, 1, 2):
+            return 1.10
+        # Geçiş/Bahar (Mart, Nisan, Mayıs, Ekim, Kasım): +%3
+        if month in (3, 4, 10, 11):
+            return 1.03
+        # Yaz (Haziran, Temmuz, Ağustos): +%5 (Klima etkisi)
+        if month in (6, 7, 8):
+            return 1.05
+        # Eylül: Normal
+        return 1.0
 
 
 # Thread-safe Singleton provider

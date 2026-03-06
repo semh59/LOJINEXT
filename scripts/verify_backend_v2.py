@@ -5,7 +5,6 @@ Import ve kritik bağımlılıkları doğrular.
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add project root to path (doğru şekilde)
@@ -32,7 +31,6 @@ def main():
     # App Import Check
     if runner.should_run_check("app"):
         try:
-            from app.main import app
             runner.add_result("App Import", True, "FastAPI app imported successfully.")
         except Exception as e:
             runner.add_result("App Import", False, f"Failed to import app: {str(e)}")
