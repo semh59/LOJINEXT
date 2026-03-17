@@ -1,20 +1,23 @@
-import threading
-from datetime import date, timedelta
+﻿from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.base_repository import BaseRepository
-from sqlalchemy import select, or_, desc as sql_desc, asc as sql_asc
+from sqlalchemy import select, or_, desc as sql_desc, asc as sql_asc, func, text
 from sqlalchemy.orm import joinedload
 from app.database.models import Sefer, Arac, Sofor
 from app.infrastructure.logging.logger import get_logger
+from app.core.utils.sefer_status import (
+    SEFER_STATUS_IPTAL,
+    ensure_canonical_sefer_status,
+)
 
 logger = get_logger(__name__)
 
 
 class SeferRepository(BaseRepository[Sefer]):
-    """Sefer veritabanı operasyonları (Async)"""
+    """Sefer veritabani operasyonlari (Async)"""
 
     model = Sefer
 
@@ -34,8 +37,8 @@ class SeferRepository(BaseRepository[Sefer]):
         filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        """Seferleri getir (join ile plaka ve şoför adı dahil)"""
-        # Dictionary formatındaki filtreleri üst seviye argümanlara eşitle (Service Layer uyumu)
+        """Seferleri getir (join ile plaka ve sofor adi dahil)"""
+        # Dictionary formatindaki filtreleri ust seviye argumanlara esitle (Service Layer uyumu)
         if filters:
             tarih = filters.get("tarih", tarih)
             baslangic_tarih = filters.get("baslangic_tarih", baslangic_tarih)
@@ -91,10 +94,13 @@ class SeferRepository(BaseRepository[Sefer]):
             stmt = stmt.where(Sefer.sofor_id == sofor_id)
 
         if durum:
+            durum = ensure_canonical_sefer_status(
+                durum, field_name="durum", allow_none=False
+            )
             stmt = stmt.where(Sefer.durum == durum)
         elif not include_inactive:
-            # Varsayılan olarak İptal edilmiş seferleri gösterme
-            stmt = stmt.where(Sefer.durum != "İptal")
+            # Varsayilan olarak iptal edilmis seferleri gosterme
+            stmt = stmt.where(Sefer.durum != SEFER_STATUS_IPTAL)
 
         # Data Guarding: Real vs Synthetic
         is_real = filters.get("is_real") if filters else kwargs.get("is_real")
@@ -102,17 +108,14 @@ class SeferRepository(BaseRepository[Sefer]):
             stmt = stmt.where(Sefer.is_real == bool(is_real))
 
         if search:
-            # For searching inside relationships, we can use an outerjoin directly into the query
-            stmt = stmt.outerjoin(Arac, Sefer.arac_id == Arac.id).outerjoin(
-                Sofor, Sefer.sofor_id == Sofor.id
-            )
+            search_like = f"%{search}%"
             stmt = stmt.where(
                 or_(
-                    Arac.plaka.ilike(f"%{search}%"),
-                    Sofor.ad_soyad.ilike(f"%{search}%"),
-                    Sefer.cikis_yeri.ilike(f"%{search}%"),
-                    Sefer.varis_yeri.ilike(f"%{search}%"),
-                    Sefer.sefer_no.ilike(f"%{search}%"),
+                    Sefer.arac.has(Arac.plaka.ilike(search_like)),
+                    Sefer.sofor.has(Sofor.ad_soyad.ilike(search_like)),
+                    Sefer.cikis_yeri.ilike(search_like),
+                    Sefer.varis_yeri.ilike(search_like),
+                    Sefer.sefer_no.ilike(search_like),
                 )
             )
 
@@ -144,14 +147,11 @@ class SeferRepository(BaseRepository[Sefer]):
 
     async def get_cost_leakage_stats(self, days: int = 30) -> Dict[str, Any]:
         """
-        Son X gündeki maliyet kaçaklarını hesapla (Rota Sapması ve Yakıt Farkı).
+        Son X gundeki maliyet kacaklarini hesapla (Rota Sapmasi ve Yakit Farki).
         """
         start_date = date.today() - timedelta(days=days)
-        from sqlalchemy import text
 
-        # 1. Rota Sapması Maliyeti (Gerçekleşen > Hedef)
-        # Varsayım: 1 km sapma = O anki yakıt fiyatı * ortalama tüketim (örn: 32L/100km)
-        # Basitleştirilmiş: 40 TL/L * 0.32 L/km = ~12.8 TL/km
+        # 1. Rota Sapmasi Maliyeti (Gerceklesen > Hedef)
         route_query = """
             SELECT 
                 SUM(s.mesafe_km - l.mesafe_km) as total_deviation_km
@@ -162,8 +162,7 @@ class SeferRepository(BaseRepository[Sefer]):
             AND s.durum = 'Tamam'
         """
 
-        # 2. Yakıt Farkı Maliyeti (Gerçekleşen > Hedef/Beklenen)
-        # Tüketim (Litre) farkı
+        # 2. Yakit Farki Maliyeti (Gerceklesen > Hedef/Beklenen)
         fuel_query = """
             SELECT 
                 SUM(s.tuketim - (s.mesafe_km * a.hedef_tuketim / 100)) as total_fuel_gap_liters
@@ -185,9 +184,8 @@ class SeferRepository(BaseRepository[Sefer]):
         dev_km = route_result.scalar() or 0
         fuel_gap = fuel_result.scalar() or 0
 
-        # Ortalama Yakıt Fiyatı (Hızlı hesap için sabit veya son alımdan alınabilir)
-        AVG_FUEL_PRICE = 42.0  # TL (Dinamik yapılabilir)
-        EST_KM_COST = 13.5  # TL/km (yakıt + amortisman)
+        AVG_FUEL_PRICE = 42.0  # TL
+        EST_KM_COST = 13.5  # TL/km
 
         return {
             "route_deviation_km": round(float(dev_km), 1),
@@ -213,7 +211,7 @@ class SeferRepository(BaseRepository[Sefer]):
         filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> int:
-        """Filtrelere uyan toplam sefer sayısını getir"""
+        """Filtrelere uyan toplam sefer sayisini getir"""
         if filters:
             tarih = filters.get("tarih", tarih)
             baslangic_tarih = filters.get("baslangic_tarih", baslangic_tarih)
@@ -268,10 +266,14 @@ class SeferRepository(BaseRepository[Sefer]):
             params["sofor_id"] = sofor_id
 
         if durum:
+            durum = ensure_canonical_sefer_status(
+                durum, field_name="durum", allow_none=False
+            )
             query += " AND s.durum = :durum"
             params["durum"] = durum
         elif not include_inactive:
-            query += " AND s.durum != 'İptal'"
+            query += " AND s.durum != :iptal_durum"
+            params["iptal_durum"] = SEFER_STATUS_IPTAL
 
         # Data Guarding: Real vs Synthetic
         is_real = filters.get("is_real") if filters else kwargs.get("is_real")
@@ -281,11 +283,11 @@ class SeferRepository(BaseRepository[Sefer]):
 
         if search:
             query += """ AND (
-                a.plaka LIKE :search OR 
-                sf.ad_soyad LIKE :search OR 
-                s.cikis_yeri LIKE :search OR 
-                s.varis_yeri LIKE :search OR
-                s.sefer_no LIKE :search
+                a.plaka ILIKE :search OR 
+                sf.ad_soyad ILIKE :search OR 
+                s.cikis_yeri ILIKE :search OR 
+                s.varis_yeri ILIKE :search OR
+                s.sefer_no ILIKE :search
             )"""
             params["search"] = f"%{search}%"
 
@@ -294,7 +296,7 @@ class SeferRepository(BaseRepository[Sefer]):
     async def has_active_trip(
         self, arac_id: int, exclude_sefer_id: Optional[int] = None
     ) -> bool:
-        """Aracın halihazırda 'Devam Ediyor' veya 'Yolda' olan bir seferi var mı?"""
+        """Aracin halihazirda 'Devam Ediyor' veya 'Yolda' olan bir seferi var mi?"""
         query = """
             SELECT EXISTS(
                 SELECT 1 FROM seferler 
@@ -310,8 +312,88 @@ class SeferRepository(BaseRepository[Sefer]):
         query += ")"
         return bool(await self.execute_scalar(query, params))
 
+    async def get_trip_stats(
+        self,
+        durum: Optional[str] = None,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Return trip statistics (dynamic query or materialized view)."""
+        use_dynamic = bool(baslangic_tarih or bitis_tarih)
+        if durum:
+            durum = ensure_canonical_sefer_status(
+                durum, field_name="durum", allow_none=False
+            )
+
+        if use_dynamic:
+            stmt = select(
+                func.count(Sefer.id).label("toplam_sefer"),
+                func.sum(Sefer.mesafe_km).label("toplam_km"),
+                func.sum(Sefer.otoban_mesafe_km).label("highway_km"),
+                func.sum(Sefer.ascent_m).label("total_ascent"),
+                func.sum(Sefer.net_kg / 1000.0).label("total_weight"),
+                func.max(Sefer.created_at).label("last_updated"),
+            ).where(
+                Sefer.is_real.is_(True),
+                Sefer.is_deleted.is_(False),
+                Sefer.durum != SEFER_STATUS_IPTAL,
+            )
+            if durum:
+                stmt = stmt.where(Sefer.durum == durum)
+            if baslangic_tarih:
+                stmt = stmt.where(Sefer.tarih >= baslangic_tarih)
+            if bitis_tarih:
+                stmt = stmt.where(Sefer.tarih <= bitis_tarih)
+            result = await self.session.execute(stmt)
+            row = result.mappings().first() or {}
+        else:
+            if durum:
+                mv_query = text(
+                    """
+                    SELECT toplam_sefer, toplam_km, highway_km, total_ascent, total_weight, last_updated
+                    FROM sefer_istatistik_mv
+                    WHERE durum = :durum
+                    """
+                )
+                result = await self.session.execute(mv_query, {"durum": durum})
+                row = result.mappings().first() or {}
+            else:
+                mv_query = text(
+                    """
+                    SELECT
+                        SUM(toplam_sefer) AS toplam_sefer,
+                        SUM(toplam_km) AS toplam_km,
+                        SUM(highway_km) AS highway_km,
+                        SUM(total_ascent) AS total_ascent,
+                        SUM(total_weight) AS total_weight,
+                        MAX(last_updated) AS last_updated
+                    FROM sefer_istatistik_mv
+                    """
+                )
+                result = await self.session.execute(mv_query)
+                row = result.mappings().first() or {}
+
+        toplam_sefer = int(row.get("toplam_sefer") or 0)
+        toplam_km = float(row.get("toplam_km") or 0.0)
+        highway_km = float(row.get("highway_km") or 0.0)
+        total_ascent = float(row.get("total_ascent") or 0.0)
+        total_weight = float(row.get("total_weight") or 0.0)
+        avg_highway_pct = (
+            int(round((highway_km / toplam_km) * 100)) if toplam_km > 0 else 0
+        )
+
+        return {
+            "toplam_sefer": toplam_sefer,
+            "toplam_km": toplam_km,
+            "highway_km": highway_km,
+            "total_ascent": total_ascent,
+            "total_weight": total_weight,
+            "avg_highway_pct": avg_highway_pct,
+            "last_updated": row.get("last_updated"),
+        }
+
     async def get_by_sefer_no(self, sefer_no: str) -> Optional[Dict[str, Any]]:
-        """Sefer numarasına göre sefer getir (join dahil)"""
+        """Sefer numarasina gore sefer getir (join dahil)"""
         stmt = (
             select(Sefer)
             .options(
@@ -362,6 +444,7 @@ class SeferRepository(BaseRepository[Sefer]):
         dolu_agirlik_kg: int = 0,
         flat_distance_km: float = 0.0,
         tahmini_tuketim: Optional[float] = None,
+        tahmin_meta: Optional[Dict] = None,
         is_real: bool = True,
         rota_detay: Optional[Dict] = None,
         otoban_mesafe_km: Optional[float] = None,
@@ -392,6 +475,7 @@ class SeferRepository(BaseRepository[Sefer]):
             descent_m=descent_m,
             flat_distance_km=flat_distance_km,
             tahmini_tuketim=tahmini_tuketim,
+            tahmin_meta=tahmin_meta,
             is_real=is_real,
             notlar=notlar,
             rota_detay=rota_detay,
@@ -403,13 +487,13 @@ class SeferRepository(BaseRepository[Sefer]):
         )
 
     async def get_bugunun_seferleri(self) -> List[Dict[str, Any]]:
-        """Bugünün seferlerini getir"""
+        """Bugunun seferlerini getir"""
         return await self.get_all(tarih=date.today(), limit=50)
 
     async def get_by_id(
         self, id: int, current_user: Optional[Any] = None, for_update: bool = False
     ) -> Optional[Dict[str, Any]]:
-        """ID ile sefer getir (join ile plaka ve şoför adı dahil)"""
+        """ID ile sefer getir (join ile plaka ve sofor adi dahil)"""
         # Session handling for update
         if for_update:
             return await super().get_by_id(id, for_update=True)
@@ -443,11 +527,11 @@ class SeferRepository(BaseRepository[Sefer]):
         return d
 
     async def get_by_id_with_details(self, id: int) -> Optional[Dict[str, Any]]:
-        """ID ile sefer getir (detaylı)"""
+        """ID ile sefer getir (detayli)"""
         return await self.get_by_id(id)
 
     async def update_sefer(self, id: int, **kwargs: Any) -> bool:
-        """Sefer güncelle"""
+        """Sefer guncelle"""
         allowed = [
             "tarih",
             "arac_id",
@@ -471,6 +555,7 @@ class SeferRepository(BaseRepository[Sefer]):
             "dolu_agirlik_kg",
             "flat_distance_km",
             "tahmini_tuketim",
+            "tahmin_meta",
             "sefer_no",
             "is_real",
             "rota_detay",
@@ -490,24 +575,20 @@ class SeferRepository(BaseRepository[Sefer]):
 
     async def delete_permanently(self, id: int) -> bool:
         """
-        Sefer kaydını veritabanından tamamen siler (Hard Delete).
+        Sefer kaydini veritabanindan tamamen siler (Hard Delete).
         """
         session = self.session
         try:
-            # Önce kaydı bul
+            # Once kaydi bul
             obj = await session.get(self.model, id)
             if not obj:
                 return False
 
             await session.delete(obj)
-
-            if not self.session:
-                await session.commit()
+            await session.flush()
             return True
         except Exception as e:
             logger.error(f"Error hard deleting sefer {id}: {e}")
-            if not self.session:
-                await session.rollback()
             raise e
 
     async def delete(self, id: int) -> bool:
@@ -517,22 +598,21 @@ class SeferRepository(BaseRepository[Sefer]):
         return await self.update_sefer(
             id,
             is_deleted=True,
-            durum="İptal",
-            iptal_nedeni="Sistem tarafından silindi (Soft Delete)",
+            durum=SEFER_STATUS_IPTAL,
+            iptal_nedeni="Sistem tarafindan silindi (Soft Delete)",
         )
 
     async def update_trips_fuel_data(self, trips: List[Any]) -> int:
         """
-        Seferlerin yakıt verilerini toplu güncelle (Bulk Update).
-        SQLAlchemy `executemany` (bindparam) kullanarak tek transaction'da işler.
+        Seferlerin yakit verilerini toplu guncelle (Bulk Update).
+        SQLAlchemy `executemany` (bindparam) kullanarak tek transaction'da isler.
         """
         if not trips:
             return 0
 
         count = 0
-        from sqlalchemy import text
 
-        # Güncellenecek verileri hazırla
+        # Guncellenecek verileri hazirla
         update_data = []
         for trip in trips:
             if hasattr(trip, "id") and hasattr(trip, "tuketim"):
@@ -559,27 +639,23 @@ class SeferRepository(BaseRepository[Sefer]):
                 WHERE id = :id
             """)
 
-            # Tek seferde çalıştır
+            # Tek seferde calistir
             result = await session.execute(stmt, update_data)
             count = result.rowcount
-
-            if not self.session:
-                await session.commit()
+            await session.flush()
 
             logger.info(f"Updated {len(update_data)} trips with fuel data (Bulk)")
 
         except Exception as e:
             logger.error(f"Bulk update failed: {e}")
-            if not self.session:
-                await session.rollback()
             raise e
 
         return count
 
     async def get_suspicious_trips(self, limit: int = 100) -> List[Dict[str, Any]]:
         """
-        Şüpheli seferleri getir (Örn: Tamamlanmış ama tüketim girilmemiş).
-        VerifierService tarafından kullanılır.
+        Supheli seferleri getir (Orn: Tamamlanmis ama tuketim girilmemis).
+        VerifierService tarafindan kullanilir.
         """
         query = """
             SELECT s.id, s.tarih, a.plaka, s.durum, s.tuketim, s.sefer_no
@@ -597,8 +673,8 @@ class SeferRepository(BaseRepository[Sefer]):
         self, arac_id: int, limit: int = 200, include_synthetic: bool = False
     ) -> List[Dict]:
         """
-        AI model eğitimi için sefer verilerini getir.
-        Sadece tüketim verisi olan ve tamamlanmış seferler.
+        AI model egitimi icin sefer verilerini getir.
+        Sadece tuketim verisi olan ve tamamlanmis seferler.
         """
         is_real_filter = "AND s.is_real = TRUE" if not include_synthetic else ""
         query = f"""
@@ -628,14 +704,223 @@ class SeferRepository(BaseRepository[Sefer]):
         """
         return await self.execute_query(query, {"arac_id": arac_id, "limit": limit})
 
-    async def refresh_stats_mv(self) -> None:
-        """Sefer istatistik materialized view'ı yenile (Async)."""
-        try:
-            # PostgreSQL specific: REFRESH MATERIALIZED VIEW
-            # CONCURRENTLY requires a unique index on the view,
-            # if fails, falls back to standard refresh.
-            from sqlalchemy import text
+    async def get_fuel_performance_analytics(
+        self,
+        durum: Optional[str] = None,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+        arac_id: Optional[int] = None,
+        sofor_id: Optional[int] = None,
+        search: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Tahmin performansini kullaniciya uygun KPI + trend + dagilim + outlier yapisinda getirir.
+        """
+        where_clauses = [
+            "s.is_deleted = FALSE",
+            "s.tahmini_tuketim IS NOT NULL",
+            "s.tuketim IS NOT NULL",
+            "s.tuketim > 0",
+            "s.tahmini_tuketim > 0",
+        ]
+        params: Dict[str, Any] = {}
 
+        if durum:
+            where_clauses.append("s.durum = :durum")
+            params["durum"] = durum
+        if baslangic_tarih:
+            where_clauses.append("s.tarih >= :baslangic_tarih")
+            params["baslangic_tarih"] = baslangic_tarih
+        if bitis_tarih:
+            where_clauses.append("s.tarih <= :bitis_tarih")
+            params["bitis_tarih"] = bitis_tarih
+        if arac_id:
+            where_clauses.append("s.arac_id = :arac_id")
+            params["arac_id"] = arac_id
+        if sofor_id:
+            where_clauses.append("s.sofor_id = :sofor_id")
+            params["sofor_id"] = sofor_id
+        if search:
+            where_clauses.append(
+                """
+                (
+                    a.plaka ILIKE :search OR
+                    sf.ad_soyad ILIKE :search OR
+                    s.cikis_yeri ILIKE :search OR
+                    s.varis_yeri ILIKE :search OR
+                    s.sefer_no ILIKE :search
+                )
+                """
+            )
+            params["search"] = f"%{search}%"
+
+        where_stmt = " AND ".join(where_clauses)
+
+        summary_query = f"""
+            SELECT
+                COUNT(*) AS total_compared,
+                AVG(ABS(s.tuketim - s.tahmini_tuketim)) AS mae,
+                SQRT(AVG(POWER(s.tuketim - s.tahmini_tuketim, 2))) AS rmse,
+                AVG(
+                    CASE
+                        WHEN ABS(s.tuketim - s.tahmini_tuketim) / NULLIF(s.tahmini_tuketim, 0) > 0.15
+                        THEN 1.0
+                        ELSE 0.0
+                    END
+                ) AS high_deviation_ratio
+            FROM seferler s
+            JOIN araclar a ON a.id = s.arac_id
+            JOIN soforler sf ON sf.id = s.sofor_id
+            WHERE {where_stmt}
+        """
+
+        trend_query = f"""
+            SELECT
+                s.tarih AS date,
+                AVG(s.tahmini_tuketim) AS predicted,
+                AVG(s.tuketim) AS actual
+            FROM seferler s
+            JOIN araclar a ON a.id = s.arac_id
+            JOIN soforler sf ON sf.id = s.sofor_id
+            WHERE {where_stmt}
+            GROUP BY s.tarih
+            ORDER BY s.tarih ASC
+        """
+
+        distribution_query = f"""
+            SELECT
+                SUM(
+                    CASE
+                        WHEN ABS(s.tuketim - s.tahmini_tuketim) / NULLIF(s.tahmini_tuketim, 0) <= 0.05 THEN 1
+                        ELSE 0
+                    END
+                ) AS good,
+                SUM(
+                    CASE
+                        WHEN ABS(s.tuketim - s.tahmini_tuketim) / NULLIF(s.tahmini_tuketim, 0) > 0.05
+                             AND ABS(s.tuketim - s.tahmini_tuketim) / NULLIF(s.tahmini_tuketim, 0) <= 0.15
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS warning,
+                SUM(
+                    CASE
+                        WHEN ABS(s.tuketim - s.tahmini_tuketim) / NULLIF(s.tahmini_tuketim, 0) > 0.15 THEN 1
+                        ELSE 0
+                    END
+                ) AS error
+            FROM seferler s
+            JOIN araclar a ON a.id = s.arac_id
+            JOIN soforler sf ON sf.id = s.sofor_id
+            WHERE {where_stmt}
+        """
+
+        outlier_query = f"""
+            SELECT
+                s.id,
+                s.sefer_no,
+                s.tarih,
+                a.plaka,
+                sf.ad_soyad AS sofor_adi,
+                s.tahmini_tuketim AS predicted,
+                s.tuketim AS actual,
+                ROUND(
+                    (
+                        ABS(s.tuketim - s.tahmini_tuketim) / NULLIF(s.tahmini_tuketim, 0)
+                    )::numeric * 100,
+                    2
+                ) AS sapma_pct,
+                CASE
+                    WHEN s.bos_sefer THEN 'Bos sefer etkisi'
+                    WHEN COALESCE(s.ascent_m, 0) > 800 THEN 'Yuksek tirmanis'
+                    WHEN COALESCE(s.net_kg, 0) > 22000 THEN 'Yuksek yuk'
+                    WHEN COALESCE(s.tahmin_meta->>'fallback_triggered', 'false') = 'true' THEN 'Model fallback'
+                    ELSE 'Operasyonel fark'
+                END AS reason_label
+            FROM seferler s
+            JOIN araclar a ON a.id = s.arac_id
+            JOIN soforler sf ON sf.id = s.sofor_id
+            WHERE {where_stmt}
+            ORDER BY sapma_pct DESC
+            LIMIT 10
+        """
+
+        summary_rows = await self.execute_query(summary_query, params)
+        summary = summary_rows[0] if summary_rows else {}
+        trend = await self.execute_query(trend_query, params)
+        distribution_rows = await self.execute_query(distribution_query, params)
+        distribution = distribution_rows[0] if distribution_rows else {}
+        outliers = await self.execute_query(outlier_query, params)
+
+        total_compared = int(summary.get("total_compared") or 0)
+        good = int(distribution.get("good") or 0)
+        warning = int(distribution.get("warning") or 0)
+        error = int(distribution.get("error") or 0)
+        safe_total = total_compared if total_compared > 0 else 1
+
+        return {
+            "kpis": {
+                "mae": round(float(summary.get("mae") or 0.0), 2),
+                "rmse": round(float(summary.get("rmse") or 0.0), 2),
+                "total_compared": total_compared,
+                "high_deviation_ratio": round(
+                    float(summary.get("high_deviation_ratio") or 0.0) * 100, 2
+                ),
+            },
+            "trend": [
+                {
+                    "date": row.get("date").isoformat()
+                    if hasattr(row.get("date"), "isoformat")
+                    else (
+                        str(row.get("date")) if row.get("date") is not None else None
+                    ),
+                    "predicted": round(float(row.get("predicted") or 0.0), 2),
+                    "actual": round(float(row.get("actual") or 0.0), 2),
+                }
+                for row in trend
+            ],
+            "distribution": {
+                "good": good,
+                "warning": warning,
+                "error": error,
+                "good_pct": round((good / safe_total) * 100, 2),
+                "warning_pct": round((warning / safe_total) * 100, 2),
+                "error_pct": round((error / safe_total) * 100, 2),
+            },
+            "outliers": [
+                {
+                    "id": row.get("id"),
+                    "sefer_no": row.get("sefer_no"),
+                    "tarih": row.get("tarih").isoformat()
+                    if hasattr(row.get("tarih"), "isoformat")
+                    else (
+                        str(row.get("tarih")) if row.get("tarih") is not None else None
+                    ),
+                    "plaka": row.get("plaka"),
+                    "sofor_adi": row.get("sofor_adi"),
+                    "predicted": round(float(row.get("predicted") or 0.0), 2),
+                    "actual": round(float(row.get("actual") or 0.0), 2),
+                    "sapma_pct": round(float(row.get("sapma_pct") or 0.0), 2),
+                    "reason_label": row.get("reason_label"),
+                }
+                for row in outliers
+            ],
+            "low_data": total_compared < 3,
+        }
+
+    async def refresh_stats_mv(self) -> None:
+        """Sefer istatistik materialized view'i yenile (Async)."""
+        try:
+            # MV yoksa REFRESH denemesi yapilmasin.
+            exists_result = await self.session.execute(
+                text("SELECT to_regclass('public.sefer_istatistik_mv')")
+            )
+            if not exists_result.scalar():
+                logger.debug("Sefer Stats MV not found; refresh skipped.")
+                return
+
+            # PostgreSQL specific: REFRESH MATERIALIZED VIEW
+            # CONCURRENTLY requires a unique index on the view.
             await self.session.execute(
                 text("REFRESH MATERIALIZED VIEW CONCURRENTLY sefer_istatistik_mv")
             )
@@ -644,6 +929,12 @@ class SeferRepository(BaseRepository[Sefer]):
             logger.warning(
                 f"Concurrent refresh failed (likely missing index), trying standard: {e}"
             )
+            # Failed REFRESH leaves transaction aborted; clear it before retry.
+            try:
+                await self.session.rollback()
+            except Exception:
+                pass
+
             try:
                 await self.session.execute(
                     text("REFRESH MATERIALIZED VIEW sefer_istatistik_mv")
@@ -651,19 +942,12 @@ class SeferRepository(BaseRepository[Sefer]):
                 logger.info("Sefer Stats MV refreshed standard.")
             except Exception as e2:
                 logger.error(f"Sefer Stats MV refresh failed completely: {e2}")
-
-
-# Thread-safe Singleton
-_sefer_repo_lock = threading.Lock()
-_sefer_repo: Optional[SeferRepository] = None
+                try:
+                    await self.session.rollback()
+                except Exception:
+                    pass
 
 
 def get_sefer_repo(session: Optional[AsyncSession] = None) -> SeferRepository:
-    """SeferRepo Provider. Eğer session verilirse yeni instance döner (UoW için)."""
-    global _sefer_repo
-    if session:
-        return SeferRepository(session=session)
-    with _sefer_repo_lock:
-        if _sefer_repo is None:
-            _sefer_repo = SeferRepository()
-    return _sefer_repo
+    """SeferRepo provider. Always returns a new repository instance."""
+    return SeferRepository(session=session)

@@ -18,7 +18,7 @@ class TestRBAC:
         assert response.status_code == 403
         data = response.json()
         assert "error" in data
-        assert "privileges" in data["error"]["message"]
+        assert "ADMIN" in data["error"]["message"].upper()
 
     async def test_user_cannot_create_driver(
         self, async_client: AsyncClient, normal_auth_headers

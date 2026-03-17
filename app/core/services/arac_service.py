@@ -254,7 +254,7 @@ class AracService:
         model: Optional[str] = None,
         min_yil: Optional[int] = None,
         max_yil: Optional[int] = None,
-    ) -> List[Arac]:
+    ) -> Dict[str, Any]:
         """
         Sayfalı ve filtreli araç listesi (Güvenli Katman).
         """
@@ -276,6 +276,11 @@ class AracService:
                 search=search,
                 filters=filters,
             )
+            total = await uow.arac_repo.count_all(
+                sadece_aktif=aktif_only,
+                search=search,
+                filters=filters,
+            )
 
         vehicles: List[Arac] = []
         for r in rows:
@@ -284,7 +289,7 @@ class AracService:
             except Exception as e:
                 logger.warning(f"Skipping invalid vehicle record ID {r.get('id')}: {e}")
                 continue
-        return vehicles
+        return {"items": vehicles, "total": total}
 
     async def get_all_vehicles(self, only_active: bool = True) -> List[Arac]:
         """Tüm araçları listele (Legacy support)"""

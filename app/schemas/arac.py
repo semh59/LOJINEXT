@@ -23,7 +23,7 @@ class AracBase(BaseModel):
         ...,
         min_length=3,
         max_length=20,
-        pattern=r"^[0-9]{2}\s?[A-ZĞÜŞÖÇİ]{1,3}\s?[0-9]{2,4}$",
+        pattern=r"^[0-9]{2}[\s-]?[A-ZÇĞİÖŞÜ]{1,5}[\s-]?[0-9]{2,4}$",
         description="Plaka formatı (Permissive)",
     )
     marka: str = Field(..., min_length=2, max_length=50)
@@ -105,7 +105,7 @@ class AracUpdate(BaseModel):
         None,
         min_length=3,
         max_length=20,
-        pattern=r"^[0-9]{2}\s?[A-ZĞÜŞÖÇİ]{1,3}\s?[0-9]{2,4}$",
+        pattern=r"^[0-9]{2}[\s-]?[A-ZÇĞİÖŞÜ]{1,5}[\s-]?[0-9]{2,4}$",
     )
     marka: Optional[str] = Field(None, min_length=2, max_length=50)
     model: Optional[str] = Field(None, max_length=50)

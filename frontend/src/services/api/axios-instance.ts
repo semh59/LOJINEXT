@@ -1,6 +1,12 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
-import { tokenStorage } from './legacy';
+import { storageService } from '../storage-service';
+
+declare module 'axios' {
+    export interface InternalAxiosRequestConfig {
+        _retry?: boolean;
+    }
+}
 
 /**
  * Kurumsal seviyede Axios örneği
@@ -23,13 +29,13 @@ const axiosInstance: AxiosInstance = axios.create({
 // Request Interceptor: Token ekle
 axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const token = tokenStorage.get();
+        const token = storageService.getItem<string>('access_token');
         if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
-    (error) => Promise.reject(error)
+    (error: unknown) => Promise.reject(error)
 );
 
 // Response Interceptor: Hata yönetimi
@@ -43,16 +49,16 @@ axiosInstance.interceptors.response.use(
 
             // 401: Oturum süresi dolmuş veya geçersiz
             if (status === 401 && !originalRequest?.url?.includes('/auth/token')) {
-                const refreshToken = localStorage.getItem('refresh_token');
+                const refreshToken = storageService.getItem<string>('refresh_token');
 
-                if (refreshToken && !(originalRequest as any)?._retry) {
-                    (originalRequest as any)._retry = true;
+                if (refreshToken && !originalRequest?._retry) {
+                    if (originalRequest) originalRequest._retry = true;
                     try {
                         const response = await axios.post(`${API_BASE_URL}/auth/refresh?refresh_token=${refreshToken}`);
                         const { access_token, refresh_token } = response.data;
 
-                        localStorage.setItem('access_token', access_token);
-                        if (refresh_token) localStorage.setItem('refresh_token', refresh_token);
+                        storageService.setItem('access_token', access_token);
+                        if (refresh_token) storageService.setItem('refresh_token', refresh_token);
 
                         if (originalRequest && originalRequest.headers) {
                             originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -64,8 +70,8 @@ axiosInstance.interceptors.response.use(
                     }
                 }
 
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
+                storageService.removeItem('access_token');
+                storageService.removeItem('refresh_token');
                 if (window.location.pathname !== '/login') {
                     window.location.href = '/login';
                 }

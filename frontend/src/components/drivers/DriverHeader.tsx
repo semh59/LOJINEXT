@@ -11,8 +11,8 @@ interface DriverHeaderProps {
 
 export function DriverHeader({ onAdd, onExport, onDownloadTemplate, onImport }: DriverHeaderProps) {
     return (
-        <div className="flex justify-end gap-6 relative z-40">
-            <div className="flex flex-wrap items-center gap-3">
+        <div className="flex justify-end relative z-40">
+            <div className="flex items-center gap-3">
                 <DataExportImport 
                     onExport={onExport}
                     onDownloadTemplate={onDownloadTemplate}
@@ -20,7 +20,7 @@ export function DriverHeader({ onAdd, onExport, onDownloadTemplate, onImport }: 
                 />
                 <Button
                     onClick={onAdd}
-                    variant="glossy-purple"
+                    variant="primary"
                     size="lg"
                     className="px-6 h-12"
                 >

@@ -2,17 +2,17 @@
  * Deep merge/patch utility for JSON objects.
  * get_dict_diff çıktısını frontend'de mevcut state'e uygulamak için kullanılır.
  */
-export function applyPatch<T extends Record<string, any>>(base: T, patch: any): T {
+export function applyPatch<T extends Record<string, unknown>>(base: T, patch: Partial<T> | Record<string, unknown>): T {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
         return patch as T;
     }
 
-    const result: any = { ...base };
+    const result: T = { ...base };
 
     for (const key in patch) {
         if (Object.prototype.hasOwnProperty.call(patch, key)) {
-            const patchValue = (patch as any)[key];
-            const baseValue = result[key];
+            const patchValue = (patch as Record<string, unknown>)[key];
+            const baseValue = (result as Record<string, unknown>)[key];
 
             if (
                 patchValue &&
@@ -23,10 +23,13 @@ export function applyPatch<T extends Record<string, any>>(base: T, patch: any): 
                 !Array.isArray(baseValue)
             ) {
                 // Her iki taraf da objeyse recursive birleştir
-                result[key] = applyPatch(baseValue, patchValue);
+                (result as Record<string, unknown>)[key] = applyPatch(
+                    baseValue as Record<string, unknown>, 
+                    patchValue as Record<string, unknown>
+                );
             } else {
                 // Değilse doğrudan üzerine yaz
-                result[key] = patchValue;
+                (result as Record<string, unknown>)[key] = patchValue;
             }
         }
     }

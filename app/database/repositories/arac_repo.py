@@ -45,6 +45,39 @@ class AracRepository(BaseRepository[Arac]):
             sadece_aktif=sadece_aktif,
         )
 
+    async def count_all(
+        self,
+        sadece_aktif: bool = True,
+        search: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> int:
+        """Filtrelere uyan toplam araç sayısını getir"""
+        query = "SELECT COUNT(*) FROM araclar a WHERE 1=1"
+        params = {}
+
+        if sadece_aktif:
+            query += " AND a.aktif = true"
+
+        if search:
+            query += " AND (a.plaka ILIKE :search OR a.marka ILIKE :search)"
+            params["search"] = f"%{search}%"
+
+        if filters:
+            if "marka" in filters:
+                query += " AND a.marka = :marka"
+                params["marka"] = filters["marka"]
+            if "model" in filters:
+                query += " AND a.model = :model"
+                params["model"] = filters["model"]
+            if "yil_ge" in filters:
+                query += " AND a.yil >= :yil_ge"
+                params["yil_ge"] = filters["yil_ge"]
+            if "yil_le" in filters:
+                query += " AND a.yil <= :yil_le"
+                params["yil_le"] = filters["yil_le"]
+
+        return await self.execute_scalar(query, params) or 0
+
     async def get_all_with_stats_paged(
         self,
         limit: int = 100,

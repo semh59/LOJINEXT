@@ -11,6 +11,7 @@ from app.api.deps import (
     get_current_user,
     get_sofor_service,
 )
+from app.schemas.base import StandardResponse, ResponseMeta
 from app.core.services.excel_service import ExcelService
 from app.core.services.sofor_service import SoforService
 from app.database.models import Kullanici, Sofor
@@ -27,7 +28,7 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=List[SoforResponse])
+@router.get("/", response_model=StandardResponse[List[SoforResponse]])
 async def read_soforler(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
@@ -42,7 +43,8 @@ async def read_soforler(
 ):
     try:
         # Service handles skip/limit/safety/validation internally
-        return await service.get_all_paged(
+        # Service now returns {"items": [...], "total": X}
+        result = await service.get_all_paged(
             skip=skip,
             limit=limit,
             aktif_only=aktif_only,
@@ -50,6 +52,15 @@ async def read_soforler(
             ehliyet_sinifi=ehliyet_sinifi,
             min_score=min_score,
             max_score=max_score,
+        )
+        return StandardResponse(
+            data=result["items"],
+            meta=ResponseMeta(
+                total=result["total"],
+                skip=skip,
+                limit=limit,
+                count=len(result["items"]),
+            ),
         )
     except Exception as e:
         logger.error(f"Error listing drivers via service: {e}")

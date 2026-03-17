@@ -179,7 +179,26 @@ class TimeSeriesPredictor:
             return
 
         self.device = torch.device(device)
-        self.model = FuelConsumptionLSTM().to(self.device)
+        self.model = None
+        try:
+            self.model = FuelConsumptionLSTM().to(self.device)
+        except NotImplementedError as exc:
+            # Bazı ortamlarda global default device "meta" olabiliyor.
+            # Bu durumda modeli doğrudan CPU'da yeniden oluşturarak init'i düşürmüyoruz.
+            if "meta tensor" in str(exc).lower():
+                logger.warning(
+                    "LSTM init meta-device hatası alındı, CPU fallback uygulanıyor: %s",
+                    exc,
+                )
+                try:
+                    with torch.device("cpu"):
+                        self.model = FuelConsumptionLSTM()
+                    self.device = torch.device("cpu")
+                except Exception as fallback_exc:
+                    logger.error("LSTM CPU fallback init başarısız: %s", fallback_exc)
+                    self.model = None
+            else:
+                raise
         self.is_trained = False
         self.training_history = []
 

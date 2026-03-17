@@ -1,6 +1,6 @@
 """
 Rate Limiting Middleware
-IP bazlı istek sınırlama (DoS koruması)
+IP bazlÃ„Â± istek sÃ„Â±nÃ„Â±rlama (DoS korumasÃ„Â±)
 """
 
 import time
@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Simple in-memory rate limiter.
-    Production ortamı için Redis-backed çözüm önerilir.
+    Production ortamÃ„Â± iÃƒÂ§in Redis-backed ÃƒÂ§ÃƒÂ¶zÃƒÂ¼m ÃƒÂ¶nerilir.
     """
 
     def __init__(self, app, requests_per_minute: int = 60):
@@ -53,17 +53,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         client_ip = self._get_client_ip(request)
+        user_id = getattr(request.state, "user_id", None) or request.headers.get("X-User-ID")
+        bucket = f"{client_ip}:{user_id or 'anon'}:{request.url.path}"
         current_time = time.time()
 
-        count, window_start = self.request_counts[client_ip]
+        count, window_start = self.request_counts[bucket]
 
-        # Window süresi dolmuşsa sıfırla
+        # Window sÃƒÂ¼resi dolmuÃ…Å¸sa sÃ„Â±fÃ„Â±rla
         if current_time - window_start >= self.window_size:
-            self.request_counts[client_ip] = (1, current_time)
+            self.request_counts[bucket] = (1, current_time)
         else:
-            # Limit aşıldı mı kontrol et
+            # Limit aÃ…Å¸Ã„Â±ldÃ„Â± mÃ„Â± kontrol et
             if count >= self.requests_per_minute:
-                logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+                logger.warning(f"Rate limit exceeded for bucket: {bucket}")
                 return JSONResponse(
                     status_code=429,
                     content={
@@ -78,13 +80,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         )
                     },
                 )
-            # Sayacı artır
-            self.request_counts[client_ip] = (count + 1, window_start)
+            # SayacÃ„Â± artÃ„Â±r
+            self.request_counts[bucket] = (count + 1, window_start)
 
         return await call_next(request)
 
     def _get_client_ip(self, request: Request) -> str:
-        """Gerçek client IP'sini al (proxy arkası dahil)."""
+        """GerÃƒÂ§ek client IP'sini al (proxy arkasÃ„Â± dahil)."""
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
             return forwarded.split(",")[0].strip()

@@ -24,7 +24,9 @@ class SoforBase(BaseModel):
     """Şoför base model - ortak alanlar."""
 
     ad_soyad: str = Field(..., min_length=3, max_length=100)
-    telefon: Optional[str] = Field(None, max_length=20, description="Telefon numarası")
+    telefon: Optional[str] = Field(
+        None, max_length=20, description="Telefon numarası", exclude=True
+    )
 
     @field_validator("telefon")
     @classmethod

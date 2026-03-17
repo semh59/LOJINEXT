@@ -12,11 +12,7 @@ from fastapi import (
     UploadFile,
 )
 
-from sqlalchemy import text
 from app.api.deps import (
-    SessionDep,
-    get_current_active_admin,
-    get_current_active_user,
     get_current_user,
     get_sefer_service,
     require_permissions,
@@ -38,6 +34,7 @@ from app.schemas.sefer import (
     SeferBulkStatusUpdate,
     SeferBulkCancel,
     SeferBulkResponse,
+    SeferBulkDelete,
 )
 
 logger = get_logger(__name__)
@@ -46,7 +43,6 @@ router = APIRouter()
 
 @router.get("/", response_model=SeferListResponse)
 async def read_seferler(
-    db: SessionDep,
     current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
     service: SeferService = Depends(get_sefer_service),
     skip: int = Query(0, ge=0),
@@ -73,17 +69,19 @@ async def read_seferler(
             durum=durum,
             search=search,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Error listing trips via service: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Liste alınırken hata oluştu")
+        raise HTTPException(status_code=500, detail="Liste al?n?rken hata olu?tu")
 
 
 @router.get("/today", response_model=SeferListResponse)
 async def read_bugunun_seferleri(
-    current_user: Annotated[Kullanici, Depends(get_current_user)],
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Bugünün seferlerini listele."""
+    """BugÃ¼nÃ¼n seferlerini listele."""
     try:
         from datetime import date
 
@@ -94,7 +92,7 @@ async def read_bugunun_seferleri(
         )
     except Exception as e:
         logger.error(f"Error fetching today's trips: {e}")
-        raise HTTPException(status_code=500, detail="Bugünkü seferler alınamadı")
+        raise HTTPException(status_code=500, detail="BugÃ¼nkÃ¼ seferler alÄ±namadÄ±")
 
 
 @router.get(
@@ -111,17 +109,15 @@ async def export_seferler(
     durum: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
 ):
-    """Sefer listesini Excel olarak dışa aktar (Filtreli ve Limitli)."""
+    """Sefer listesini Excel olarak dÄ±ÅŸa aktar (Filtreli ve Limitli)."""
     try:
-        from fastapi.responses import StreamingResponse
-
         MAX_EXPORT_LIMIT = 5000
 
-        # Seferleri getir (MAX_EXPORT_LIMIT uygulanmış hali)
+        # Seferleri getir (MAX_EXPORT_LIMIT uygulanmis hali)
         seferler = await service.get_all_paged(
             current_user=current_user,
             skip=0,
-            limit=MAX_EXPORT_LIMIT + 1,  # 1 fazlasını sor ki limiti aştığını anlayalım
+            limit=MAX_EXPORT_LIMIT,
             aktif_only=False,
             baslangic_tarih=baslangic_tarih,
             bitis_tarih=bitis_tarih,
@@ -132,10 +128,11 @@ async def export_seferler(
         )
 
         items = seferler.get("items", [])
+        total = int((seferler.get("meta") or {}).get("total") or len(items))
 
-        if len(items) > MAX_EXPORT_LIMIT:
+        if total > MAX_EXPORT_LIMIT:
             raise ValueError(
-                f"{MAX_EXPORT_LIMIT} satır limitini aştınız, tarih aralığını daraltın."
+                f"{MAX_EXPORT_LIMIT} satir limitini astiniz, tarih araligini daraltin."
             )
 
         data = []
@@ -151,23 +148,26 @@ async def export_seferler(
             d["sofor"] = getattr(s, "sofor_adi", d.get("sofor", ""))
             data.append(d)
 
-        # Excel oluştur
+        # Excel oluÅŸtur
         from fastapi import Response
 
         content = ExcelService.export_data(data, type="sefer_listesi")
         filename = (
             f"sefer_listesi_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.xlsx"
         )
+        import urllib.parse
+
+        encoded_filename = urllib.parse.quote(filename)
         return Response(
             content=content,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
                 "Access-Control-Expose-Headers": "Content-Disposition",
             },
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Excel export error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -175,91 +175,73 @@ async def export_seferler(
 
 @router.get("/stats", response_model=SeferStatsResponse)
 async def get_trip_stats(
-    db: SessionDep,
-    current_user: Annotated[Kullanici, Depends(get_current_user)],
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
+    service: SeferService = Depends(get_sefer_service),
     durum: Optional[str] = Query(None, description="Filtrelemek istenen sefer durumu"),
     baslangic_tarih: Optional[str] = Query(None, description="YYYY-MM-DD"),
     bitis_tarih: Optional[str] = Query(None, description="YYYY-MM-DD"),
 ):
     """
     Sefer istatistiklerini sunar.
-    Tarih filtresi varsa dinamik sorgu koşturur, yoksa Materialized View kullanır.
+    Tarih filtresi varsa dinamik sorgu kosturur, yoksa materialized view kullanir.
     """
     try:
-        # Dinamik filtreleme gerekip gerekmediğini kontrol et
-        use_dynamic = bool(baslangic_tarih or bitis_tarih)
+        start_date = date.fromisoformat(baslangic_tarih) if baslangic_tarih else None
+        end_date = date.fromisoformat(bitis_tarih) if bitis_tarih else None
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Tarih formati gecersiz.")
 
-        if use_dynamic:
-            # Doğrudan tablodan (Index-based) SUM/COUNT yap
-            where_clauses = ["is_real = TRUE", "is_deleted = FALSE", "durum != 'İptal'"]
-            params = {}
-
-            if durum:
-                where_clauses.append("durum = :durum")
-                params["durum"] = durum
-            if baslangic_tarih:
-                where_clauses.append("tarih >= :start")
-                params["start"] = baslangic_tarih
-            if bitis_tarih:
-                where_clauses.append("tarih <= :end")
-                params["end"] = bitis_tarih
-
-            where_stmt = " AND ".join(where_clauses)
-            query = text(f"""
-                SELECT 
-                    COUNT(id) as toplam_sefer, 
-                    SUM(mesafe_km) as toplam_km, 
-                    SUM(otoban_mesafe_km) as highway_km, 
-                    SUM(ascent_m) as total_ascent, 
-                    SUM(net_kg / 1000.0) as total_weight,
-                    MAX(created_at) as last_updated
-                FROM seferler
-                WHERE {where_stmt}
-            """)
-        else:
-            # Performans için MV kullan
-            if durum:
-                query = text(
-                    "SELECT toplam_sefer, toplam_km, highway_km, total_ascent, total_weight, last_updated FROM sefer_istatistik_mv WHERE durum = :durum"
-                )
-                params = {"durum": durum}
-            else:
-                query = text("""
-                    SELECT 
-                        SUM(toplam_sefer) as toplam_sefer, 
-                        SUM(toplam_km) as toplam_km, 
-                        SUM(highway_km) as highway_km, 
-                        SUM(total_ascent) as total_ascent, 
-                        SUM(total_weight) as total_weight,
-                        MAX(last_updated) as last_updated
-                    FROM sefer_istatistik_mv
-                """)
-                params = {}
-
-        result = await db.execute(query, params)
-        row = result.fetchone()
-
-        if not row or not row.toplam_sefer:
-            return SeferStatsResponse()
-
-        avg_highway_pct = 0
-        t_km = float(row.toplam_km or 0)
-        h_km = float(row.highway_km or 0)
-        if t_km > 0:
-            avg_highway_pct = int(round((h_km / t_km) * 100))
-
-        return SeferStatsResponse(
-            toplam_sefer=int(row.toplam_sefer) if row.toplam_sefer else 0,
-            toplam_km=t_km,
-            highway_km=h_km,
-            total_ascent=float(row.total_ascent or 0.0),
-            total_weight=float(row.total_weight or 0.0),
-            avg_highway_pct=avg_highway_pct,
-            last_updated=row.last_updated,
+    try:
+        stats = await service.get_trip_stats(
+            durum=durum,
+            baslangic_tarih=start_date,
+            bitis_tarih=end_date,
         )
+        return SeferStatsResponse(**stats)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Gecersiz durum degeri.")
     except Exception as e:
         logger.error(f"Error fetching trip stats: {e}", exc_info=True)
-        return SeferStatsResponse()
+        raise HTTPException(
+            status_code=500,
+            detail="Sefer istatistikleri alinamadi.",
+        )
+
+
+@router.get("/analytics/fuel-performance")
+async def get_fuel_performance_analytics(
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
+    service: SeferService = Depends(get_sefer_service),
+    durum: Optional[str] = Query(None),
+    baslangic_tarih: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    bitis_tarih: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    arac_id: Optional[int] = Query(None),
+    sofor_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+):
+    """
+    Sefer bazli yakit performans metriklerini kullanici odakli payload ile doner.
+    """
+    try:
+        start_date = date.fromisoformat(baslangic_tarih) if baslangic_tarih else None
+        end_date = date.fromisoformat(bitis_tarih) if bitis_tarih else None
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Tarih formati gecersiz.")
+
+    try:
+        return await service.get_fuel_performance_analytics(
+            durum=durum,
+            baslangic_tarih=start_date,
+            bitis_tarih=end_date,
+            arac_id=arac_id,
+            sofor_id=sofor_id,
+            search=search,
+        )
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Gecersiz durum degeri.")
+    except Exception as e:
+        logger.error("Fuel performance analytics error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Yakit performansi alinamadi")
 
 
 @router.post(
@@ -270,11 +252,10 @@ async def get_trip_stats(
 )
 async def create_sefer(
     sefer: SeferCreate,
-    db: SessionDep,
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    current_admin: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Yeni sefer oluştur (Service Layer)."""
+    """Yeni sefer oluÅŸtur (Service Layer)."""
     try:
         logger.info(
             f"API: Creating trip with sefer_no: {sefer.sefer_no}, round_trip: {sefer.is_round_trip}"
@@ -289,7 +270,7 @@ async def create_sefer(
                 f"API: Created trip ID {sefer_id} could not be retrieved after creation"
             )
             raise HTTPException(
-                status_code=500, detail="Oluşturulan kayıt geri okunamadı"
+                status_code=500, detail="OluÅŸturulan kayÄ±t geri okunamadÄ±"
             )
 
         logger.info(f"API: Retrieved created trip dict for ID {sefer_id}")
@@ -306,7 +287,7 @@ async def create_sefer(
             logger.error(f"API: Data causing error: {created_dict}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Veri şema uyumsuzluğu (ID:{sefer_id}): {str(ve.errors()[0].get('msg'))}",
+                detail=f"Veri ÅŸema uyumsuzluÄŸu (ID:{sefer_id}): {str(ve.errors()[0].get('msg'))}",
             )
 
     except HTTPException:
@@ -325,20 +306,20 @@ async def create_sefer(
 @router.post("/{sefer_id}/return", response_model=SeferResponse, status_code=201)
 async def create_return_trip(
     sefer_id: int,
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    current_admin: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Mevcut bir sefer baz alınarak dönüş seferi oluştur (Backend mantığı)."""
+    """Mevcut bir sefer baz alÄ±narak dÃ¶nÃ¼ÅŸ seferi oluÅŸtur (Backend mantÄ±ÄŸÄ±)."""
     try:
         new_sefer_id = await service.create_return_trip(
             sefer_id, user_id=current_admin.id
         )
 
-        # Oku ve döndür
+        # Oku ve dÃ¶ndÃ¼r
         created_dict = await service.get_sefer_by_id(new_sefer_id)
         if not created_dict:
             raise HTTPException(
-                status_code=500, detail="Dönüş seferi oluşturuldu ancak okunamadı"
+                status_code=500, detail="DÃ¶nÃ¼ÅŸ seferi oluÅŸturuldu ancak okunamadÄ±"
             )
 
         from pydantic import ValidationError
@@ -347,22 +328,24 @@ async def create_return_trip(
             return SeferResponse.model_validate(created_dict)
         except ValidationError as ve:
             logger.error(f"API: Serialization error to SeferResponse: {ve}")
-            raise HTTPException(status_code=500, detail=f"Veri dönüşüm hatası: {ve}")
+            raise HTTPException(
+                status_code=500, detail=f"Veri dÃ¶nÃ¼ÅŸÃ¼m hatasÄ±: {ve}"
+            )
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Return trip creation error: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail="Dönüş seferi oluşturulurken hata meydana geldi"
+            status_code=500, detail="DÃ¶nÃ¼ÅŸ seferi oluÅŸturulurken hata meydana geldi"
         )
 
 
 @router.get("/excel/template")
 async def get_excel_template(
-    current_user: Annotated[Kullanici, Depends(get_current_user)],
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
 ):
-    """Sefer yükleme için örnek Excel şablonu indir."""
+    """Sefer yÃ¼kleme iÃ§in Ã¶rnek Excel ÅŸablonu indir."""
     try:
         from app.core.services.excel_service import ExcelService
 
@@ -376,19 +359,19 @@ async def get_excel_template(
         )
     except Exception as e:
         logger.error(f"Error generating trip template: {e}")
-        raise HTTPException(status_code=500, detail="Şablon oluşturulamadı")
+        raise HTTPException(status_code=500, detail="Åablon oluÅŸturulamadÄ±")
 
 
 @router.get("/{sefer_id}", response_model=SeferResponse)
 async def read_sefer(
     sefer_id: int,
-    current_user: Annotated[Kullanici, Depends(get_current_user)],
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Tekil sefer getir (Güvenli)."""
+    """Tekil sefer getir (GÃ¼venli)."""
     sefer = await service.get_by_id(sefer_id, current_user=current_user)
     if not sefer:
-        raise HTTPException(status_code=404, detail="Sefer bulunamadı")
+        raise HTTPException(status_code=404, detail="Sefer bulunamadÄ±")
     return sefer
 
 
@@ -406,7 +389,7 @@ async def analyze_trip_costs(
         # Check permission (get_by_id handles ownership)
         sefer = await service.get_by_id(sefer_id, current_user=current_user)
         if not sefer:
-            raise HTTPException(status_code=404, detail="Sefer bulunamadı")
+            raise HTTPException(status_code=404, detail="Sefer bulunamadÄ±")
 
         # Submit to background job manager instead of raw BackgroundTasks
         job_id = await job_manager.submit(service.reconcile_costs, sefer_id)
@@ -414,13 +397,13 @@ async def analyze_trip_costs(
         return {
             "status": "PROCESSING",
             "task_id": job_id,
-            "message": "Maliyet analizi arka plana alındı. Lütfen durum sorgulama endpoint'ini kullanın.",
+            "message": "Maliyet analizi arka plana alÄ±ndÄ±. LÃ¼tfen durum sorgulama endpoint'ini kullanÄ±n.",
         }
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Cost analysis initialization error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Maliyet analizi başlatılamadı")
+        raise HTTPException(status_code=500, detail="Maliyet analizi baÅŸlatÄ±lamadÄ±")
 
 
 @router.patch("/{sefer_id}", response_model=SeferResponse)
@@ -430,45 +413,53 @@ async def update_sefer(
     current_admin: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Sefer güncelle (Service Layer)."""
+    """Sefer gÃ¼ncelle (Service Layer)."""
     try:
         success = await service.update_sefer(
             sefer_id, sefer_in, user_id=current_admin.id
         )
         if not success:
-            raise HTTPException(status_code=404, detail="Sefer bulunamadı")
+            raise HTTPException(status_code=404, detail="Sefer bulunamadÄ±")
 
-        # Güncel veriyi getir (Cache invalidation sonrası taze veri)
-        return await service.get_sefer_by_id(sefer_id)
+        # GÃ¼ncel veriyi getir (Cache invalidation sonrasÄ± taze veri)
+        updated = await service.get_sefer_by_id(sefer_id)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Guncellenen sefer bulunamadi")
+        return updated
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Update error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Güncelleme sırasında hata oluştu")
+        raise HTTPException(
+            status_code=500, detail="GÃ¼ncelleme sÄ±rasÄ±nda hata oluÅŸtu"
+        )
 
 
 @router.delete("/{sefer_id}", response_model=dict)
 async def delete_sefer(
     sefer_id: int,
-    db: SessionDep,
-    current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
+    current_admin: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Sefer sil (Hard Delete)."""
+    """Seferi soft-delete olarak iptal eder."""
 
     try:
         success = await service.delete_sefer(sefer_id)
         if not success:
             raise HTTPException(
-                status_code=404, detail="Sefer bulunamadı veya silinemedi"
+                status_code=404, detail="Sefer bulunamadÄ± veya silinemedi"
             )
 
-        return {"status": "success", "message": "Sefer tamamen silindi"}
+        return {
+            "status": "success",
+            "message": "Sefer soft-delete olarak iptal edildi",
+            "soft_deleted": True,
+        }
 
     except Exception as e:
         logger.error(f"Error deleting trip: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Silme hatası")
+        raise HTTPException(status_code=500, detail="Silme hatasÄ±")
 
 
 @router.post(
@@ -490,20 +481,21 @@ async def upload_sefer_excel(
     }
     if file.content_type and file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
-            status_code=400, detail="Sadece Excel dosyaları (.xlsx, .xls) kabul edilir."
+            status_code=400,
+            detail="Sadece Excel dosyalarÄ± (.xlsx, .xls) kabul edilir.",
         )
 
     # File extension validation
     if file.filename and not file.filename.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(
-            status_code=400, detail="Dosya uzantısı .xlsx veya .xls olmalıdır."
+            status_code=400, detail="Dosya uzantÄ±sÄ± .xlsx veya .xls olmalÄ±dÄ±r."
         )
 
     MAX_FILE_SIZE = 10 * 1024 * 1024
 
     # 1. Check Content-Length header (fast fail)
     if file.size and file.size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'ı geçemez.")
+        raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'Ä± geÃ§emez.")
 
     # 2. Secure Read (Chunked) protecting RAM
     content = bytearray()
@@ -515,7 +507,9 @@ async def upload_sefer_excel(
             break
         content.extend(chunk)
         if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=413, detail="Dosya boyutu 10MB'ı geçemez.")
+            raise HTTPException(
+                status_code=413, detail="Dosya boyutu 10MB'Ä± geÃ§emez."
+            )
 
     from app.services.api.sefer_import_service import get_sefer_import_service
 
@@ -548,7 +542,7 @@ async def bulk_update_trip_status(
     current_user: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Seçili seferlerin durumunu toplu güncelle (SUPERVISOR+)."""
+    """SeÃ§ili seferlerin durumunu toplu gÃ¼ncelle (SUPERVISOR+)."""
     return await service.bulk_update_status(
         data.sefer_ids, data.new_status, user_id=current_user.id
     )
@@ -564,7 +558,7 @@ async def bulk_cancel_trips(
     current_user: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Seçili seferleri toplu iptal et (SUPERVISOR+)."""
+    """SeÃ§ili seferleri toplu iptal et (SUPERVISOR+)."""
     return await service.bulk_cancel(
         data.sefer_ids, data.iptal_nedeni, user_id=current_user.id
     )
@@ -572,12 +566,13 @@ async def bulk_cancel_trips(
 
 @router.post("/bulk-delete", response_model=Dict[str, Any])
 async def bulk_delete_trips(
-    sefer_ids: List[int],
-    current_user: Kullanici = Depends(get_current_active_user),
+    data: SeferBulkDelete,
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:write"))],
     service: SeferService = Depends(get_sefer_service),
 ) -> Any:
-    """Seçilen seferleri toplu sil."""
-    logger.info(f"Bulk Delete Request: User={current_user.username}, IDs={sefer_ids}")
+    """SeÃ§ilen seferleri toplu sil."""
+    sefer_ids = data.sefer_ids
+    logger.info(f"Bulk Delete Request: User={current_user.email}, IDs={sefer_ids}")
     if not sefer_ids:
         logger.warning("Bulk delete called with empty ID list")
         return {"success_count": 0, "failed_count": 0, "failed": []}
@@ -587,17 +582,17 @@ async def bulk_delete_trips(
 @router.get("/tasks/{task_id}/status")
 async def get_task_status(
     task_id: str,
-    current_user: Annotated[Kullanici, Depends(get_current_user)] = None,
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
     job_manager: BackgroundJobManager = Depends(get_background_job_manager),
 ):
     """
-    Asenkron işlem durumunu kontrol eden polling endpointi.
+    Asenkron iÅŸlem durumunu kontrol eden polling endpointi.
     """
     status_info = job_manager.get_status(task_id)
 
     if status_info["status"] == "unknown":
         raise HTTPException(
-            status_code=404, detail=f"'{task_id}' ID'li görev bulunamadı."
+            status_code=404, detail=f"'{task_id}' ID'li gÃ¶rev bulunamadÄ±."
         )
 
     # Normalize status for frontend (PROCESSING, SUCCESS, FAILED)
@@ -619,38 +614,18 @@ async def get_task_status(
 @router.get("/{sefer_id}/timeline")
 async def get_sefer_timeline(
     sefer_id: int,
-    current_user: Annotated[Kullanici, Depends(get_current_user)],
+    current_user: Annotated[Kullanici, Depends(require_permissions("sefer:read"))],
     service: SeferService = Depends(get_sefer_service),
 ):
-    """Seferin kronolojik olay akışını (audit log) getirir."""
+    """Seferin kronolojik olay akÄ±ÅŸÄ±nÄ± (audit log) getirir."""
     try:
-        # Sefer var mı kontrolü (isolation/safety)
-        await service.get_by_id(sefer_id)
+        # Sefer var mÄ± kontrolÃ¼ (isolation/safety)
+        await service.get_by_id(sefer_id, current_user=current_user)
 
-        from app.database.unit_of_work import UnitOfWork
-
-        async with UnitOfWork() as uow:
-            logs = await uow.audit_repo.get_sefer_timeline(sefer_id)
-
-            # Timeline için normalize et
-            timeline = []
-            for log in logs:
-                timeline.append(
-                    {
-                        "id": log.id,
-                        "zaman": log.zaman,
-                        "aksiyon": log.aksiyon_tipi,
-                        "aciklama": log.aciklama,
-                        "degisen_alanlar": log.yeni_deger.keys()
-                        if log.yeni_deger
-                        else [],
-                        "kullanici": log.kullanici_email or "Sistem",
-                    }
-                )
-
-            return {"items": timeline}
+        timeline_items = await service.get_timeline(sefer_id)
+        return {"items": timeline_items}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching timeline for trip {sefer_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Zaman çizelgesi alınamadı")
+        raise HTTPException(status_code=500, detail="Zaman Ã§izelgesi alÄ±namadÄ±")

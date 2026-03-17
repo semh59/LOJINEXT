@@ -111,3 +111,24 @@ full_test_*.txt
 *.spec
 build/
 dist/
+
+# Frontend Specific
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.vite/
+
+# MCP & Agent Artifacts
+artifacts/
+_archive/
+tmp/
+*.txt
+*.json
+!package.json
+!composer.json
+
+# Alembic & Database remnants
+alembic/legacy_versions_archive/
+alembic/migrations/
+alembic/versions/0001_baseline_manual.py
+alembic/versions/0002_seed_and_bootstrap.py

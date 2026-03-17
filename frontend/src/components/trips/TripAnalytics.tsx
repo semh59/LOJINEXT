@@ -1,172 +1,152 @@
-import { useMemo } from 'react';
-import { 
-    ScatterChart, Scatter, XAxis, YAxis, ZAxis, 
-    CartesianGrid, Tooltip, ResponsiveContainer, 
-    LineChart, Line
+import { FuelPerformanceAnalyticsResponse } from '../../types';
+import {
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
 } from 'recharts';
+import { Activity, AlertTriangle, Gauge, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Trip } from '../../types';
-import { TrendingUp, Activity, AlertTriangle } from 'lucide-react';
 
 interface TripAnalyticsProps {
-    trips: Trip[];
+    data?: FuelPerformanceAnalyticsResponse;
+    isLoading?: boolean;
 }
 
-export function TripAnalytics({ trips }: TripAnalyticsProps) {
-    // 1. Data Processing for Scatter Plot (Distance vs Consumption)
-    const scatterData = useMemo(() => {
-        return trips
-            .filter(t => t.mesafe_km && t.tuketim)
-            .map(t => {
-                const isOutlier = t.tahmini_tuketim ? (t.tuketim! > t.tahmini_tuketim * 1.25) : false;
-                return {
-                    id: t.id,
-                    x: t.mesafe_km,
-                    y: t.tuketim,
-                    z: 50,
-                    outlier: isOutlier,
-                    name: t.plaka || t.sefer_no
-                };
-            });
-    }, [trips]);
-
-    // 2. Data Processing for Trend Plot (Fuel Efficiency over Time)
-    const trendData = useMemo(() => {
-        const dailyGroups: Record<string, { totalKm: number; totalL: number }> = {};
-        
-        trips.forEach(t => {
-            if (!t.tarih || !t.mesafe_km || !t.tuketim) return;
-            const date = new Date(t.tarih).toLocaleDateString('tr-TR');
-            if (!dailyGroups[date]) {
-                dailyGroups[date] = { totalKm: 0, totalL: 0 };
-            }
-            dailyGroups[date].totalKm += t.mesafe_km;
-            dailyGroups[date].totalL += t.tuketim;
-        });
-
-        return Object.entries(dailyGroups)
-            .map(([date, data]) => ({
-                date,
-                efficiency: data.totalKm > 0 ? (data.totalL / data.totalKm) * 100 : 0
-            }))
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [trips]);
-
-    if (trips.length < 3) {
+export function TripAnalytics({ data, isLoading = false }: TripAnalyticsProps) {
+    if (isLoading) {
         return (
-            <div className="bg-[#132326]/40 backdrop-blur-xl border border-white/5 p-12 rounded-[32px] text-center mb-8">
-                <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-white font-bold text-lg uppercase tracking-wider">Yetersiz Veri</h3>
-                <p className="text-slate-500 mt-2">Analiz oluşturmak için en az 3 tamamlanmış sefer gereklidir.</p>
+            <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-24 rounded-2xl bg-bg-elevated/5 animate-pulse border border-border" />
+                ))}
             </div>
         );
     }
 
+    if (!data || data.low_data || data.kpis.total_compared < 3) {
+        return (
+            <div className="bg-surface/40 backdrop-blur-xl border border-border p-12 rounded-[32px] text-center mb-8">
+                <Activity className="w-12 h-12 text-secondary mx-auto mb-4" />
+                <h3 className="text-primary font-bold text-lg uppercase tracking-wider">Yetersiz Veri</h3>
+                <p className="text-secondary mt-2">Karsilastirma icin veri yetersiz. Tahmin ve gercek tuketim birlikte olan en az 3 sefer gerekiyor.</p>
+            </div>
+        );
+    }
+
+    const distributionData = [
+        { name: 'Iyi', value: data.distribution.good, color: 'var(--success)' },
+        { name: 'Kabul', value: data.distribution.warning, color: 'var(--warning)' },
+        { name: 'Sapma', value: data.distribution.error, color: 'var(--danger)' },
+    ];
+
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-8 overflow-hidden"
+            className="mb-8 overflow-hidden space-y-6"
         >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 1. Outlier Detection Scatter Plot */}
-                <div className="glass-card bg-[#132326]/60 backdrop-blur-xl border border-white/5 p-6 rounded-[32px]">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-                                <AlertTriangle className="w-6 h-6 text-amber-500" />
-                            </div>
-                            <div>
-                                <h4 className="text-white font-bold">Performans Dağılımı & Anomaliler</h4>
-                                <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold italic">Mesafe (km) vs Toplam Tüketim (L)</p>
-                            </div>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="bg-surface/60 border border-border rounded-2xl p-4">
+                    <div className="text-[10px] uppercase font-black tracking-wider text-secondary">MAE</div>
+                    <div className="text-2xl font-black text-accent mt-1">{data.kpis.mae.toFixed(2)}</div>
+                    <div className="text-[11px] text-secondary mt-1">L/100km ortalama mutlak hata</div>
+                </div>
+                <div className="bg-surface/60 border border-border rounded-2xl p-4">
+                    <div className="text-[10px] uppercase font-black tracking-wider text-secondary">RMSE</div>
+                    <div className="text-2xl font-black text-accent mt-1">{data.kpis.rmse.toFixed(2)}</div>
+                    <div className="text-[11px] text-secondary mt-1">Hata dagiliminin karekoku</div>
+                </div>
+                <div className="bg-surface/60 border border-border rounded-2xl p-4">
+                    <div className="text-[10px] uppercase font-black tracking-wider text-secondary">Karsilastirilan Sefer</div>
+                    <div className="text-2xl font-black text-success mt-1">{data.kpis.total_compared}</div>
+                    <div className="text-[11px] text-secondary mt-1">Tahmin + gercek verisi olan kayit</div>
+                </div>
+                <div className="bg-surface/60 border border-border rounded-2xl p-4">
+                    <div className="text-[10px] uppercase font-black tracking-wider text-secondary">Yuksek Sapma</div>
+                    <div className="text-2xl font-black text-danger mt-1">%{data.kpis.high_deviation_ratio.toFixed(1)}</div>
+                    <div className="text-[11px] text-secondary mt-1">%15 ustu sapma orani</div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="bg-surface/60 border border-border rounded-[28px] p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-5 h-5 text-accent" />
+                        <h4 className="text-primary font-bold">Tahmin vs Gercek Trend</h4>
                     </div>
-                    
-                    <div className="h-[300px] w-full mt-4">
-                        <p className="text-[10px] text-slate-500 mb-2 italic">**Bilgi:** Pembe noktalar, tahminden %25'ten fazla sapan seferleri gösterir.</p>
+                    <p className="text-[11px] text-secondary mb-3">Gun bazinda ortalama tahmin ve gercek tuketim hareketi.</p>
+                    <div className="h-[260px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                <XAxis 
-                                    type="number" 
-                                    dataKey="x" 
-                                    name="Yol Mesafesi" 
-                                    unit=" km" 
-                                    stroke="#55666b" 
-                                    fontSize={10} 
-                                    fontWeight="bold"
-                                />
-                                <YAxis 
-                                    type="number" 
-                                    dataKey="y" 
-                                    name="Gerçek Tüketim" 
-                                    unit=" L" 
-                                    stroke="#55666b" 
-                                    fontSize={10} 
-                                    fontWeight="bold"
-                                />
-                                <ZAxis type="number" dataKey="z" range={[60, 400]} name="Yoğunluk" />
+                            <LineChart data={data.trend}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
+                                <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
                                 <Tooltip 
-                                    cursor={{ strokeDasharray: '3 3' }} 
-                                    contentStyle={{ backgroundColor: '#132326', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                    formatter={(value: any, name: any) => [value, name]}
+                                    contentStyle={{ 
+                                        backgroundColor: 'var(--bg-surface)', 
+                                        borderColor: 'var(--border)',
+                                        color: 'var(--text-primary)'
+                                    }} 
                                 />
-                                <Scatter name="Standart Sefer" data={scatterData.filter(d => !d.outlier)} fill="#25d1f4" fillOpacity={0.8} />
-                                <Scatter name="Anomal Sefer" data={scatterData.filter(d => d.outlier)} fill="#f43f5e" fillOpacity={0.9} />
-                            </ScatterChart>
+                                <Line type="monotone" dataKey="predicted" stroke="var(--accent)" strokeWidth={2.5} dot={false} name="Tahmin" />
+                                <Line type="monotone" dataKey="actual" stroke="var(--success)" strokeWidth={2.5} dot={false} name="Gercek" />
+                            </LineChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* 2. Fuel Efficiency Trend */}
-                <div className="glass-card bg-[#132326]/60 backdrop-blur-xl border border-white/5 p-6 rounded-[32px]">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-[#25d1f4]/10 rounded-xl flex items-center justify-center">
-                                <TrendingUp className="w-6 h-6 text-[#25d1f4]" />
-                            </div>
-                            <div>
-                                <h4 className="text-white font-bold">Yakıt Verimliliği Trendi</h4>
-                                <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold italic">L/100km (Günlük Ortalama)</p>
-                            </div>
-                        </div>
+                <div className="bg-surface/60 border border-border rounded-[28px] p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Gauge className="w-5 h-5 text-warning" />
+                        <h4 className="text-primary font-bold">Sapma Dagilimi</h4>
                     </div>
-
-                    <div className="h-[300px] w-full mt-4">
-                        <p className="text-[10px] text-slate-500 mb-2 italic">**Bilgi:** Tüm operasyonun günlük ağırlıklı ortalama tüketim trendi.</p>
+                    <p className="text-[11px] text-secondary mb-3">Iyi, kabul ve yuksek sapma siniflarinin adet dagilimi.</p>
+                    <div className="h-[260px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={trendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                <XAxis 
-                                    dataKey="date" 
-                                    stroke="#55666b" 
-                                    fontSize={10} 
-                                    fontWeight="bold"
-                                />
-                                <YAxis 
-                                    stroke="#55666b" 
-                                    fontSize={10} 
-                                    fontWeight="bold"
-                                    unit=" L/100"
-                                />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#132326', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                    formatter={(value: any) => [`${Number(value).toFixed(2)} L/100km`, 'Verimlilik']}
-                                />
-                                <Line 
-                                    name="Verimlilik"
-                                    type="monotone" 
-                                    dataKey="efficiency" 
-                                    stroke="#25d1f4" 
-                                    strokeWidth={3} 
-                                    dot={{ r: 4, fill: '#25d1f4', strokeWidth: 2, stroke: '#000' }}
-                                    activeDot={{ r: 6 }} 
-                                />
-                            </LineChart>
+                            <BarChart data={distributionData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
+                                <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                <Tooltip />
+                                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                                    {distributionData.map((entry) => (
+                                        <Cell key={entry.name} fill={entry.color} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
                         </ResponsiveContainer>
                     </div>
+                </div>
+            </div>
+
+            <div className="bg-surface/60 border border-border rounded-[28px] p-6">
+                <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-danger" />
+                    <h4 className="text-primary font-bold">En Sapmali Seferler (Top 10)</h4>
+                </div>
+                <p className="text-[11px] text-secondary mb-3">En yuksek fark olusturan seferler ve kisa neden etiketi.</p>
+                <div className="space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
+                    {data.outliers.map((item) => (
+                        <div key={item.id} className="p-3 rounded-xl border border-border bg-bg-elevated flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="text-sm font-bold text-primary truncate">
+                                    {item.sefer_no || `Sefer #${item.id}`} - {item.plaka || 'Plaka Yok'}
+                                </div>
+                                <div className="text-[11px] text-secondary truncate">
+                                    {item.reason_label} | Tahmin: {item.predicted.toFixed(2)} | Gercek: {item.actual.toFixed(2)}
+                                </div>
+                            </div>
+                            <div className="text-sm font-black text-danger shrink-0">%{item.sapma_pct.toFixed(1)}</div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </motion.div>

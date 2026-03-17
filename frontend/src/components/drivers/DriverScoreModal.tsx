@@ -31,12 +31,12 @@ const scoreToStars = (score: number): number => {
 }
 
 // Skor seviyesi label
-const getScoreLabel = (score: number): { label: string; color: string } => {
-    if (score >= 1.8) return { label: 'Mükemmel', color: '#10B981' } // Green
-    if (score >= 1.5) return { label: 'İyi', color: '#3B82F6' } // Blue
-    if (score >= 1.2) return { label: 'Orta', color: '#F59E0B' } // Amber
-    if (score >= 0.8) return { label: 'Düşük', color: '#EF4444' } // Red
-    return { label: 'Çok Düşük', color: '#EF4444' } // Red
+const getScoreLabel = (score: number): { label: string; color: string; bg: string } => {
+    if (score >= 1.8) return { label: 'Mükemmel', color: 'var(--success)', bg: 'rgba(var(--success-rgb), 0.1)' }
+    if (score >= 1.5) return { label: 'İyi', color: 'rgba(var(--accent-rgb), 1)', bg: 'rgba(var(--accent-rgb), 0.1)' }
+    if (score >= 1.2) return { label: 'Orta', color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.1)' }
+    if (score >= 0.8) return { label: 'Düşük', color: 'var(--danger)', bg: 'rgba(var(--danger-rgb), 0.1)' }
+    return { label: 'Çok Düşük', color: 'var(--danger)', bg: 'rgba(var(--danger-rgb), 0.1)' }
 }
 
 export function DriverScoreModal({ isOpen, onClose, onSave, driver }: DriverScoreModalProps) {
@@ -83,44 +83,51 @@ export function DriverScoreModal({ isOpen, onClose, onSave, driver }: DriverScor
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="bg-[#1a0121]/90 backdrop-blur-xl rounded-[32px] shadow-[0_0_40px_rgba(208,6,249,0.15)] border border-[#d006f9]/30 w-full max-w-md overflow-hidden flex flex-col"
+                    className="bg-surface rounded-[12px] shadow-xl border border-border w-full max-w-md overflow-hidden flex flex-col"
                 >
                     {/* Header */}
-                    <div className="bg-black/40 border-b border-[#d006f9]/20 p-6 text-white relative shrink-0">
+                    <div className="bg-bg-elevated/30 border-b border-border p-6 text-primary relative shrink-0">
                         <button
                             onClick={onClose}
-                            className="absolute top-4 right-4 p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                            className="absolute top-4 right-4 p-2 text-secondary hover:text-primary hover:bg-bg-elevated rounded-full transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-[#d006f9]/20 border border-[#d006f9]/40 rounded-2xl flex items-center justify-center shadow-[0_0_15px_rgba(208,6,249,0.3)]">
-                                <Star className="w-7 h-7 fill-[#d006f9] text-[#d006f9]" />
+                            <div className="w-14 h-14 bg-bg-elevated border border-border rounded-[10px] flex items-center justify-center shadow-sm">
+                                <Star className="w-7 h-7 fill-accent/20 text-accent" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">Puan Güncelle</h2>
-                                <p className="text-white/60 font-medium">{driver.ad_soyad}</p>
+                                <h2 className="text-xl font-bold text-primary tracking-tight">Puan Güncelle</h2>
+                                <p className="text-secondary font-medium text-xs">{driver.ad_soyad}</p>
                             </div>
                         </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-6 space-y-6">
                         {/* Mevcut Durum */}
-                        <div className="bg-black/40 rounded-2xl p-4 border border-white/10 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]">
-                            <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Mevcut Durum</p>
+                        <div className="bg-bg-elevated/20 rounded-[10px] p-4 border border-border">
+                            <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2">Mevcut Durum</p>
                             <div className="flex items-center justify-between">
-                                <div>
-                                    <span className="text-2xl font-black text-white">{(driver.score || 1.0).toFixed(2)}</span>
-                                    <span className="text-sm font-bold ml-2" style={{ color: currentLabel.color }}>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-2xl font-bold text-primary">{(driver.score || 1.0).toFixed(2)}</span>
+                                    <span 
+                                        className="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
+                                        style={{ 
+                                            backgroundColor: currentLabel.bg,
+                                            color: currentLabel.color,
+                                            borderColor: `${currentLabel.color}30`
+                                        }}
+                                    >
                                         {currentLabel.label}
                                     </span>
                                 </div>
-                                <div className="text-right text-xs text-white/40">
+                                <div className="text-right text-[10px] text-secondary font-bold uppercase tracking-tight">
                                     <p>Manuel: {(driver.manual_score || 1.0).toFixed(1)}</p>
                                 </div>
                             </div>
@@ -129,8 +136,8 @@ export function DriverScoreModal({ isOpen, onClose, onSave, driver }: DriverScor
                         {/* Manuel Puan Slider */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <label className="text-sm font-bold text-white/80">Manuel Değerlendirme</label>
-                                <span className="text-2xl font-black text-[#d006f9]">{score.toFixed(1)}</span>
+                                <label className="text-xs font-bold text-secondary uppercase tracking-widest">Manuel Değerlendirme</label>
+                                <span className="text-2xl font-bold text-accent">{score.toFixed(1)}</span>
                             </div>
 
                             <input
@@ -140,56 +147,56 @@ export function DriverScoreModal({ isOpen, onClose, onSave, driver }: DriverScor
                                 step="0.1"
                                 value={score}
                                 onChange={e => setScore(parseFloat(e.target.value))}
-                                className="w-full h-3 bg-black/60 rounded-lg appearance-none cursor-pointer accent-[#d006f9] shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"
+                                className="w-full h-3 bg-bg-elevated rounded-lg appearance-none cursor-pointer accent-accent shadow-inner"
                                 style={{
-                                    background: `linear-gradient(to right, rgba(239,68,68,0.3), rgba(245,158,11,0.3), rgba(16,185,129,0.3))`
+                                    background: `linear-gradient(to right, var(--danger), var(--warning), var(--success))`
                                 }}
                             />
 
                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-wider">
-                                <span className="bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-lg text-red-400">0.1 Riskli</span>
-                                <span className="bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 rounded-lg text-yellow-500">1.0 Nötr</span>
-                                <span className="bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-emerald-400">2.0 Mükemmel</span>
+                                <span className="bg-danger/10 border border-danger/20 px-3 py-1.5 rounded-lg text-danger">0.1 Riskli</span>
+                                <span className="bg-warning/10 border border-warning/20 px-3 py-1.5 rounded-lg text-warning">1.0 Nötr</span>
+                                <span className="bg-success/10 border border-success/20 px-3 py-1.5 rounded-lg text-success">2.0 Mükemmel</span>
                             </div>
                         </div>
 
                         {/* Tahmini Yeni Puan */}
-                        <div className="bg-[#d006f9]/10 rounded-2xl p-4 border border-[#d006f9]/20 shadow-[0_0_20px_rgba(208,6,249,0.05)]">
+                        <div className="bg-accent/5 rounded-[10px] p-4 border border-accent/10">
                             <div className="flex items-center gap-2 mb-3">
-                                <TrendingUp className="w-4 h-4 text-[#d006f9]" />
-                                <p className="text-xs font-bold text-[#d006f9] uppercase tracking-wider">Tahmini Hibrit Puan</p>
+                                <TrendingUp className="w-4 h-4 text-accent" />
+                                <p className="text-[10px] font-bold text-accent uppercase tracking-widest">Tahmini Hibrit Puan</p>
                             </div>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-3xl font-black text-white">{estimatedHybrid.toFixed(2)}</span>
+                                    <span className="text-3xl font-bold text-primary">{estimatedHybrid.toFixed(2)}</span>
                                     <div className="flex items-center gap-0.5">
                                         {[1, 2, 3, 4, 5].map(i => (
                                             <Star
                                                 key={i}
-                                                className={`w-4 h-4 ${i <= stars ? 'fill-[#f59e0b] text-[#f59e0b]' : 'text-white/20'}`}
+                                                className={`w-4 h-4 ${i <= stars ? 'fill-warning text-warning' : 'text-border'}`}
                                             />
                                         ))}
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <span
-                                        className="text-sm font-bold px-2 py-1 rounded-lg"
+                                        className="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
                                         style={{
-                                            backgroundColor: `${newLabel.color}20`,
+                                            backgroundColor: newLabel.bg,
                                             color: newLabel.color,
-                                            border: `1px solid ${newLabel.color}40`
+                                            borderColor: `${newLabel.color}30`
                                         }}
                                     >
                                         {newLabel.label}
                                     </span>
                                     {scoreChange !== 0 && (
-                                        <p className={`text-xs font-bold mt-1 ${scoreChange > 0 ? 'text-[#0df259]' : 'text-red-400'}`}>
+                                        <p className={`text-[10px] font-bold mt-1 uppercase tracking-tight ${scoreChange > 0 ? 'text-success' : 'text-danger'}`}>
                                             {scoreChange > 0 ? '+' : ''}{scoreChange.toFixed(2)}
                                         </p>
                                     )}
                                 </div>
                             </div>
-                            <p className="text-[10px] text-white/40 mt-2">
+                            <p className="text-[9px] text-secondary/60 font-medium mt-2">
                                 * Hibrit = %60 Performans + %40 Manuel Değerlendirme
                             </p>
                         </div>
@@ -199,20 +206,20 @@ export function DriverScoreModal({ isOpen, onClose, onSave, driver }: DriverScor
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 font-bold transition-colors"
+                                className="h-11 rounded-[8px] bg-bg-elevated border border-border text-primary hover:bg-bg-elevated/70 text-xs font-bold transition-colors"
                             >
                                 İptal
                             </button>
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="px-4 py-3 rounded-xl bg-[#d006f9]/20 border border-[#d006f9]/40 text-[#d006f9] font-bold hover:bg-[#d006f9]/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(208,6,249,0.3)]"
+                                className="h-11 rounded-[8px] bg-accent text-bg-base font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-xs shadow-sm shadow-accent/20"
                             >
                                 {isLoading ? (
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <div className="w-4 h-4 border-2 border-bg-base/30 border-t-bg-base rounded-full animate-spin" />
                                 ) : (
                                     <>
-                                        <Save className="w-4 h-4" />
+                                        <Save className="w-3.5 h-3.5" />
                                         Güncelle
                                     </>
                                 )}

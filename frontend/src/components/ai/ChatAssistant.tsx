@@ -82,9 +82,9 @@ export const ChatAssistant: React.FC = () => {
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={toggleOpen}
-                    className="w-16 h-16 rounded-full bg-[#22d3ee] text-[#050b0e] shadow-[0_0_30px_rgba(34,211,238,0.5)] flex items-center justify-center group relative overflow-hidden ring-4 ring-[#050b0e]"
+                    className="w-16 h-16 rounded-full bg-accent text-bg-base shadow-lg shadow-accent/40 flex items-center justify-center group relative overflow-hidden ring-4 ring-bg-base"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-accent/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <Sparkles className="w-8 h-8 relative z-10" />
                 </motion.button>
             )}
@@ -97,41 +97,41 @@ export const ChatAssistant: React.FC = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.8, y: 100 }}
                         className={cn(
-                            "glass-panel shadow-[0_0_80px_rgba(34,211,238,0.1)] rounded-[32px] border border-[#22d3ee]/20 flex flex-col overflow-hidden transition-all duration-300",
+                            "bg-surface/80 backdrop-blur-xl shadow-2xl rounded-[32px] border border-border flex flex-col overflow-hidden transition-all duration-300",
                             isExpanded ? "w-[800px] h-[85vh] max-h-[1000px]" : "w-[420px] h-[650px]"
                         )}
                     >
                         {/* Header */}
-                        <div className="p-6 bg-black/40 border-b border-white/5 flex items-center justify-between shrink-0">
+                        <div className="p-6 bg-bg-elevated/40 border-b border-border flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#22d3ee]/20 flex items-center justify-center border border-[#22d3ee]/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]">
-                                    <Sparkles className="w-5 h-5 text-[#22d3ee]" />
+                                <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center border border-accent/40 shadow-lg">
+                                    <Sparkles className="w-5 h-5 text-accent" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-lg leading-none tracking-tight text-white mb-1.5">LojiNext AI Asistan</h3>
+                                    <h3 className="font-bold text-lg leading-none tracking-tight text-primary mb-1.5">LojiNext AI Asistan</h3>
                                     <div className="flex items-center gap-1.5">
                                         {status === 'ready' && (
                                             <>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-[#0df259] shadow-[0_0_5px_#0df259] animate-pulse" />
-                                                <span className="text-[10px] font-bold text-[#0df259] uppercase tracking-widest">Hazır</span>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-success shadow-sm animate-pulse" />
+                                                <span className="text-[10px] font-bold text-success uppercase tracking-widest">Hazır</span>
                                             </>
                                         )}
                                         {status === 'loading' && (
                                             <>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-[#f2a20d] shadow-[0_0_5px_#f2a20d] animate-pulse" />
-                                                <span className="text-[10px] font-bold text-[#f2a20d] uppercase tracking-widest">Hazırlanıyor...</span>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-warning shadow-sm animate-pulse" />
+                                                <span className="text-[10px] font-bold text-warning uppercase tracking-widest">Hazırlanıyor...</span>
                                             </>
                                         )}
                                         {status === 'error' && (
                                             <>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_5px_#ef4444]" />
-                                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Hata</span>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-danger shadow-sm" />
+                                                <span className="text-[10px] font-bold text-danger uppercase tracking-widest">Hata</span>
                                             </>
                                         )}
                                         {status === 'offline' && (
                                             <>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bağlanıyor...</span>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                                                <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Bağlanıyor...</span>
                                             </>
                                         )}
                                     </div>
@@ -140,20 +140,20 @@ export const ChatAssistant: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={clearHistory}
-                                    className="p-2.5 hover:bg-white/10 rounded-xl transition-colors text-white/50 hover:text-red-400"
+                                    className="p-2.5 hover:bg-bg-elevated rounded-xl transition-colors text-secondary hover:text-danger"
                                     title="Sohbeti Temizle"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                                 <button 
                                     onClick={toggleExpanded}
-                                    className="p-2.5 hover:bg-white/10 rounded-xl transition-colors text-white/50 hover:text-white"
+                                    className="p-2.5 hover:bg-bg-elevated rounded-xl transition-colors text-secondary hover:text-primary"
                                 >
                                     {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                                 </button>
                                 <button 
                                     onClick={toggleOpen}
-                                    className="p-2.5 hover:bg-white/10 rounded-xl transition-colors text-white/50 hover:text-white"
+                                    className="p-2.5 hover:bg-bg-elevated rounded-xl transition-colors text-secondary hover:text-primary"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -162,10 +162,10 @@ export const ChatAssistant: React.FC = () => {
 
                         {/* Suggestion Chips */}
                         {messages.length === 0 && (
-                            <div className="px-6 py-4 flex gap-2 overflow-x-auto custom-scrollbar border-b border-white/5">
-                                <button onClick={() => setInput('Tüm filonun sağlık durumu nedir?')} className="bg-[#22d3ee]/10 border border-[#22d3ee]/20 px-4 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap text-[#22d3ee] hover:bg-[#22d3ee]/20 transition-all uppercase tracking-tight">Tüm filonun sağlık durumu nedir?</button>
-                                <button onClick={() => setInput('En verimli güzergah hangisi?')} className="bg-[#22d3ee]/10 border border-[#22d3ee]/20 px-4 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap text-[#22d3ee] hover:bg-[#22d3ee]/20 transition-all uppercase tracking-tight">En verimli güzergah hangisi?</button>
-                                <button onClick={() => setInput('Bakım zamanı yaklaşanlar kimler?')} className="bg-[#22d3ee]/10 border border-[#22d3ee]/20 px-4 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap text-[#22d3ee] hover:bg-[#22d3ee]/20 transition-all uppercase tracking-tight">Bakım zamanı yaklaşanlar</button>
+                            <div className="px-6 py-4 flex gap-2 overflow-x-auto custom-scrollbar border-b border-border">
+                                <button onClick={() => setInput('Tüm filonun sağlık durumu nedir?')} className="bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap text-accent hover:bg-accent/20 transition-all uppercase tracking-tight">Tüm filonun sağlık durumu nedir?</button>
+                                <button onClick={() => setInput('En verimli güzergah hangisi?')} className="bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap text-accent hover:bg-accent/20 transition-all uppercase tracking-tight">En verimli güzergah hangisi?</button>
+                                <button onClick={() => setInput('Bakım zamanı yaklaşanlar kimler?')} className="bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap text-accent hover:bg-accent/20 transition-all uppercase tracking-tight">Bakım zamanı yaklaşanlar</button>
                             </div>
                         )}
 
@@ -184,11 +184,11 @@ export const ChatAssistant: React.FC = () => {
                                     <div className={cn(
                                         "px-5 py-4 text-sm max-w-[85%] shadow-xl rounded-[24px]",
                                         msg.role === 'user' 
-                                            ? "bg-[#22d3ee] text-[#050b0e] rounded-tr-sm font-bold shadow-[0_0_20px_rgba(34,211,238,0.2)]" 
-                                            : "bg-white/5 text-slate-100 rounded-tl-sm border border-white/10 leading-relaxed backdrop-blur-md"
+                                            ? "bg-accent text-bg-base rounded-tr-sm font-bold shadow-lg shadow-accent/20" 
+                                            : "bg-bg-elevated text-primary rounded-tl-sm border border-border leading-relaxed"
                                     )}>
                                         {msg.role === 'assistant' && (
-                                            <div className="flex items-center gap-2 text-[#22d3ee] mb-3">
+                                            <div className="flex items-center gap-2 text-accent mb-3">
                                                 <Bot className="w-4 h-4" />
                                                 <span className="text-[10px] font-black uppercase tracking-widest">LojiNext AI</span>
                                             </div>
@@ -199,7 +199,7 @@ export const ChatAssistant: React.FC = () => {
                             ))}
                             {isLoading && (
                                 <div className="flex flex-col items-start gap-2 max-w-[85%]">
-                                    <div className="bg-white/5 text-[#22d3ee] px-5 py-4 rounded-2xl rounded-tl-none border border-white/10 flex items-center gap-3 backdrop-blur-md">
+                                    <div className="bg-bg-elevated text-accent px-5 py-4 rounded-2xl rounded-tl-none border border-border flex items-center gap-3">
                                         <Loader2 className="w-5 h-5 animate-spin" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Düşünüyor...</span>
                                     </div>
@@ -211,7 +211,7 @@ export const ChatAssistant: React.FC = () => {
                          {/* Input Area */}
                         <form 
                             onSubmit={handleSendMessage}
-                            className="p-5 bg-black/60 border-t border-white/5 flex items-center gap-3 shrink-0"
+                            className="p-5 bg-bg-elevated/40 border-t border-border flex items-center gap-3 shrink-0"
                         >
                             <div className="flex-1 relative">
                                 <input
@@ -219,17 +219,17 @@ export const ChatAssistant: React.FC = () => {
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     placeholder="LojiNext Asistan'a sor..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl pl-5 pr-12 py-3.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#22d3ee]/50 focus:ring-1 focus:ring-[#22d3ee]/30 transition-all shadow-inner"
+                                    className="w-full bg-surface border border-border rounded-2xl pl-5 pr-12 py-3.5 text-sm text-primary placeholder-secondary focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-all shadow-inner"
                                     disabled={isLoading}
                                 />
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-50">
-                                    <Sparkles className="w-4 h-4 text-[#22d3ee]" />
+                                    <Sparkles className="w-4 h-4 text-accent" />
                                 </div>
                             </div>
                             <button
                                 type="submit"
                                 disabled={!input.trim() || isLoading}
-                                className="w-[52px] h-[52px] rounded-2xl bg-[#22d3ee] text-[#050b0e] flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all shrink-0"
+                                className="w-[52px] h-[52px] rounded-2xl bg-accent text-bg-base flex items-center justify-center shadow-lg shadow-accent/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all shrink-0"
                             >
                                 <Send className="w-5 h-5 ml-1" />
                             </button>

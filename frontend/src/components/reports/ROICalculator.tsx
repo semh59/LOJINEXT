@@ -41,16 +41,16 @@ export function ROICalculator() {
             <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: loading ? 0.5 : 1, x: 0 }}
-                className="glass p-8 rounded-[32px] border border-white/50 space-y-8"
+                className="bg-surface p-6 lg:p-8 rounded-2xl border border-border shadow-sm space-y-8"
             >
                 <div>
-                    <h3 className="text-xl font-black text-brand-dark mb-2">Yatırım Simülasyonu</h3>
-                    <p className="text-neutral-500 text-sm">Sisteme yapılacak yatırım tutarını belirleyerek potansiyel kazancınızı hesaplayın.</p>
+                    <h3 className="text-xl font-bold text-primary mb-2">Yatırım Simülasyonu</h3>
+                    <p className="text-secondary text-sm">Sisteme yapılacak yatırım tutarını belirleyerek potansiyel kazancınızı hesaplayın.</p>
                 </div>
 
                 <div className="space-y-4">
                     <div className="flex justify-between items-center text-sm font-bold">
-                        <span className="text-neutral-600">Yatırım Tutarı</span>
+                        <span className="text-secondary">Yatırım Tutarı</span>
                         <span className="text-primary">{formatCurrency(investment)}</span>
                     </div>
                     <input
@@ -60,22 +60,22 @@ export function ROICalculator() {
                         step="5000"
                         value={investment}
                         onChange={(e) => setInvestment(Number(e.target.value))}
-                        className="w-full h-2 bg-neutral-100 rounded-lg appearance-none cursor-pointer accent-primary"
+                        className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
                     />
-                    <div className="flex justify-between text-xs text-neutral-400 font-bold uppercase">
+                    <div className="flex justify-between text-xs text-secondary font-bold uppercase">
                         <span>10k ₺</span>
                         <span>500k ₺</span>
                     </div>
                 </div>
 
-                <div className="p-6 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                <div className="p-6 bg-info/10 rounded-2xl border border-info/20">
                     <div className="flex items-start gap-3">
-                        <Target className="w-5 h-5 text-blue-600 mt-1" />
+                        <Target className="w-5 h-5 text-info mt-1" />
                         <div>
-                            <h4 className="font-bold text-blue-900 text-sm mb-1">Hedef Tüketim</h4>
-                            <p className="text-blue-700/80 text-xs">
-                                Mevcut ortalama <b>{stats?.current_consumption} L/100km</b> üzerinden,
-                                AI desteği ile <b>{stats?.target_consumption} L/100km</b> hedeflenmektedir.
+                            <h4 className="font-bold text-info text-sm mb-1">Hedef Tüketim</h4>
+                            <p className="text-info/80 text-xs">
+                                Mevcut ortalama <b className="text-info">{stats?.current_consumption} L/100km</b> üzerinden,
+                                AI desteği ile <b className="text-info">{stats?.target_consumption} L/100km</b> hedeflenmektedir.
                             </p>
                         </div>
                     </div>
@@ -88,37 +88,37 @@ export function ROICalculator() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-6"
             >
-                <div className="glass p-8 rounded-[32px] border border-white/50 flex items-center justify-between relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="bg-surface p-8 rounded-[32px] border border-border shadow-sm flex items-center justify-between relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-info/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10">
-                        <p className="text-xs font-black uppercase text-neutral-400 mb-1">Aylık Potansiyel</p>
-                        <h3 className="text-3xl font-black text-blue-600">
+                        <p className="text-xs font-black uppercase text-secondary mb-1">Aylık Potansiyel</p>
+                        <h3 className="text-3xl font-black text-info">
                             {savings ? formatCurrency(savings.potential_savings / 12) : '-'}
                         </h3>
                     </div>
-                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                    <div className="w-12 h-12 bg-info/10 rounded-2xl flex items-center justify-center text-info">
                         <TrendingUp className="w-6 h-6" />
                     </div>
                 </div>
 
-                <div className="glass p-8 rounded-[32px] border border-white/50 flex items-center justify-between relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="bg-surface p-8 rounded-[32px] border border-border shadow-sm flex items-center justify-between relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-success/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10">
-                        <p className="text-xs font-black uppercase text-neutral-400 mb-1">Yıllık Tasarruf</p>
-                        <h3 className="text-3xl font-black text-emerald-600">{stats ? formatCurrency(stats.annual_savings) : '-'}</h3>
+                        <p className="text-xs font-black uppercase text-secondary mb-1">Yıllık Tasarruf</p>
+                        <h3 className="text-3xl font-black text-success">{stats ? formatCurrency(stats.annual_savings) : '-'}</h3>
                     </div>
-                    <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                    <div className="w-12 h-12 bg-success/10 rounded-2xl flex items-center justify-center text-success">
                         <PiggyBank className="w-6 h-6" />
                     </div>
                 </div>
 
-                <div className="glass p-8 rounded-[32px] border border-white/50 flex items-center justify-between relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="bg-surface p-8 rounded-[32px] border border-border shadow-sm flex items-center justify-between relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10">
-                        <p className="text-xs font-black uppercase text-neutral-400 mb-1">ROI (Yatırım Getirisi)</p>
-                        <h3 className="text-3xl font-black text-purple-600">%{stats ? stats.roi_percentage.toFixed(0) : '-'}</h3>
+                        <p className="text-xs font-black uppercase text-secondary mb-1">ROI (Yatırım Getirisi)</p>
+                        <h3 className="text-3xl font-black text-accent">%{stats ? stats.roi_percentage.toFixed(0) : '-'}</h3>
                     </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600">
+                    <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent">
                         <TrendingUp className="w-6 h-6" />
                     </div>
                 </div>
@@ -127,7 +127,7 @@ export function ROICalculator() {
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="p-4 bg-gradient-to-r from-brand-dark to-slate-900 rounded-2xl text-white text-center shadow-xl shadow-brand-dark/20"
+                        className="p-4 bg-gradient-to-r from-accent to-accent/80 rounded-2xl text-accent-content text-center shadow-sm"
                     >
                         <p className="text-sm font-bold">🚀 Harika Yatırım! 12 aydan kısa sürede amorti ediyor.</p>
                     </motion.div>

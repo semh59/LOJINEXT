@@ -1,5 +1,18 @@
 import axiosInstance from './axios-instance';
-import { Trip, SeferTimelineItem } from '../../types';
+import { Trip, SeferTimelineItem, FuelPerformanceAnalyticsResponse, TripStatsResponse } from '../../types';
+import { validateResponse } from '../../lib/api-validator';
+import { TripSchema, TripStatsSchema, SeferTimelineItemSchema } from '../../schemas/entities';
+
+const TripPaginatedSchema = z.object({
+    items: z.array(TripSchema),
+    meta: z.object({
+        total: z.number(),
+        skip: z.number(),
+        limit: z.number(),
+    })
+});
+
+import { z } from 'zod';
 
 /**
  * Seferler (Trips) API Servisi
@@ -25,14 +38,13 @@ export interface TripListResponse {
     };
 }
 
-export interface TripStatsResponse {
-    toplam_sefer: number;
-    toplam_km: number;
-    highway_km: number;
-    total_ascent: number;
-    total_weight: number;
-    avg_highway_pct: number;
-    last_updated: string | null;
+export interface FuelPerformanceFilters extends TripFilters {}
+export interface TripUploadResponse {
+    success: boolean;
+    total_rows: number;
+    success_count: number;
+    failed_count: number;
+    errors: unknown[];
 }
 
 export const tripService = {
@@ -43,8 +55,20 @@ export const tripService = {
         const cleanParams = Object.fromEntries(
             Object.entries(params).filter(([_, v]) => v != null && v !== '')
         );
-        const response = await axiosInstance.get<TripListResponse>('/trips/', { params: cleanParams });
-        return response.data;
+        const response = await axiosInstance.get<Record<string, unknown>>('/trips/', { params: cleanParams });
+        
+        let result: TripListResponse;
+        if (response.data && response.data.items !== undefined) {
+             result = response.data as unknown as TripListResponse;
+        } else {
+             // Fallback for nested or different structures if any
+             result = {
+                 items: (response.data.data as Trip[]) ?? [],
+                 meta: (response.data.meta as TripListResponse['meta']) ?? { total: 0, skip: 0, limit: 100 }
+             };
+        }
+
+        return validateResponse(TripPaginatedSchema, result, 'tripService.getAll');
     },
 
     /**
@@ -55,7 +79,7 @@ export const tripService = {
             Object.entries(params).filter(([_, v]) => v != null && v !== '')
         );
         const response = await axiosInstance.get<TripStatsResponse>('/trips/stats', { params: cleanParams });
-        return response.data;
+        return validateResponse(TripStatsSchema, response.data, 'tripService.getStats');
     },
 
     /**
@@ -63,14 +87,16 @@ export const tripService = {
      */
     getById: async (id: number): Promise<Trip> => {
         const response = await axiosInstance.get<Trip>(`/trips/${id}`);
-        return response.data;
+        return validateResponse(TripSchema, response.data, `tripService.getById(${id})`);
     },
 
     /**
-     * Yeni sefer oluşturur
+     * Yeni sefer oluşturur (B-003: Idempotency key ile)
      */
     create: async (data: Omit<Trip, 'id' | 'created_at' | 'ton'>): Promise<Trip> => {
-        const response = await axiosInstance.post<Trip>('/trips/', data);
+        const response = await axiosInstance.post<Trip>('/trips/', data, {
+            headers: { 'X-Idempotency-Key': crypto.randomUUID() },
+        });
         return response.data;
     },
 
@@ -102,7 +128,26 @@ export const tripService = {
      */
     getTimeline: async (id: number): Promise<SeferTimelineItem[]> => {
         const response = await axiosInstance.get(`/trips/${id}/timeline`);
-        return response.data.items;
+        let items: SeferTimelineItem[] = [];
+        if (Array.isArray(response.data)) {
+            items = response.data as SeferTimelineItem[];
+        } else {
+            items = response.data?.items ?? [];
+        }
+        return validateResponse(z.array(SeferTimelineItemSchema), items, `tripService.getTimeline(${id})`);
+    },
+
+    /**
+     * Seferler modulu icin yakit performansi analiz verisini getirir
+     */
+    getFuelPerformance: async (params: FuelPerformanceFilters = {}): Promise<FuelPerformanceAnalyticsResponse> => {
+        const cleanParams = Object.fromEntries(
+            Object.entries(params).filter(([_, v]) => v != null && v !== '')
+        );
+        const response = await axiosInstance.get<FuelPerformanceAnalyticsResponse>('/trips/analytics/fuel-performance', {
+            params: cleanParams,
+        });
+        return response.data;
     },
 
     /**
@@ -117,14 +162,15 @@ export const tripService = {
     },
 
     /**
-     * Excel dosyası ile toplu sefer yükler
+     * Excel dosyası ile toplu sefer yükler (B-003: Idempotency key ile)
      */
-    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+    uploadExcel: async (file: File): Promise<TripUploadResponse> => {
         const formData = new FormData();
         formData.append('file', file);
         const response = await axiosInstance.post('/trips/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
+                'X-Idempotency-Key': crypto.randomUUID(),
             },
         });
         return response.data;
@@ -143,12 +189,9 @@ export const tripService = {
     /**
      * Toplu sefer siler
      */
-    bulkDelete: async (ids: number[]): Promise<any> => {
-        const response = await axiosInstance.delete('/trips/bulk', { 
-            params: { sefer_ids: ids },
-            paramsSerializer: {
-                indexes: null // sefer_ids=1&sefer_ids=2 formatı
-            }
+    bulkDelete: async (ids: number[]): Promise<void> => {
+        const response = await axiosInstance.post('/trips/bulk-delete', {
+            sefer_ids: ids,
         });
         return response.data;
     },
@@ -156,7 +199,7 @@ export const tripService = {
     /**
      * Toplu durum günceller
      */
-    bulkUpdateStatus: async (ids: number[], newStatus: string): Promise<any> => {
+    bulkUpdateStatus: async (ids: number[], newStatus: string): Promise<void> => {
         const response = await axiosInstance.patch('/trips/bulk/status', {
             sefer_ids: ids,
             new_status: newStatus
@@ -167,7 +210,7 @@ export const tripService = {
     /**
      * Toplu iptal eder
      */
-    bulkCancel: async (ids: number[], reason: string): Promise<any> => {
+    bulkCancel: async (ids: number[], reason: string): Promise<void> => {
         const response = await axiosInstance.patch('/trips/bulk/cancel', {
             sefer_ids: ids,
             iptal_nedeni: reason

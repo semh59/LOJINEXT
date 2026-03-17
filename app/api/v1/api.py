@@ -29,6 +29,7 @@ from app.api.v1.endpoints import (
     admin_health,
     trailers,
     preferences,
+    users,
 )
 
 api_router = APIRouter()
@@ -86,3 +87,4 @@ api_router.include_router(trailers.router, prefix="/trailers", tags=["trailers"]
 api_router.include_router(
     preferences.router, prefix="/preferences", tags=["preferences"]
 )
+api_router.include_router(users.router, prefix="/users", tags=["users"])

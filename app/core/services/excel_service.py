@@ -835,7 +835,7 @@ class ExcelService:
                     "Text",
                     "Text",
                     "Text",
-                    "Tamam/Bekliyor/Iptal",
+                    "Tamam/Bekliyor/İptal",
                 ],
             ]
         elif type == "yakit":

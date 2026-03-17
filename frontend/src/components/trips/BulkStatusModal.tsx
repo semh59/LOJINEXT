@@ -13,9 +13,12 @@ interface BulkStatusModalProps {
 }
 
 const statusOptions = [
-    { value: 'Planlandı', label: 'Planlandı', color: 'bg-[#f59e0b]' },
-    { value: 'Yolda', label: 'Yolda / Devam Ediyor', color: 'bg-[#25d1f4]' },
-    { value: 'Tamam', label: 'Tamamlandı', color: 'bg-[#10b981]' }
+    { value: 'Bekliyor', label: 'Bekliyor', color: 'bg-secondary' },
+    { value: 'Planlandı', label: 'Planlandı', color: 'bg-warning' },
+    { value: 'Yolda', label: 'Yolda', color: 'bg-accent' },
+    { value: 'Devam Ediyor', label: 'Devam Ediyor', color: 'bg-accent/60' },
+    { value: 'Tamamlandı', label: 'Tamamlandı', color: 'bg-success' },
+    { value: 'Tamam', label: 'Tamam', color: 'bg-success' }
 ];
 
 export function BulkStatusModal({
@@ -35,13 +38,13 @@ export function BulkStatusModal({
             size="md"
         >
             <div className="space-y-6 py-2">
-                <div className="bg-[#132326]/50 p-4 rounded-2xl border border-[#25d1f4]/20 flex items-center gap-4">
-                    <div className="w-10 h-10 bg-[#25d1f4]/10 rounded-xl flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-[#25d1f4]" />
+                <div className="bg-bg-elevated/20 p-4 rounded-2xl border border-border flex items-center gap-4">
+                    <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-accent" />
                     </div>
                     <div>
-                        <h4 className="text-white font-bold">{selectedCount} Sefer Seçildi</h4>
-                        <p className="text-slate-400 text-xs">Seçili tüm seferlerin durumunu toplu olarak güncelleyin.</p>
+                        <h4 className="text-primary font-bold">{selectedCount} Sefer Seçildi</h4>
+                        <p className="text-secondary text-xs">Seçili tüm seferlerin durumunu toplu olarak güncelleyin.</p>
                     </div>
                 </div>
 
@@ -53,22 +56,22 @@ export function BulkStatusModal({
                             className={cn(
                                 "flex items-center gap-3 p-4 rounded-xl border transition-all text-left",
                                 selectedStatus === opt.value
-                                    ? "bg-white/5 border-[#25d1f4]/50 shadow-[0_0_15px_rgba(37,209,244,0.1)]"
-                                    : "bg-transparent border-white/5 hover:border-white/20 text-slate-400"
+                                    ? "bg-bg-elevated border-accent/50 shadow-lg shadow-accent/5"
+                                    : "bg-surface/50 border-border hover:border-accent/20 text-secondary"
                             )}
                         >
                             <div className={cn("w-3 h-3 rounded-full", opt.color)} />
-                            <span className={cn("font-bold", selectedStatus === opt.value ? "text-white" : "text-slate-400")}>
+                            <span className={cn("font-bold", selectedStatus === opt.value ? "text-primary" : "text-secondary")}>
                                 {opt.label}
                             </span>
                         </button>
                     ))}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                <div className="flex justify-end gap-3 pt-4 border-t border-border">
                     <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>Vazgeç</Button>
                     <Button 
-                        variant="glossy-cyan" 
+                        variant="primary" 
                         onClick={() => onConfirm(selectedStatus)}
                         isLoading={isSubmitting}
                         className="px-8"

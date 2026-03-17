@@ -11,17 +11,16 @@ from httpx import AsyncClient, ASGITransport
 
 # Import app and models
 from app.main import app
-from app.database.models import Arac, Sofor, Kullanici, Rol
+from app.database.models import Arac, Sofor, Kullanici, Lokasyon, Rol
 
 # Use global Test Database Configuration from conftest
-from tests.conftest import TestSessionLocal, TEST_DATABASE_URL
+from tests.conftest import TEST_DATABASE_URL
 
 
 @pytest.fixture
-async def test_session():
+async def test_session(db_session):
     """Use global test database session (PostgreSQL)."""
-    async with TestSessionLocal() as session:
-        yield session
+    yield db_session
 
 
 @pytest.fixture
@@ -90,6 +89,26 @@ async def test_driver(test_session):
     await test_session.commit()
     await test_session.refresh(driver)
     return driver
+
+
+@pytest.fixture
+async def test_route(test_session):
+    """Create test route required by trip create contract."""
+    route = Lokasyon(
+        cikis_yeri="Istanbul",
+        varis_yeri="Ankara",
+        mesafe_km=450.0,
+        tahmini_sure_saat=5.0,
+        zorluk="Normal",
+        ascent_m=150.0,
+        descent_m=100.0,
+        flat_distance_km=200.0,
+        aktif=True,
+    )
+    test_session.add(route)
+    await test_session.commit()
+    await test_session.refresh(route)
+    return route
 
 
 @pytest.fixture
@@ -404,6 +423,45 @@ class TestTripAPI:
         data = resp.json()
         assert data["status"] == "PROCESSING"
         assert "task_id" in data
+
+    @pytest.mark.asyncio
+    async def test_sefer_concurrent_edit(
+        self, client, test_vehicle, test_driver, test_route
+    ):
+        """Test concurrent edit returns 409 Conflict (Optimistic Locking)."""
+        # 1. Create base trip
+        trip_data = {
+            "tarih": date.today().isoformat(),
+            "saat": "08:00",
+            "arac_id": test_vehicle.id,
+            "sofor_id": test_driver.id,
+            "guzergah_id": test_route.id,
+            "cikis_yeri": test_route.cikis_yeri,
+            "varis_yeri": test_route.varis_yeri,
+            "mesafe_km": test_route.mesafe_km,
+            "net_kg": 10000,
+            "bos_sefer": False,
+            "durum": "Tamam",
+            "rota_detay": {},
+        }
+        create_resp = await client.post("/api/v1/trips/", json=trip_data)
+        assert create_resp.status_code == 201
+        trip = create_resp.json()
+        trip_id = trip["id"]
+        initial_version = trip.get("version", 1)
+
+        # 2. Simulate User A updating the trip
+        update_data_a = {"durum": "Planlandı", "version": initial_version}
+        resp_a = await client.put(f"/api/v1/trips/{trip_id}", json=update_data_a)
+        assert resp_a.status_code == 200
+
+        # 3. Simulate User B updating the trip with the SAME initial version
+        update_data_b = {"durum": "Devam Ediyor", "version": initial_version}
+        resp_b = await client.put(f"/api/v1/trips/{trip_id}", json=update_data_b)
+
+        # 4. Expect 409 Conflict
+        assert resp_b.status_code == 409
+        assert "başka biri tarafından" in resp_b.json()["detail"].lower()
 
 
 # ============================================

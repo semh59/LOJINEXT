@@ -9,8 +9,11 @@ import {
     X,
     ChevronRight,
     Settings,
+    LogOut,
+    Menu
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useState } from 'react'
 
 interface SidebarProps {
     isOpen: boolean
@@ -28,6 +31,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const location = useLocation()
+    const [isCollapsed, setIsCollapsed] = useState(false)
 
     return (
         <>
@@ -38,87 +42,152 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-40 bg-brand-dark/20 backdrop-blur-sm lg:hidden"
+                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
                         onClick={onClose}
                     />
                 )}
             </AnimatePresence>
 
             {/* Sidebar Content */}
+            {/* LojiNext v2.0 Sidebar Rules: 240px wide, or 64px collapsed */}
             <aside
                 className={cn(
-                    "fixed top-0 left-0 z-50 h-full w-72 glass-panel flex flex-col transition-transform duration-500 ease-in-out lg:translate-x-0 lg:static",
+                    "fixed top-0 left-0 z-50 h-full bg-surface border-r border-border flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 lg:static",
+                    isCollapsed ? "w-[64px]" : "w-[240px]",
                     isOpen ? "translate-x-0" : "-translate-x-full"
                 )}
             >
                 {/* Logo Area */}
-                <div className="h-24 flex items-center justify-between px-8 border-b border-white/5">
-                    <div className="flex items-center gap-3 group cursor-pointer" onClick={() => (window.location.href = '/trips')}>
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#25d1f4] to-[#d006f9] flex items-center justify-center text-white shadow-lg shadow-[#25d1f4]/30 group-hover:scale-110 transition-transform duration-300">
-                            <Truck className="w-7 h-7 fill-white/20" />
+                <div className="h-[72px] flex items-center justify-between px-[16px] border-b border-border shrink-0">
+                    <div 
+                        className={cn("flex items-center gap-[12px] group cursor-pointer overflow-hidden", isCollapsed && "justify-center w-full")} 
+                        onClick={() => (window.location.href = '/trips')}
+                    >
+                        <div className="w-[32px] h-[32px] shrink-0 rounded-[8px] bg-accent flex items-center justify-center text-bg-base shadow-sm transition-transform duration-300 group-hover:scale-105">
+                            <Truck className="w-[18px] h-[18px] text-bg-base" />
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-xl font-black tracking-tight text-white leading-none">
-                                LojiNext
-                            </span>
-                            <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#25d1f4] bg-[#25d1f4]/10 px-1.5 py-0.5 mt-1 rounded">
-                                AI Platform
-                            </span>
-                        </div>
+                        
+                        {!isCollapsed && (
+                            <motion.div 
+                                initial={{ opacity: 0, width: 0 }}
+                                animate={{ opacity: 1, width: "auto" }}
+                                exit={{ opacity: 0, width: 0 }}
+                                className="flex flex-col whitespace-nowrap"
+                            >
+                                <span className="text-[16px] font-bold tracking-tight text-primary leading-tight">
+                                    LojiNext
+                                </span>
+                            </motion.div>
+                        )}
                     </div>
+                    
                     <button
                         onClick={onClose}
-                        className="lg:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-colors"
+                        className="lg:hidden p-[8px] rounded-[8px] hover:bg-bg-elevated text-secondary transition-colors"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-[20px] h-[20px]" />
                     </button>
+                    
+                    {/* Desktop Collapse Toggle */}
+                    {!isCollapsed && (
+                        <button
+                            onClick={() => setIsCollapsed(true)}
+                            className="hidden lg:flex p-[8px] rounded-[8px] hover:bg-bg-elevated text-secondary transition-colors shrink-0"
+                        >
+                            <Menu className="w-[18px] h-[18px]" />
+                        </button>
+                    )}
                 </div>
 
+                {isCollapsed && (
+                    <button
+                        onClick={() => setIsCollapsed(false)}
+                        className="hidden lg:flex p-[12px] mx-auto mt-[16px] rounded-[8px] hover:bg-bg-elevated text-secondary transition-colors"
+                    >
+                        <Menu className="w-[20px] h-[20px]" />
+                    </button>
+                )}
+
                 {/* Navigation */}
-                <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
+                <nav className="flex-1 px-[12px] py-[24px] space-y-[4px] overflow-y-auto custom-scrollbar overflow-x-hidden">
                     {NAV_ITEMS.map((item) => {
                         const isActive = item.path.includes('?') 
                             ? location.pathname + location.search === item.path 
-                            : location.pathname === item.path
+                            : location.pathname.startsWith(item.path)
+
                         return (
                             <Link
                                 key={item.path}
                                 to={item.path}
+                                title={isCollapsed ? item.label : undefined}
                                 className={cn(
-                                    "flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden",
+                                    "flex items-center px-[12px] py-[10px] rounded-[8px] transition-all duration-200 group relative",
                                     isActive
-                                        ? "text-[#25d1f4] font-bold"
-                                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                                        ? "text-accent bg-accent/5 font-semibold"
+                                        : "text-secondary hover:text-primary hover:bg-bg-elevated",
+                                    isCollapsed && "justify-center px-0 py-[12px]"
                                 )}
                             >
-                                <div className="flex items-center gap-4 z-10">
-                                    <item.icon
-                                        className={cn(
-                                            "w-5 h-5 transition-all duration-300",
-                                            isActive
-                                                ? "text-[#25d1f4] scale-110 shadow-[0_0_10px_rgba(37,209,244,0.3)]"
-                                                : "text-slate-500 group-hover:text-white group-hover:rotate-6"
-                                        )}
-                                    />
-                                    <span className="tracking-tight">{item.label}</span>
-                                </div>
-
+                                {/* Active indicator: Left border slide in (200ms) */}
                                 {isActive && (
                                     <motion.div
-                                        layoutId="activeTab"
-                                        className="absolute inset-0 bg-white/5 z-0"
-                                        transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
+                                        layoutId="activeNavBorder"
+                                        className="absolute left-0 top-[10%] bottom-[10%] w-[3px] rounded-r-full bg-accent"
+                                        transition={{ duration: 0.2 }}
                                     />
                                 )}
 
-                                <ChevronRight className={cn(
-                                    "w-4 h-4 transition-all duration-300 z-10 opacity-0 group-hover:opacity-100",
-                                    isActive ? "translate-x-0 opacity-40 text-[#25d1f4]" : "translate-x-[-10px]"
-                                )} />
+                                <div className="flex items-center gap-[12px] z-10 w-full">
+                                    <item.icon
+                                        className={cn(
+                                            "w-[20px] h-[20px] shrink-0 transition-all duration-200",
+                                            isActive
+                                                ? "text-accent fill-accent/20"
+                                                : "text-secondary group-hover:text-primary"
+                                        )}
+                                    />
+                                    
+                                    {!isCollapsed && (
+                                        <span className="tracking-tight text-[14px] flex-1 truncate">{item.label}</span>
+                                    )}
+                                    
+                                    {!isCollapsed && <ChevronRight className={cn(
+                                        "w-[14px] h-[14px] transition-all duration-200 opacity-0 group-hover:opacity-100 shrink-0",
+                                        isActive ? "opacity-100 text-accent translate-x-0" : "-translate-x-[4px]"
+                                    )} />}
+                                </div>
                             </Link>
                         )
                     })}
                 </nav>
+
+                {/* User Area - Bottom */}
+                <div className={cn(
+                    "p-[16px] border-t border-border bg-bg-base/30",
+                    isCollapsed ? "flex justify-center" : "flex items-center justify-between"
+                )}>
+                    {!isCollapsed ? (
+                        <div className="flex items-center gap-[12px] overflow-hidden">
+                            <div className="w-[36px] h-[36px] rounded-full bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20">
+                                <span className="text-[14px] font-bold text-accent">AD</span>
+                            </div>
+                            <div className="flex flex-col truncate">
+                                <span className="text-[13px] font-bold text-primary truncate">Admin User</span>
+                                <span className="text-[11px] text-secondary truncate">admin@lojinext.com</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-[32px] h-[32px] rounded-full bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20 cursor-pointer" title="Admin User">
+                            <span className="text-[12px] font-bold text-accent">AD</span>
+                        </div>
+                    )}
+
+                    {!isCollapsed && (
+                        <button className="p-[6px] text-secondary hover:text-danger hover:bg-danger/10 rounded-[6px] transition-colors shrink-0">
+                            <LogOut className="w-[16px] h-[16px]" />
+                        </button>
+                    )}
+                </div>
             </aside>
         </>
     )

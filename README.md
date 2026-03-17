@@ -10,13 +10,13 @@ Sistem, modern kurumsal yazılım prensiplerini (SOLID, Clean Architecture) "Eli
 - **Unit of Work (UoW) & Repository Pattern**: Veritabanı işlemleri atomik, güvenli ve test edilebilir bir yapıda yönetilir.
 - **Data Sovereignty & Security**: RBAC (Role-Based Access Control) ve Tenant/User bazlı dinamik veri izolasyonu (`apply_isolation`) ile maksimum güvenlik.
 - **Smart Resilience**: Kendi kendini iyileştiren (Self-Healing) hata yakalama mekanizmaları ve gelişmiş diagnostic önerileri.
-- **AI-Native Core**: Qwen/RAG tabanlı akıllı analiz motoru ile sistem loglarından ve olaylardan otonom öğrenme.
+- **AI-Native Core**: Groq/RAG tabanlı akıllı analiz motoru ile sistem loglarından ve olaylardan otonom öğrenme.
 
 ## 🛠 Teknoloji Yığını
 
 - **Core**: Python 3.12+, FastAPI
 - **Database**: PostgreSQL (SQLAlchemy Async ORM)
-- **AI/ML**: Qwen Engine, RAG (Retrieval-Augmented Generation), Scikit-learn
+- **AI/ML**: Groq Cloud Inference, RAG (Retrieval-Augmented Generation), Scikit-learn
 - **Infrastructure**: Redis (Pattern-based Caching), Pydantic v2 (Strict Typing), EventBus (Async Events)
 - **Quality**: Zero-Defect QA Strategy, Audit Logging, Automated Verification Suite
 

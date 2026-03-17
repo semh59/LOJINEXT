@@ -91,14 +91,14 @@ export function DataExportImport({
         <div ref={containerRef} className={cn("relative", className)}>
             {variant === 'toolbar' ? (
                 <Button
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={cn(
-                        "h-[38px] px-4 rounded-xl border border-white/10 font-bold flex items-center gap-2 bg-black/20 text-slate-300 hover:text-white hover:bg-white/5 transition-all shadow-sm group",
-                        isMenuOpen && "border-[#25d1f4]/50 text-[#25d1f4]"
+                        "h-[32px] px-3 font-bold shadow-none",
+                        isMenuOpen && "border-accent text-accent"
                     )}
                 >
-                    <ChevronDown className={cn("w-4 h-4 transition-transform", isMenuOpen && "rotate-180")} />
+                    <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isMenuOpen && "rotate-180")} />
                     Excel İşlemleri
                 </Button>
             ) : null}
@@ -110,7 +110,7 @@ export function DataExportImport({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         className={cn(
-                            "glass-card border border-white/10 shadow-2xl overflow-hidden min-w-[240px] z-[100]",
+                            "bg-surface border border-border shadow-2xl overflow-hidden min-w-[260px] z-[100] rounded-2xl",
                             variant === 'toolbar' ? "absolute right-0 top-full mt-2" : "w-full"
                         )}
                     >
@@ -121,14 +121,14 @@ export function DataExportImport({
                                         setIsUploadModalOpen(true)
                                         setIsMenuOpen(false)
                                     }}
-                                    className="w-full px-5 py-4 text-left hover:bg-white/5 flex items-center gap-4 transition-all group border-b border-white/5"
+                                    className="w-full px-5 py-3 text-left hover:bg-bg-elevated flex items-center gap-4 transition-all group border-b border-border"
                                 >
-                                    <div className="w-10 h-10 rounded-xl bg-[#25d1f4]/10 flex items-center justify-center text-[#25d1f4] group-hover:bg-[#25d1f4] group-hover:text-black transition-all transform group-hover:scale-110">
+                                    <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center text-info group-hover:bg-info group-hover:text-bg-base transition-all transform group-hover:scale-110">
                                         <Upload className="w-5 h-5" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-black text-white tracking-tight">Excel'den Yükle</span>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Dosya sürükleyerek içe aktar</span>
+                                        <span className="text-sm font-bold text-primary tracking-tight">Excel'den Yükle</span>
+                                        <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">İçe aktarma modülü</span>
                                     </div>
                                 </button>
                             </RequirePermission>
@@ -141,14 +141,14 @@ export function DataExportImport({
                                     setIsMenuOpen(false)
                                 }}
                                 disabled={isTemplateDownloading}
-                                className="w-full px-5 py-4 text-left hover:bg-white/5 flex items-center gap-4 transition-all group border-b border-white/5 disabled:opacity-50"
+                                className="w-full px-5 py-3 text-left hover:bg-bg-elevated flex items-center gap-4 transition-all group border-b border-border disabled:opacity-50"
                             >
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black transition-all transform group-hover:scale-110">
+                                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center text-success group-hover:bg-success group-hover:text-bg-base transition-all transform group-hover:scale-110">
                                     {isTemplateDownloading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileSpreadsheet className="w-5 h-5" />}
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-sm font-black text-white tracking-tight">Örnek Şablon</span>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Excel şablonunu indir</span>
+                                    <span className="text-sm font-bold text-primary tracking-tight">Örnek Şablon</span>
+                                    <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">Şablon indir</span>
                                 </div>
                             </button>
                         )}
@@ -160,14 +160,14 @@ export function DataExportImport({
                                     setIsMenuOpen(false)
                                 }}
                                 disabled={isExporting}
-                                className="w-full px-5 py-4 text-left hover:bg-white/5 flex items-center gap-4 transition-all group disabled:opacity-50"
+                                className="w-full px-5 py-4 text-left hover:bg-bg-elevated flex items-center gap-4 transition-all group disabled:opacity-50"
                             >
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-black transition-all transform group-hover:scale-110">
+                                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-bg-base transition-all transform group-hover:scale-110">
                                     {isExporting ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-sm font-black text-white tracking-tight">Dışa Aktar</span>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tüm kayıtları Excel'e aktar</span>
+                                    <span className="text-sm font-bold text-primary tracking-tight">Dışa Aktar</span>
+                                    <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">Tüm kayıtları Excel'e aktar</span>
                                 </div>
                             </button>
                         )}

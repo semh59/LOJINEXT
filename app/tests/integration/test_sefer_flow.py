@@ -13,14 +13,14 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from app.core.entities.models import SeferCreate, YakitAlimiCreate
 from app.core.services.sefer_service import get_sefer_service
 from app.core.services.yakit_service import get_yakit_service
-from app.database.repositories.sefer_repo import get_sefer_repo
+from app.database.repositories.sefer_repo import SeferRepository
 
 
 @pytest.mark.asyncio
 async def test_create_and_retrieve_sefer(db_session):
     """Sefer oluştur ve geri oku"""
     sefer_service = get_sefer_service()
-    sefer_repo = get_sefer_repo()
+    sefer_repo = SeferRepository(session=db_session)
 
     # Setup Data with unique labels to avoid IntegrityError
     unique_suffix = uuid.uuid4().hex[:8]
@@ -66,11 +66,35 @@ async def test_create_and_retrieve_sefer(db_session):
     )
     sofor_id = sofor_res.scalar()
 
-    await db_session.flush()
+    # Insert Route (guzergah) - required by sefer create contract
+    lokasyon_res = await db_session.execute(
+        text(
+            """
+            INSERT INTO lokasyonlar (cikis_yeri, varis_yeri, mesafe_km, zorluk, aktif, ascent_m, descent_m, flat_distance_km, is_corrected)
+            VALUES (:cikis, :varis, :mesafe, :zorluk, :aktif, :ascent, :descent, :flat_km, :is_corrected)
+            RETURNING id
+            """
+        ),
+        {
+            "cikis": "Ankara",
+            "varis": "İstanbul",
+            "mesafe": 450.0,
+            "zorluk": "Normal",
+            "aktif": True,
+            "ascent": 0.0,
+            "descent": 0.0,
+            "flat_km": 450.0,
+            "is_corrected": False,
+        },
+    )
+    guzergah_id = lokasyon_res.scalar()
+
+    await db_session.commit()
 
     # Sefer oluştur
     sefer_data = SeferCreate(
         tarih=date.today(),
+        guzergah_id=guzergah_id,
         arac_id=arac_id,
         sofor_id=sofor_id,
         cikis_yeri="Ankara",

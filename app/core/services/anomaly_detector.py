@@ -23,7 +23,7 @@ except ImportError:
     LIGHTGBM_AVAILABLE = False
 
 from app.config import settings
-from app.database.unit_of_work import UnitOfWork
+from app.core.unit_of_work import UnitOfWork, get_uow
 from app.infrastructure.logging.logger import get_logger
 from app.services.prediction_service import get_prediction_service
 
@@ -242,7 +242,7 @@ class AnomalyDetector:
         if not anomalies:
             return 0
 
-        async with UnitOfWork() as uow:
+        async with get_uow() as uow:
             query = """
                 INSERT INTO anomalies 
                 (tarih, tip, kaynak_tip, kaynak_id, deger, beklenen_deger, sapma_yuzde, severity, aciklama, rca_summary, suggested_action)

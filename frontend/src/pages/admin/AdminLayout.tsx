@@ -9,10 +9,14 @@ import {
     Activity, 
     Bell,
     LogOut,
-    ArrowLeft
+    ArrowLeft,
+    User as UserIcon,
+    Shield
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { LojiNextLogo } from '@/components/common/LojiNextLogo';
 
 const ADMIN_NAV = [
   { path: '/admin',             label: 'Genel Bakış',    icon: LayoutDashboard  },
@@ -29,7 +33,6 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  // For this local version, you might want to perform role checks
   if (
     user?.role !== 'Super Admin' && 
     user?.role !== 'Admin' &&
@@ -39,12 +42,15 @@ export default function AdminLayout() {
     (user?.role as any)?.ad !== 'Admin'
   ) {
       return (
-          <div className="flex items-center justify-center h-screen bg-gray-50">
-              <div className="text-center">
-                  <h1 className="text-2xl font-bold text-red-600 mb-2">Erişim Reddedildi</h1>
-                  <p className="text-gray-600">Bu sayfayı görüntüleme yetkiniz yok.</p>
-                  <Link to="/trips" className="mt-4 inline-block text-primary hover:underline">
-                      Ana Sayfaya Dön
+          <div className="flex items-center justify-center h-screen bg-base">
+              <div className="bg-surface border border-border rounded-2xl shadow-sm p-10 text-center max-w-sm">
+                  <div className="w-16 h-16 bg-danger/10 text-danger rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Shield className="w-8 h-8" />
+                  </div>
+                  <h1 className="text-xl font-extrabold text-primary mb-2 tracking-tight">Erişim Reddedildi</h1>
+                  <p className="text-secondary text-sm mb-8">Bu alana erişim yetkiniz bulunmamaktadır.</p>
+                  <Link to="/trips" className="inline-flex justify-center items-center w-full bg-accent text-accent-content font-bold py-3 rounded-xl hover:bg-accent-dark transition-all">
+                      Platforma Dön
                   </Link>
               </div>
           </div>
@@ -52,16 +58,16 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-neutral-50 text-neutral-900">
+    <div className="flex h-screen bg-base text-primary font-sans antialiased overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-neutral-200 hidden md:flex flex-col">
-        <div className="h-16 flex items-center justify-center border-b border-neutral-100">
-            <span className="text-lg font-black tracking-tight text-brand-dark">
-                LojiNext <span className="text-primary">Ayarlar</span>
-            </span>
+      <aside className="w-[240px] bg-surface border-r border-border hidden md:flex flex-col flex-shrink-0 z-50">
+        <div className="h-20 flex items-center px-6 border-b border-border">
+            <Link to="/trips" className="flex items-center gap-3 group">
+                <LojiNextLogo iconSize={36} textSize="text-[18px]" />
+            </Link>
         </div>
         
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 custom-scrollbar">
             {ADMIN_NAV.map((item) => {
                 const isActive = item.path === '/admin' 
                     ? location.pathname === '/admin' 
@@ -72,59 +78,70 @@ export default function AdminLayout() {
                         key={item.path}
                         to={item.path}
                         className={cn(
-                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                            "flex items-center gap-3.5 px-3 py-3 rounded-xl text-[14px] font-medium transition-all group relative",
                             isActive 
-                                ? "bg-primary/10 text-primary" 
-                                : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                                ? "bg-bg-elevated text-accent font-bold" 
+                                : "text-secondary hover:bg-bg-elevated/50 hover:text-primary"
                         )}
                     >
-                        <item.icon className="w-5 h-5 shrink-0" />
+                        <item.icon className={cn("w-[20px] h-[20px] shrink-0", isActive ? "text-accent" : "text-secondary group-hover:text-primary")} />
                         {item.label}
+                        {isActive && (
+                            <motion.div 
+                                layoutId="adminActiveTab" 
+                                className="absolute left-0 top-[10%] bottom-[10%] w-[3px] bg-accent rounded-r-full" 
+                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                            />
+                        )}
                     </Link>
                 )
             })}
         </nav>
         
-        <div className="p-4 border-t border-neutral-100">
+        <div className="p-6 border-t border-border space-y-3">
             <button 
                 onClick={logout}
-                className="flex items-center gap-3 text-red-500 hover:text-red-700 w-full px-3 py-2 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+                className="flex items-center gap-3.5 text-secondary hover:text-danger w-full px-3 py-3 text-[14px] font-medium rounded-xl hover:bg-danger/10 transition-all group"
             >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-[20px] h-[20px] text-secondary group-hover:text-danger" />
                 Çıkış Yap
             </button>
-            <div className="mt-4 pt-2 border-t border-neutral-100 flex justify-center">
-                <Link 
-                    to="/trips" 
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm transition-all shadow-md shadow-indigo-200"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Platforma Dön
-                </Link>
-            </div>
+            <Link 
+                to="/trips" 
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-primary hover:bg-secondary text-base font-bold text-[13px] transition-all shadow-md uppercase tracking-wider text-surface"
+            >
+                <ArrowLeft className="w-4 h-4" />
+                Platforma Dön
+            </Link>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-neutral-200 flex items-center justify-between px-6">
+        <header className="h-20 bg-surface/70 backdrop-blur-xl border-b border-border flex items-center justify-between px-8 z-30 sticky top-0">
             <div>
-                 <h2 className="text-lg font-bold text-neutral-800">
+                 <h2 className="text-[22px] font-extrabold text-primary tracking-tight">
                     {ADMIN_NAV.find(n => location.pathname === '/admin' ? n.path === '/admin' : location.pathname.startsWith(n.path))?.label || 'Ayarlar'}
                  </h2>
             </div>
-            <div className="flex items-center gap-4">
-                <div className="flex flex-col text-right">
-                    <span className="text-sm font-bold">{user?.username}</span>
-                    <span className="text-xs text-neutral-400">{user?.role}</span>
+            
+            <div className="flex items-center gap-5">
+                <div className="flex flex-col text-right lg:flex">
+                    <span className="text-sm font-bold text-primary tracking-tight mb-0.5">{user?.username}</span>
+                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-widest">{user?.role}</span>
+                </div>
+                <div className="bg-surface border border-border shadow-sm text-accent font-bold rounded-xl size-11 flex items-center justify-center">
+                    <UserIcon className="w-5 h-5" strokeWidth={2.5} />
                 </div>
             </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-auto p-6 bg-neutral-50/50">
-          <Outlet />
+        {/* Content Area Viewport */}
+        <main className="flex-1 overflow-auto p-8 bg-base relative">
+            <div className="relative z-10 w-full max-w-[1280px] mx-auto">
+                <Outlet />
+            </div>
         </main>
       </div>
     </div>

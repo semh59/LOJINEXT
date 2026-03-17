@@ -12,14 +12,19 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - DB_HOST=db
       - DB_PORT=5432
       - POSTGRES_USER=lojinext_user
       - ALEMBIC_READY=true
       - ENVIRONMENT=dev
+      - OTEL_ENABLED=false
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
     volumes:
       - app_data:/app/app/data
       - model_data:/app/models
+      - hf_cache:/root/.cache/huggingface
       - ./backups:/app/storage/backups
     restart: unless-stopped
     depends_on:
@@ -40,6 +45,41 @@ services:
       - "80:80"
     depends_on:
       - backend
+    restart: unless-stopped
+    networks:
+      - lojinext_network
+
+  worker:
+    image: lojinext-backend:latest
+    command: celery -A app.infrastructure.background.celery_app worker -l info --hostname=lojinext-worker@%h
+    env_file:
+      - .env
+    environment:
+      - SERVICE_ROLE=worker
+      - DATABASE_URL=postgresql+asyncpg://lojinext_user:lojinext_pass@db:5432/lojinext_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DB_HOST=db
+      - DB_PORT=5432
+      - POSTGRES_USER=lojinext_user
+      - ENVIRONMENT=dev
+      - OTEL_ENABLED=false
+      - OTEL_EXPORTER_OTLP_ENDPOINT=
+    volumes:
+      - app_data:/app/app/data
+      - model_data:/app/models
+      - hf_cache:/root/.cache/huggingface
+      - ./backups:/app/storage/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "true"]
     restart: unless-stopped
     networks:
       - lojinext_network
@@ -107,6 +147,30 @@ services:
       - lojinext_network
     restart: unless-stopped
 
+  celery-exporter:
+    image: danihodovic/celery-exporter:latest
+    command: ["--broker-url=redis://redis:6379/0"]
+    ports:
+      - "9808:9808"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - lojinext_network
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    command: ["--redis.addr=redis:6379"]
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - lojinext_network
+    restart: unless-stopped
+
 networks:
   lojinext_network:
     driver: bridge
@@ -118,3 +182,4 @@ volumes:
   model_data:
   prometheus_data:
   grafana_data:
+  hf_cache:

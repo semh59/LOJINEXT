@@ -37,12 +37,12 @@ export function FuelPagination({ currentPage, totalCount, pageSize, onPageChange
                 disabled={p === '...'}
                 onClick={() => typeof p === 'number' && onPageChange(p)}
                 className={cn(
-                    "w-10 h-10 rounded-xl text-sm font-black transition-all flex items-center justify-center",
+                    "w-9 h-9 rounded-lg text-xs font-bold transition-all flex items-center justify-center",
                     p === currentPage 
-                        ? "bg-[#0df259] text-[#050b0e] shadow-[0_0_15px_rgba(13,242,89,0.3)]" 
+                        ? "bg-accent text-bg-base shadow-sm" 
                         : p === '...' 
-                            ? "text-slate-500 cursor-default" 
-                            : "hover:bg-white/10 text-slate-300"
+                            ? "text-secondary cursor-default" 
+                            : "hover:bg-bg-elevated text-secondary border border-transparent hover:border-border"
                 )}
             >
                 {p}
@@ -51,16 +51,16 @@ export function FuelPagination({ currentPage, totalCount, pageSize, onPageChange
     }
 
     return (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-black/40 border-t border-white/5 backdrop-blur-sm">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Toplam <span className="text-[#0df259]">{totalCount.toLocaleString('tr-TR')}</span> Kayıt
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-bg-elevated/30 border-t border-border backdrop-blur-sm">
+            <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">
+                TOPLAM <span className="text-accent">{totalCount.toLocaleString('tr-TR')}</span> KAYIT
             </div>
             
             <div className="flex items-center gap-1">
                 <button
                     onClick={() => onPageChange(1)}
                     disabled={currentPage === 1}
-                    className="hidden sm:flex p-2.5 rounded-xl hover:bg-white/10 text-slate-400 disabled:opacity-30 transition-all font-black items-center justify-center"
+                    className="hidden sm:flex p-2.5 rounded-xl hover:bg-surface text-secondary disabled:opacity-30 transition-all font-black items-center justify-center"
                     title="İlk Sayfa"
                 >
                     <ChevronsLeft className="w-4.5 h-4.5" />
@@ -68,7 +68,7 @@ export function FuelPagination({ currentPage, totalCount, pageSize, onPageChange
                 <button
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="px-3 py-2.5 rounded-xl hover:bg-white/10 text-slate-400 disabled:opacity-30 transition-all flex items-center gap-1 text-sm font-medium"
+                    className="px-3 py-2.5 rounded-xl hover:bg-surface text-secondary disabled:opacity-30 transition-all flex items-center gap-1 text-sm font-medium"
                 >
                     <ChevronLeft className="w-4.5 h-4.5" />
                     Önceki
@@ -81,7 +81,7 @@ export function FuelPagination({ currentPage, totalCount, pageSize, onPageChange
                 <button
                     onClick={() => onPageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-2.5 rounded-xl hover:bg-white/10 text-slate-400 disabled:opacity-30 transition-all flex items-center gap-1 text-sm font-medium"
+                    className="px-3 py-2.5 rounded-xl hover:bg-surface text-secondary disabled:opacity-30 transition-all flex items-center gap-1 text-sm font-medium"
                 >
                     Sonraki
                     <ChevronRight className="w-4.5 h-4.5" />
@@ -89,15 +89,15 @@ export function FuelPagination({ currentPage, totalCount, pageSize, onPageChange
                 <button
                     onClick={() => onPageChange(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="hidden sm:flex p-2.5 rounded-xl hover:bg-white/10 text-slate-400 disabled:opacity-30 transition-all items-center justify-center"
+                    className="hidden sm:flex p-2.5 rounded-xl hover:bg-surface text-secondary disabled:opacity-30 transition-all items-center justify-center"
                     title="Son Sayfa"
                 >
                     <ChevronsRight className="w-4.5 h-4.5" />
                 </button>
             </div>
 
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest sm:text-right">
-                Sayfa <span className="text-white font-black">{currentPage}</span> / {totalPages}
+            <div className="text-xs font-bold text-secondary uppercase tracking-widest sm:text-right">
+                Sayfa <span className="text-primary font-black">{currentPage}</span> / {totalPages}
             </div>
         </div>
     )

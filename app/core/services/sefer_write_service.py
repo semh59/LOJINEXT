@@ -383,6 +383,19 @@ class SeferWriteService:
             if not update_data:
                 return True  # Nothing to update
 
+            # B-004: Optimistic Locking version check
+            if "version" in update_data and update_data["version"] is not None:
+                current_version = current_sefer.get("version", 1)
+                if current_version != update_data["version"]:
+                    from fastapi import HTTPException
+
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Bu kayıt başka biri tarafından güncellenmiş. Lütfen sayfayı yenileyin.",
+                    )
+                # Increment version locally.
+                update_data["version"] = current_version + 1
+
             # Status Transition Validation
             new_status = update_data.get("durum")
             if new_status:

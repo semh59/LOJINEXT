@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen } from '../../../test/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 import { DriverCard } from '../DriverCard'
 import { Driver } from '../../../types'

@@ -1,11 +1,9 @@
 import * as React from "react"
-
 import { Loader2 } from "lucide-react"
 import { cn } from "../../lib/utils"
 
-export interface ButtonProps
-    extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: "primary" | "secondary" | "danger" | "ghost" | "outline" | "glossy-cyan" | "glossy-purple" | "glossy-green" | "glossy-orange"
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    variant?: "primary" | "secondary" | "danger" | "ghost" | "outline"
     size?: "sm" | "md" | "lg" | "icon"
     isLoading?: boolean
     asChild?: boolean
@@ -15,31 +13,30 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant = "primary", size = "md", isLoading, children, disabled, ...props }, ref) => {
         const Comp = "button"
 
+        // LojiNext v2.0 Button Rules:
+        // Height 36px, font 14px, weight 500, radius 6px.
+        // Hover and scale(0.97) interactions (150ms / 80ms).
+        const baseStyles = "inline-flex items-center justify-center gap-2 font-medium text-[14px] rounded-[6px] transition-all duration-150 active:scale-[0.97] active:duration-75 disabled:opacity-60 disabled:pointer-events-none outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+
         const variants = {
-            primary: "btn-primary",
-            secondary: "btn-secondary",
-            danger: "btn-danger",
-            ghost: "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
-            outline: "border border-neutral-200 bg-transparent hover:bg-neutral-100 text-neutral-900 dark:border-neutral-800 dark:text-neutral-100",
-            "glossy-cyan": "btn-glossy btn-glossy-cyan",
-            "glossy-purple": "btn-glossy btn-glossy-purple",
-            "glossy-green": "btn-glossy btn-glossy-green",
-            "glossy-orange": "btn-glossy btn-glossy-orange",
+            primary: "bg-accent text-bg-base hover:bg-accent/90 border border-transparent shadow-sm focus-visible:ring-accent/20",
+            secondary: "bg-transparent border border-border text-primary hover:bg-bg-elevated hover:border-secondary focus-visible:ring-secondary/20 shadow-sm",
+            ghost: "bg-transparent text-secondary hover:text-primary hover:bg-bg-elevated focus-visible:ring-secondary/20",
+            danger: "bg-danger text-bg-base hover:bg-danger/90 border border-transparent shadow-sm focus-visible:ring-danger/20",
+            outline: "bg-transparent border border-border text-primary hover:bg-bg-elevated hover:text-accent focus-visible:ring-accent/20 shadow-sm",
         }
 
-        const isGlossy = variant?.startsWith("glossy-")
-
         const sizes = {
-            sm: "h-8 px-3 text-xs",
-            md: "h-10 px-4 py-2",
-            lg: "h-12 px-8 text-base",
-            icon: "h-9 w-9 p-0 flex items-center justify-center",
+            sm: "h-[32px] px-[12px] text-[13px]",
+            md: "h-[36px] px-[16px]", // 36px height as per rule
+            lg: "h-[48px] px-[24px] text-[16px]",
+            icon: "h-[36px] w-[36px] p-0 flex items-center justify-center",
         }
 
         return (
             <Comp
                 className={cn(
-                    "btn",
+                    baseStyles,
                     variants[variant],
                     sizes[size],
                     isLoading && "opacity-70 cursor-not-allowed",
@@ -49,7 +46,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 disabled={isLoading || disabled}
                 {...props}
             >
-                {isGlossy && <span className="glass-reflection" />}
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {children}
             </Comp>

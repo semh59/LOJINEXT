@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 import { NewTripStepper } from '../NewTripStepper'
 
@@ -14,9 +14,21 @@ vi.mock('../../../services/api', () => ({
             { id: 1, ad_soyad: 'Ali Veli', ehliyet_sinifi: 'E', score: 90 }
         ])
     },
+    locationService: {
+        getAll: vi.fn().mockResolvedValue({
+            items: [
+                { id: 1, cikis_yeri: 'İstanbul', varis_yeri: 'Ankara', mesafe_km: 450 }
+            ],
+            total: 1
+        }),
+        searchByRoute: vi.fn().mockResolvedValue({ found: false })
+    },
     tripsApi: {
         getAll: vi.fn(),
         create: vi.fn()
+    },
+    weatherApi: {
+        getTripImpact: vi.fn().mockResolvedValue({ fuel_impact_factor: 1.0 })
     }
 }))
 
@@ -26,12 +38,10 @@ describe('NewTripStepper', () => {
         render(<NewTripStepper onComplete={handleComplete} onCancel={vi.fn()} />)
 
         // Step 1: Vehicle
-        // Use findByText which waits automatically (default 1000ms)
         const vehicle = await screen.findByText('34ABC123')
         fireEvent.click(vehicle)
 
         const nextBtn = screen.getByRole('button', { name: /Devam Et/i })
-        // Check if button is enabled
         expect(nextBtn).toBeEnabled()
         fireEvent.click(nextBtn)
 
@@ -46,16 +56,15 @@ describe('NewTripStepper', () => {
         // Step 3: Route
         await screen.findByText('Rota ve yük detayları')
 
-        const input1 = screen.getByPlaceholderText('İstanbul Depo')
-        fireEvent.change(input1, { target: { value: 'Ist' } })
-
-        const input2 = screen.getByPlaceholderText('Ankara Lojistik')
-        fireEvent.change(input2, { target: { value: 'Ank' } })
+        const select = screen.getByRole('combobox')
+        fireEvent.change(select, { target: { value: '1' } })
 
         const submitBtn = screen.getByRole('button', { name: /Seferi Oluştur/i })
         expect(submitBtn).toBeEnabled()
         fireEvent.click(submitBtn)
 
-        expect(handleComplete).toHaveBeenCalled()
+        await waitFor(() => {
+            expect(handleComplete).toHaveBeenCalled()
+        })
     })
 })

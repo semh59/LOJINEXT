@@ -77,10 +77,43 @@ class SeferService:
         arac_id: Optional[int] = None,
         status: Optional[str] = None,
         limit: int = 100,
-    ) -> List[Sefer]:
+    ) -> List[Any]:
         return await self.read_service.get_all_trips(
             start_date, end_date, sofor_id, arac_id, status, limit
         )
+
+    async def get_trip_stats(
+        self,
+        durum: Optional[str] = None,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        return await self.read_service.get_trip_stats(
+            durum=durum,
+            baslangic_tarih=baslangic_tarih,
+            bitis_tarih=bitis_tarih,
+        )
+
+    async def get_fuel_performance_analytics(
+        self,
+        durum: Optional[str] = None,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+        arac_id: Optional[int] = None,
+        sofor_id: Optional[int] = None,
+        search: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return await self.read_service.get_fuel_performance_analytics(
+            durum=durum,
+            baslangic_tarih=baslangic_tarih,
+            bitis_tarih=bitis_tarih,
+            arac_id=arac_id,
+            sofor_id=sofor_id,
+            search=search,
+        )
+
+    async def get_timeline(self, sefer_id: int) -> List[Dict[str, Any]]:
+        return await self.read_service.get_timeline(sefer_id)
 
     # --- WRITE OPERATIONS (Delegated to SeferWriteService) ---
 
@@ -126,4 +159,6 @@ class SeferService:
 
 def get_sefer_service() -> SeferService:
     """Dependency Injection provider"""
-    return SeferService()
+    from app.core.container import get_container
+
+    return get_container().sefer_service

@@ -11,6 +11,7 @@ from app.schemas.sefer import SeferResponse
 from app.core.services.security_service import SecurityService
 from app.database.models import Kullanici
 from app.database.repositories.sefer_repo import SeferRepository, get_sefer_repo
+from app.database.unit_of_work import UnitOfWork
 from app.infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -67,10 +68,6 @@ class SeferReadService:
         limit = min(max(1, limit), 5005)
         skip = max(0, skip)
 
-        # Default security guard against synthetic data
-        if "is_real" not in filters:
-            filters["is_real"] = True
-
         if current_user:
             filters = SecurityService.apply_isolation(current_user, filters)
 
@@ -106,7 +103,7 @@ class SeferReadService:
         arac_id: Optional[int] = None,
         status: Optional[str] = None,
         limit: int = 100,
-    ) -> List[Sefer]:
+    ) -> List[SeferResponse]:
         """Filtreli sefer listesi (Legacy support, redirected to paged)"""
         # Note: This returns List[Sefer], but get_all_paged returns Dict.
         # We need to adapt it.
@@ -119,6 +116,40 @@ class SeferReadService:
             durum=status,
         )
 
-        # Convert SeferResponse back to Sefer models if needed, or just return SeferResponse list
-        # (SeferResponse is usually compatible with Sefer for read purposes)
         return paged_result["items"]
+
+    async def get_trip_stats(
+        self,
+        durum: Optional[str] = None,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        async with UnitOfWork() as uow:
+            return await uow.sefer_repo.get_trip_stats(
+                durum=durum,
+                baslangic_tarih=baslangic_tarih,
+                bitis_tarih=bitis_tarih,
+            )
+
+    async def get_fuel_performance_analytics(
+        self,
+        durum: Optional[str] = None,
+        baslangic_tarih: Optional[date] = None,
+        bitis_tarih: Optional[date] = None,
+        arac_id: Optional[int] = None,
+        sofor_id: Optional[int] = None,
+        search: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        async with UnitOfWork() as uow:
+            return await uow.sefer_repo.get_fuel_performance_analytics(
+                durum=durum,
+                baslangic_tarih=baslangic_tarih,
+                bitis_tarih=bitis_tarih,
+                arac_id=arac_id,
+                sofor_id=sofor_id,
+                search=search,
+            )
+
+    async def get_timeline(self, sefer_id: int) -> List[Dict[str, Any]]:
+        async with UnitOfWork() as uow:
+            return await uow.audit_repo.get_sefer_timeline(sefer_id)

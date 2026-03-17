@@ -1,6 +1,6 @@
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.api.deps import SessionDep
 from app.infrastructure.security.permission_checker import require_yetki
@@ -29,9 +29,7 @@ class ConfigRead(BaseModel):
     grup: str
     aciklama: Optional[str]
     yeniden_baslat: bool
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/", response_model=List[ConfigRead])

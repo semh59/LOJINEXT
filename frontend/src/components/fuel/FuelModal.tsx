@@ -109,70 +109,70 @@ export function FuelModal({ isOpen, onClose, onSave, record }: FuelModalProps) {
             onClose={onClose}
             title={record ? 'Yakıt Kaydını Düzenle' : 'Yeni Yakıt Kaydı'}
         >
-            <p className="text-sm text-neutral-500 mb-6">Araç yakıt alım bilgilerini giriniz.</p>
+            <p className="text-sm text-secondary mb-6">Araç yakıt alım bilgilerini giriniz.</p>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Tarih</label>
+                        <label className="text-xs font-bold text-secondary">Tarih</label>
                         <Input type="date" {...register('tarih')} error={!!errors.tarih} />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Araç</label>
+                        <label className="text-xs font-bold text-secondary">Araç</label>
                         <select
                             {...register('arac_id', { valueAsNumber: true })}
-                            className={`w-full h-12 px-3 rounded-lg border ${errors.arac_id ? 'border-red-500' : 'border-neutral-200'} bg-white text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all`}
+                            className={`w-full h-10 px-3 rounded-md border ${errors.arac_id ? 'border-danger focus:ring-danger/20' : 'border-border focus:ring-accent/20'} bg-bg-elevated text-primary text-sm focus:ring-2 outline-none transition-all`}
                         >
                             <option value="">Seçiniz</option>
                             {vehicles.map(v => (
-                                <option key={v.id} value={v.id}>{v.plaka} - {v.marka}</option>
+                                <option key={v.id} value={v.id}>{v.plaka} — {v.marka}</option>
                             ))}
                         </select>
-                        {errors.arac_id && <p className="text-xs text-red-500 font-medium">{errors.arac_id.message}</p>}
+                        {errors.arac_id && <p className="text-xs text-danger font-medium mt-1">{errors.arac_id.message}</p>}
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500">İstasyon</label>
+                    <label className="text-xs font-bold text-secondary">İstasyon</label>
                     <Input {...register('istasyon')} placeholder="Örn: Shell Maslak" error={!!errors.istasyon} />
-                    {errors.istasyon && <p className="text-xs text-red-500 font-medium">{errors.istasyon.message}</p>}
+                    {errors.istasyon && <p className="text-xs text-danger font-medium">{errors.istasyon.message}</p>}
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Litre</label>
+                        <label className="text-xs font-bold text-secondary">Litre</label>
                         <Input type="number" step="0.01" {...register('litre', { valueAsNumber: true })} error={!!errors.litre} />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Birim Fiyat (TL)</label>
+                        <label className="text-xs font-bold text-secondary">Birim Fiyat (TL)</label>
                         <Input type="number" step="0.01" {...register('fiyat_tl', { valueAsNumber: true })} error={!!errors.fiyat_tl} />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Toplam (Otomatik)</label>
+                        <label className="text-xs font-bold text-secondary">Toplam (Otomatik)</label>
                         <Input
                             type="number"
                             {...register('toplam_tutar', { valueAsNumber: true })}
                             readOnly
-                            className="bg-neutral-50 font-bold text-brand-dark"
+                            className="bg-bg-elevated font-bold text-primary"
                         />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">KM Sayaç</label>
+                        <label className="text-xs font-bold text-secondary">KM Sayaç</label>
                         <Input type="number" {...register('km_sayac', { valueAsNumber: true })} error={!!errors.km_sayac} />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-500">Fiş Numarası</label>
+                        <label className="text-xs font-bold text-secondary">Fiş Numarası</label>
                         <Input {...register('fis_no')} placeholder="Örn: FIS-123" error={!!errors.fis_no} />
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500">Depo Durumu</label>
+                        <label className="text-xs font-bold text-secondary">Depo Durumu</label>
                     <select
                         {...register('depo_durumu')}
-                        className="w-full h-12 px-3 rounded-lg border border-neutral-200 bg-white text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        className="w-full h-10 px-3 rounded-md border border-border bg-bg-elevated text-primary text-sm focus:ring-2 focus:ring-accent/20 outline-none transition-all"
                     >
                         <option value="Doldu">Tam Doldu</option>
                         <option value="Kısmi">Kısmi Alım</option>
@@ -181,8 +181,8 @@ export function FuelModal({ isOpen, onClose, onSave, record }: FuelModalProps) {
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                    <Button type="button" variant="secondary" className="flex-1 h-12" onClick={onClose}>İptal</Button>
-                    <Button type="submit" variant="glossy-green" className="flex-1 h-12" isLoading={isSubmitting}>Kaydet</Button>
+                    <Button type="button" variant="secondary" className="flex-1 h-10" onClick={onClose}>İptal</Button>
+                    <Button type="submit" variant="primary" className="flex-1 h-10" isLoading={isSubmitting}>Kaydet</Button>
                 </div>
             </form>
         </Modal>

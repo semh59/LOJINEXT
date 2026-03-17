@@ -85,9 +85,13 @@ class SeferAnalizService:
                 consumption = (allocated / t_km) * 100
 
                 # Update DB
-                await uow.sefer_repo.update(
-                    t_id, tuketim=consumption, dagitilan_yakit=allocated, durum="Tamam"
+                updated = await uow.sefer_repo.update_sefer(
+                    t_id,
+                    tuketim=consumption,
+                    dagitilan_yakit=allocated,
                 )
+                if not updated:
+                    continue
 
                 # Publish update event
                 await self.event_bus.publish_simple_async(

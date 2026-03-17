@@ -99,7 +99,7 @@ class SoforService:
         ehliyet_sinifi: Optional[str] = None,
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Sayfalı ve filtreli şoför listesi"""
         # Pass additional filters
         filters = {}
@@ -111,25 +111,20 @@ class SoforService:
             filters["score_le"] = max_score
 
         async with UnitOfWork() as uow:
-            rows = await uow.sofor_repo.get_all(
+            items = await uow.sofor_repo.get_all(
                 offset=skip,
                 limit=limit,
                 sadece_aktif=aktif_only,
                 search=search,
                 filters=filters,
             )
+            total = await uow.sofor_repo.count_all(
+                sadece_aktif=aktif_only,
+                search=search,
+                filters=filters,
+            )
 
-        # Dönüşüm ve Güvenlik (Schema Healing)
-        validated = []
-        for r in rows:
-            try:
-                # Dict gelirse modele çevirip geri dict dön (veya modele bırak)
-                # Repo dict dönüyor, servis de dict listesi dönebilir
-                validated.append(r)
-            except Exception as e:
-                logger.warning(f"Bozuk şoför kaydı atlandı (ID {r.get('id')}): {e}")
-                continue
-        return validated
+        return {"items": items, "total": total}
 
     async def get_by_id(self, sofor_id: int) -> Optional[Dict[str, Any]]:
         """ID ile şoför getir"""
@@ -250,10 +245,8 @@ class SoforService:
             if avg_tuketim <= 0:
                 return manual_score
 
-            # 2. Performans puanı hesapla (Hedef tüketim üzerinden)
-            # Not: Burada araç bazlı hedef tüketim ortalaması alınabilir.
-            # Şimdilik genel bir 30 L/100km baz alalım veya basitleştirelim.
-            # İleride her seferin kendi hedef/gerçek farkı ağırlıklı ortalanabilir.
+            # Performance scoring baseline: Can be moved to DB settings later
+            # For now, it represents the fleet-wide 'Elite' target consumption
             target_reference = 30.0
             perf_factor = target_reference / avg_tuketim
 
@@ -348,8 +341,8 @@ class SoforService:
 
         safety_score = max(0.0, 100.0 - deduction)
 
-        # Eco Score: Tüketim hedefe yakınlığı (Hedef: 30L varsayalım)
-        # Eğer tüketim 30 ise score 100. 35 ise düşer.
+        # Eco Score: Tüketim hedefe yakınlığı
+        # Baseline target can eventually be dynamic per vehicle category
         target = 30.0
         if avg_tuketim > 0:
             deviation_pct = ((avg_tuketim - target) / target) * 100

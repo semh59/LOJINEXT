@@ -161,17 +161,15 @@ def setup_logging(
 
     # File handler - Rotating (Daily is implied by name in old code, here we use size rotation)
     log_file = LOG_DIR / f"{app_name}.log"
-    file_handler = None
-    if "pytest" not in sys.modules:
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=7,
-            encoding="utf-8",
-        )
-        file_handler.setFormatter(json_formatter)
-        file_handler.setLevel(logging.INFO)
-        file_handler.addFilter(PIIFilter())
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=7,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(json_formatter)
+    file_handler.setLevel(logging.INFO)
+    file_handler.addFilter(PIIFilter())
 
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
@@ -186,8 +184,7 @@ def setup_logging(
     # Cleanup old handlers
     root_logger.handlers.clear()
 
-    if file_handler:
-        root_logger.addHandler(file_handler)
+    root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
     logger = logging.getLogger(app_name)
@@ -210,16 +207,15 @@ class AuditLogger:
         # Temizle ve ekle
         self.logger.handlers.clear()
 
-        if "pytest" not in sys.modules:
-            handler = RotatingFileHandler(
-                audit_file,
-                maxBytes=10 * 1024 * 1024,
-                backupCount=30,  # 1 ay sakla
-                encoding="utf-8",
-            )
-            handler.setFormatter(JSONFormatter(datefmt="%Y-%m-%dT%H:%M:%S"))
-            handler.addFilter(PIIFilter())
-            self.logger.addHandler(handler)
+        handler = RotatingFileHandler(
+            audit_file,
+            maxBytes=10 * 1024 * 1024,
+            backupCount=30,  # 1 ay sakla
+            encoding="utf-8",
+        )
+        handler.setFormatter(JSONFormatter(datefmt="%Y-%m-%dT%H:%M:%S"))
+        handler.addFilter(PIIFilter())
+        self.logger.addHandler(handler)
         self.logger.propagate = False  # Ana loga düşmesin
 
     def log(

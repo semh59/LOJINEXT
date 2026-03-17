@@ -52,15 +52,15 @@ export default function SistemSaglikPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Sistem Sağlığı</h1>
-                    <p className="text-neutral-500 mt-1">Servis durumlarını, veritabanı performansını ve devre kesicileri izleyin.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-primary">Sistem Sağlığı</h1>
+                    <p className="text-secondary mt-1">Servis durumlarını, veritabanı performansını ve devre kesicileri izleyin.</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={loadHealth} disabled={loading}>
                         <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                         Yenile
                     </Button>
-                    <Button variant="glossy-purple" onClick={handleBackup}>
+                    <Button variant="primary" onClick={handleBackup}>
                         <HardDrive className="w-4 h-4 mr-2" />
                         Manuel Yedek Al
                     </Button>
@@ -69,45 +69,45 @@ export default function SistemSaglikPage() {
 
             {loading && !health ? (
                 <div className="flex justify-center items-center h-48">
-                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                     <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
                 </div>
             ) : health ? (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <Card padding="md" className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                <Activity className="w-6 h-6 text-emerald-500" />
+                            <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
+                                <Activity className="w-6 h-6 text-success" />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Genel Durum</p>
-                                <p className="text-xl font-black text-neutral-900 mt-0.5" style={{ color: health.status === 'healthy' ? '#10b981' : '#f59e0b'}}>{health.status || 'OK'}</p>
+                                <p className="text-sm font-bold text-secondary uppercase tracking-widest">Genel Durum</p>
+                                <p className="text-xl font-black text-primary mt-0.5" style={{ color: health.status === 'healthy' ? 'var(--success)' : 'var(--warning)'}}>{health.status || 'OK'}</p>
                             </div>
                         </Card>
                         <Card padding="md" className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                                <Database className="w-6 h-6 text-blue-500" />
+                            <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center shrink-0">
+                                <Database className="w-6 h-6 text-info" />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Veritabanı</p>
-                                <p className="text-xl font-black text-neutral-900 mt-0.5">{health.components?.database?.status || 'Online'}</p>
+                                <p className="text-sm font-bold text-secondary uppercase tracking-widest">Veritabanı</p>
+                                <p className="text-xl font-black text-primary mt-0.5">{health.components?.database?.status || 'Online'}</p>
                             </div>
                         </Card>
                         <Card padding="md" className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
-                                <Server className="w-6 h-6 text-purple-500" />
+                            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                                <Server className="w-6 h-6 text-accent" />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Redis/Cache</p>
-                                <p className="text-xl font-black text-neutral-900 mt-0.5">{health.components?.redis?.status || 'Online'}</p>
+                                <p className="text-sm font-bold text-secondary uppercase tracking-widest">Redis/Cache</p>
+                                <p className="text-xl font-black text-primary mt-0.5">{health.components?.redis?.status || 'Online'}</p>
                             </div>
                         </Card>
                     </div>
 
                     <Card padding="none">
-                        <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 flex items-center justify-between">
+                        <div className="p-4 border-b border-border bg-bg-elevated/50 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Server className="w-5 h-5 text-neutral-500" />
-                                <h2 className="text-base font-bold text-neutral-800">Servis Devre Kesiciler</h2>
+                                <Server className="w-5 h-5 text-secondary" />
+                                <h2 className="text-base font-bold text-primary">Servis Devre Kesiciler</h2>
                             </div>
                         </div>
                         <Table>
@@ -125,12 +125,12 @@ export default function SistemSaglikPage() {
                                     <TableRow key={key}>
                                         <TableCell className="font-medium">{key}</TableCell>
                                         <TableCell>
-                                            <Badge variant={cb.state === 'closed' ? 'success' : cb.state === 'half-open' ? 'warning' : 'error'}>
+                                            <Badge variant={cb.state === 'closed' ? 'success' : cb.state === 'half-open' ? 'warning' : 'danger'}>
                                                 {cb.state}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{cb.failures || 0}</TableCell>
-                                        <TableCell className="text-neutral-500 text-sm max-w-xs truncate">{cb.last_error || '-'}</TableCell>
+                                        <TableCell className="text-secondary text-sm max-w-xs truncate">{cb.last_error || '-'}</TableCell>
                                         <TableCell className="text-right">
                                             {cb.state !== 'closed' && (
                                                 <Button 
@@ -148,7 +148,7 @@ export default function SistemSaglikPage() {
                                 ))}
                                 {(!health.circuit_breakers || Object.keys(health.circuit_breakers).length === 0) && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-32 text-center text-neutral-500">
+                                        <TableCell colSpan={5} className="h-32 text-center text-secondary">
                                             Devre kesici bilgisi bulunamadı
                                         </TableCell>
                                     </TableRow>

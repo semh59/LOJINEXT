@@ -26,18 +26,18 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
     return (
         <div className={cn(
-            "flex flex-col items-center justify-center p-12 text-center glass rounded-[32px] border-dashed border-2 border-neutral-200",
+            "flex flex-col items-center justify-center p-12 text-center bg-surface rounded-[32px] border-dashed border-2 border-border",
             className
         )}>
-            <div className="w-24 h-24 bg-primary-light rounded-full flex items-center justify-center mb-6 animate-pulse">
-                <Icon className="w-12 h-12 text-primary" />
+            <div className="w-24 h-24 bg-accent/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                <Icon className="w-12 h-12 text-accent" />
             </div>
 
-            <h3 className="text-xl font-bold text-neutral-900 mb-2">
+            <h3 className="text-xl font-bold text-primary mb-2">
                 {title}
             </h3>
 
-            <p className="text-neutral-500 max-w-xs mb-8 leading-relaxed">
+            <p className="text-secondary max-w-xs mb-8 leading-relaxed">
                 {description}
             </p>
 

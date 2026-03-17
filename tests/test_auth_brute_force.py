@@ -1,7 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
+
 from app.core.services.auth_service import AuthService
 from app.database.models import Kullanici
-from datetime import datetime, timedelta, timezone
 
 
 @pytest.fixture
@@ -18,6 +20,7 @@ def auth_service(mocker):
     return AuthService(uow=uow_mock)
 
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_successful_login_resets_counter(auth_service, mocker):
     user = Kullanici(id=1, email="test@test.com", aktif=True, basarisiz_giris_sayisi=3)
@@ -49,37 +52,36 @@ async def test_successful_login_resets_counter(auth_service, mocker):
     mock_req.client.host = "127.0.0.1"
     mock_req.headers.get.return_value = "TestAgent"
 
+    auth_service.uow.session = mocker.Mock()
+    auth_service.uow.commit = mocker.AsyncMock(return_value=None)
+
     await auth_service.authenticate("test@test.com", "password", mock_req)
     assert user.basarisiz_giris_sayisi == 0
 
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_failed_login_increments_counter(auth_service, mocker):
     user = Kullanici(id=1, email="test@test.com", aktif=True, basarisiz_giris_sayisi=0)
     auth_service.uow.kullanici_repo.get_by_email = mocker.AsyncMock(return_value=user)
+    auth_service.uow.commit = mocker.AsyncMock(return_value=None)
     mocker.patch(
         "app.infrastructure.security.jwt_handler.verify_password", return_value=False
     )
 
     mock_req = mocker.Mock()
 
-    try:
+    with pytest.raises(Exception):
         await auth_service.authenticate("test@test.com", "wrongpass", mock_req)
-    except Exception:
-        pass
 
     assert user.basarisiz_giris_sayisi == 1
 
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_user_locked_out_after_5_attempts(auth_service, mocker):
-    user = Kullanici(
-        id=1,
-        email="test@test.com",
-        aktif=True,
-        basarisiz_giris_sayisi=5,
-        son_basarisiz_giris=datetime.now(timezone.utc) - timedelta(minutes=10),
-    )
+    user = Kullanici(id=1, email="test@test.com", aktif=True, basarisiz_giris_sayisi=5)
+    user.kilitli_kadar = datetime.now(timezone.utc) + timedelta(minutes=20)
     auth_service.uow.kullanici_repo.get_by_email = mocker.AsyncMock(return_value=user)
     mocker.patch(
         "app.infrastructure.security.jwt_handler.verify_password", return_value=True
@@ -90,4 +92,4 @@ async def test_user_locked_out_after_5_attempts(auth_service, mocker):
     with pytest.raises(Exception) as exc_info:
         await auth_service.authenticate("test@test.com", "password", mock_req)
 
-    assert "kilitlenmiştir" in str(exc_info.value)
+    assert "kilitlen" in str(exc_info.value).lower()

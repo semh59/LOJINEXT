@@ -8,16 +8,20 @@ import io
 from datetime import date, datetime, timedelta
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.api.deps import SessionDep, get_current_user
+from app.core.services.excel_service import ExcelService
 from app.core.services.cost_analyzer import get_cost_analyzer
 from app.core.services.export_service import get_export_service
 from app.core.services.report_generator import get_report_generator
 from app.core.services.report_service import get_report_service
 from app.database.models import Kullanici
+from app.infrastructure.logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -307,3 +311,84 @@ async def get_excel_template(
         filename=filename,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+@router.get("/excel/export")
+async def export_analytical_report_excel(
+    report_type: str = Query(
+        ..., description="fleet_summary, driver_comparison, cost_trend"
+    ),
+    db: SessionDep = None,
+    current_user: Annotated[Kullanici, Depends(get_current_user)] = None,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    months: int = Query(12, ge=1, le=24),
+):
+    """
+    Analitik raporları Excel formatında dışa aktarır.
+    """
+    try:
+        data = []
+        filename = f"rapor_{report_type}_{date.today()}.xlsx"
+
+        if report_type == "fleet_summary":
+            if start_date:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            else:
+                start = date.today() - timedelta(days=30)
+            if end_date:
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            else:
+                end = date.today()
+
+            report_service = get_report_service()
+            raw_data = await report_service.generate_fleet_summary(start, end)
+            # Flatten or format raw_data for Excel
+            data = [raw_data] if isinstance(raw_data, dict) else raw_data
+
+        elif report_type == "driver_comparison":
+            from app.core.services.sofor_analiz_service import get_sofor_analiz_service
+
+            sofor_service = get_sofor_analiz_service()
+            drivers = await sofor_service.get_driver_stats()
+            data = [
+                {
+                    "Şoför": d.ad_soyad,
+                    "Toplam Sefer": d.toplam_sefer,
+                    "Ort. Tüketim": d.ort_tuketim,
+                    "Performans Puanı": d.performans_puani,
+                }
+                for d in drivers
+            ]
+
+        elif report_type == "cost_trend":
+            analyzer = get_cost_analyzer()
+            trend = await analyzer.get_monthly_trend(months)
+            data = trend if isinstance(trend, list) else [trend]
+
+        else:
+            raise HTTPException(status_code=400, detail="Geçersiz rapor tipi")
+
+        if not data:
+            raise HTTPException(status_code=404, detail="Rapor verisi bulunamadı")
+
+        # Excel oluştur
+        content = ExcelService.export_data(data, type=f"{report_type}_analiz")
+
+        import urllib.parse
+
+        encoded_filename = urllib.parse.quote(filename)
+
+        return Response(
+            content=content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
+        )
+    except Exception as e:
+        import traceback
+
+        logger.error(f"Analytical Excel export error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))

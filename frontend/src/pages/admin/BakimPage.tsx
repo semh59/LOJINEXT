@@ -43,15 +43,15 @@ export default function BakimPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Bakım ve Onarım Merkezi</h1>
-                    <p className="text-neutral-500 mt-1">Araçların yaklaşan ve gecikmiş bakım görevlerini yönetin.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-primary">Bakım ve Onarım Merkezi</h1>
+                    <p className="text-secondary mt-1">Araçların yaklaşan ve gecikmiş bakım görevlerini yönetin.</p>
                 </div>
             </div>
 
             <Card padding="none">
-                <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 flex items-center gap-2">
-                    <Wrench className="w-5 h-5 text-neutral-500" />
-                    <h2 className="text-base font-bold text-neutral-800">Acil & Yaklaşan Bakımlar</h2>
+                <div className="p-4 border-b border-border bg-bg-elevated/50 flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-secondary" />
+                    <h2 className="text-base font-bold text-primary">Acil & Yaklaşan Bakımlar</h2>
                 </div>
                 {loading ? (
                     <div className="flex justify-center items-center h-48">
@@ -72,14 +72,14 @@ export default function BakimPage() {
                             {alerts.map((alert) => (
                                 <TableRow key={alert.id}>
                                     <TableCell className="font-medium">Araç #{alert.arac_id}</TableCell>
-                                    <TableCell className="uppercase text-xs font-bold text-neutral-500">{alert.bakim_tipi}</TableCell>
+                                    <TableCell className="uppercase text-xs font-bold text-secondary">{alert.bakim_tipi}</TableCell>
                                     <TableCell className="text-sm">
                                         {alert.bakim_tarihi ? new Date(alert.bakim_tarihi).toLocaleDateString('tr-TR') : '-'}  
                                         {alert.km_bilgisi ? ` / ${alert.km_bilgisi} KM` : ''}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={
-                                            alert.durum === 'gecikmis' ? 'error' : 
+                                            alert.durum === 'gecikmis' ? 'danger' : 
                                             alert.durum === 'yaklasiyor' ? 'warning' : 'default'
                                         }>
                                             {alert.durum || 'Bilinmiyor'}
@@ -89,7 +89,7 @@ export default function BakimPage() {
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
-                                            className="h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+                                            className="h-8 text-success hover:text-success/80 hover:bg-success/5 border-success/20"
                                             onClick={() => handleComplete(alert.id)}
                                         >
                                             <CheckCircle className="w-3 h-3 mr-2" />
@@ -100,7 +100,7 @@ export default function BakimPage() {
                             ))}
                             {alerts.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center text-neutral-500">
+                                    <TableCell colSpan={5} className="h-32 text-center text-secondary">
                                         Acil bakım uyarısı bulunmamaktadır
                                     </TableCell>
                                 </TableRow>

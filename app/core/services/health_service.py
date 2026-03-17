@@ -1,12 +1,16 @@
 import threading
 import time
 from typing import Any, Dict, Optional, List
-import sentry_sdk
 from sqlalchemy import text
 
 from app.database.connection import AsyncSessionLocal
 from app.infrastructure.logging.logger import get_logger
 from app.config import settings
+
+try:
+    import sentry_sdk
+except ImportError:
+    sentry_sdk = None
 
 logger = get_logger(__name__)
 
@@ -54,7 +58,11 @@ class HealthService:
         """Sentry entegrasyon durumu ve temel hata metrikleri (Mocked)"""
         # In a real environment, we'd use Sentry's web API.
         # For now, we report if client is active.
-        is_active = sentry_sdk.Hub.current.client is not None
+        is_active = False
+        if sentry_sdk is not None:
+            is_active = sentry_sdk.Hub.current.client is not None
+        elif settings.SENTRY_DSN:
+            logger.warning("SENTRY_DSN is set but sentry_sdk package is not installed.")
         return {
             "enabled": bool(settings.SENTRY_DSN),
             "client_active": is_active,
@@ -83,9 +91,15 @@ class HealthService:
         db_status = await self.check_db()
         ai_status = await self.check_ai_readiness()
 
-        overall = "healthy"
-        if db_status["status"] != "healthy" or ai_status["status"] != "healthy":
+        critical_unhealthy = db_status["status"] != "healthy"
+        ai_degraded = ai_status["status"] != "healthy"
+
+        if critical_unhealthy:
+            overall = "unhealthy"
+        elif ai_degraded:
             overall = "degraded"
+        else:
+            overall = "healthy"
 
         return {
             "status": overall,

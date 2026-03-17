@@ -10,6 +10,8 @@ from alembic import context
 # PROJE AYARLARI
 # Mevcut dizini sys.path'e ekle (app paketini bulabilmek için)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+ALEMBIC_DIR = os.path.abspath(os.path.dirname(__file__))
+ACTIVE_VERSION_DIR = os.path.join(ALEMBIC_DIR, "versions")
 
 from app.config import settings
 from app.database.models import Base
@@ -21,6 +23,7 @@ config = context.config
 # Dinamik URL set et (Alembic sync çalıştığı için asenkron kısımları temizle)
 sync_url = settings.DATABASE_URL.replace("+asyncpg", "").replace("+aiosqlite", "")
 config.set_main_option("sqlalchemy.url", sync_url)
+config.set_main_option("version_locations", ACTIVE_VERSION_DIR)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

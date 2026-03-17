@@ -1,5 +1,5 @@
 """
-TIR Yakıt Takip Sistemi - Pydantic Entities
+TIR YakÄ±t Takip Sistemi - Pydantic Entities
 Type-safe veri modelleri
 """
 
@@ -11,23 +11,37 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from app.core.utils.sefer_status import ensure_canonical_sefer_status
 
 class DurumEnum(str, Enum):
-    """Kayıt durumu"""
+    """KayÄ±t durumu"""
 
     BEKLIYOR = "Bekliyor"
     ONAYLANDI = "Onaylandi"
     REDDEDILDI = "Reddedildi"
     TAMAM = "Tamam"
     HATA = "Hata"
-    IPTAL = "İptal"
+    IPTAL = "\u0130ptal"
+    PLANLANDI = "Planland\u0131"
+    YOLDA = "Yolda"
+    DEVAM_EDIYOR = "Devam Ediyor"
+    TAMAMLANDI = "Tamamland\u0131"
+
+
+class SeferDurumEnum(str, Enum):
+    """Sefer durum sozlesmesi (canonical)."""
+
+    BEKLIYOR = "Bekliyor"
     PLANLANDI = "Planlandı"
     YOLDA = "Yolda"
     DEVAM_EDIYOR = "Devam Ediyor"
+    TAMAMLANDI = "Tamamlandı"
+    TAMAM = "Tamam"
+    IPTAL = "İptal"
 
 
 class ZorlukEnum(str, Enum):
-    """Güzergah zorluğu"""
+    """GÃ¼zergah zorluÄŸu"""
 
     KOLAY = "Kolay"
     NORMAL = "Normal"
@@ -35,7 +49,7 @@ class ZorlukEnum(str, Enum):
 
 
 class SeverityEnum(str, Enum):
-    """Anomali şiddeti"""
+    """Anomali ÅŸiddeti"""
 
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -47,7 +61,7 @@ class SeverityEnum(str, Enum):
 
 
 class BaseEntity(BaseModel):
-    """Tüm entity'ler için ortak base"""
+    """TÃ¼m entity'ler iÃ§in ortak base"""
 
     id: Optional[int] = None
     created_at: Optional[datetime] = None
@@ -57,11 +71,11 @@ class BaseEntity(BaseModel):
     )
 
 
-# ============== ARAÇ ==============
+# ============== ARAÃ‡ ==============
 
 
 class Arac(BaseEntity):
-    """Araç entity'si - tam validation ile"""
+    """AraÃ§ entity'si - tam validation ile"""
 
     plaka: str = Field(..., min_length=7, max_length=12)
     marka: str = Field(..., min_length=2, max_length=50)
@@ -89,15 +103,15 @@ class Arac(BaseEntity):
     @computed_field
     @property
     def yas(self) -> int:
-        """Araç yaşı (yıl bazında) - dinamik hesaplama"""
+        """AraÃ§ yaÅŸÄ± (yÄ±l bazÄ±nda) - dinamik hesaplama"""
         return date.today().year - self.yil
 
     @computed_field
     @property
     def euro_sinifi(self) -> str:
         """
-        Euro emisyon sınıfı tahmini.
-        Eski araçlar daha fazla yakıt harcar.
+        Euro emisyon sÄ±nÄ±fÄ± tahmini.
+        Eski araÃ§lar daha fazla yakÄ±t harcar.
         """
         if self.yil >= 2014:
             return "Euro 6"
@@ -111,13 +125,13 @@ class Arac(BaseEntity):
     @property
     def yas_faktoru(self) -> float:
         """
-        Araç yaşına göre yakıt tüketim faktörü.
-        Yeni araç = 1.0, her 5 yıl için +%2 artış
+        AraÃ§ yaÅŸÄ±na gÃ¶re yakÄ±t tÃ¼ketim faktÃ¶rÃ¼.
+        Yeni araÃ§ = 1.0, her 5 yÄ±l iÃ§in +%2 artÄ±ÅŸ
         """
 
         yas = self.yas
         if yas <= 2:
-            return 0.98  # Yeni araç avantajı
+            return 0.98  # Yeni araÃ§ avantajÄ±
         elif yas <= 5:
             return 1.0
         elif yas <= 10:
@@ -128,9 +142,9 @@ class Arac(BaseEntity):
     @field_validator("plaka")
     @classmethod
     def validate_plaka(cls, v: str) -> str:
-        """Plaka formatını doğrula ve standardize et"""
+        """Plaka formatÄ±nÄ± doÄŸrula ve standardize et"""
         if not v:
-            raise ValueError("Plaka boş olamaz")
+            raise ValueError("Plaka boÅŸ olamaz")
         return validate_plaka_str(v)
 
 
@@ -143,14 +157,14 @@ def validate_plaka_str(v: str) -> str:
     if not match:
         basic_pattern = r"^(\d{2})\s*([A-Z]{1,3})\s*(\d{2,4})$"
         if not re.match(basic_pattern, v):
-            raise ValueError(f"Geçersiz plaka formatı: {v}")
+            raise ValueError(f"GeÃ§ersiz plaka formatÄ±: {v}")
         return v
     parts = [g for g in match.groups() if g]
     return f"{parts[0]} {parts[1]} {parts[2]}"
 
 
 class AracCreate(BaseModel):
-    """Araç oluşturma DTO"""
+    """AraÃ§ oluÅŸturma DTO"""
 
     plaka: str
     marka: str
@@ -178,12 +192,12 @@ class AracCreate(BaseModel):
     @classmethod
     def validate_yil(cls, v: int) -> int:
         if v < 1980 or v > date.today().year + 1:
-            raise ValueError("Geçersiz model yılı")
+            raise ValueError("GeÃ§ersiz model yÄ±lÄ±")
         return v
 
 
 class AracUpdate(BaseModel):
-    """Araç güncelleme DTO"""
+    """AraÃ§ gÃ¼ncelleme DTO"""
 
     plaka: Optional[str] = None
     marka: Optional[str] = None
@@ -202,11 +216,11 @@ class AracUpdate(BaseModel):
         return validate_plaka_str(v)
 
 
-# ============== ŞOFÖR ==============
+# ============== ÅOFÃ–R ==============
 
 
 class Sofor(BaseEntity):
-    """Şoför entity'si"""
+    """ÅofÃ¶r entity'si"""
 
     ad_soyad: str = Field(..., min_length=3, max_length=100)
     telefon: Optional[str] = Field(default=None, max_length=20)
@@ -224,12 +238,12 @@ class Sofor(BaseEntity):
     @field_validator("ad_soyad")
     @classmethod
     def validate_ad_soyad(cls, v: str) -> str:
-        """Ad soyadı title case yap"""
+        """Ad soyadÄ± title case yap"""
         return " ".join(word.capitalize() for word in v.strip().split())
 
 
 class SoforCreate(BaseModel):
-    """Şoför oluşturma DTO"""
+    """ÅofÃ¶r oluÅŸturma DTO"""
 
     ad_soyad: str = Field(..., min_length=3)
     telefon: Optional[str] = None
@@ -247,7 +261,7 @@ class SoforCreate(BaseModel):
 
 
 class Lokasyon(BaseEntity):
-    """Lokasyon/güzergah entity'si"""
+    """Lokasyon/gÃ¼zergah entity'si"""
 
     cikis_yeri: str = Field(..., min_length=2, max_length=100)
     varis_yeri: str = Field(..., min_length=2, max_length=100)
@@ -261,12 +275,11 @@ class Lokasyon(BaseEntity):
     def validate_yer(cls, v: str) -> str:
         return v.strip().title()
 
-
 # ============== YAKIT ALIMI ==============
 
 
 class YakitAlimi(BaseEntity):
-    """Yakıt alımı entity'si"""
+    """YakÄ±t alÄ±mÄ± entity'si"""
 
     tarih: date
     arac_id: int = Field(..., gt=0)
@@ -278,35 +291,35 @@ class YakitAlimi(BaseEntity):
     depo_durumu: str = Field(default="Bilinmiyor", max_length=20)
     durum: DurumEnum = DurumEnum.BEKLIYOR
 
-    # İlişkili veri (optional, JOIN'den gelir)
+    # Ä°liÅŸkili veri (optional, JOIN'den gelir)
     plaka: Optional[str] = None
 
     @field_validator("fiyat_tl", mode="before")
     @classmethod
     def normalize_fiyat(cls, v: Any) -> Decimal:
-        """Float değerleri Decimal'e çevirirken yuvarla"""
+        """Float deÄŸerleri Decimal'e Ã§evirirken yuvarla"""
         if isinstance(v, float):
-            # Float hassasiyet sorununu çözmek için string üzerinden çevir
-            # Ancak önce yuvarla ki 41.050000001 gibi değerler 41.05 olsun
+            # Float hassasiyet sorununu Ã§Ã¶zmek iÃ§in string Ã¼zerinden Ã§evir
+            # Ancak Ã¶nce yuvarla ki 41.050000001 gibi deÄŸerler 41.05 olsun
             return Decimal(f"{v:.2f}")
         return v
 
     @field_validator("fiyat_tl")
     @classmethod
     def validate_decimal_places(cls, v: Decimal) -> Decimal:
-        """Fiyat en fazla 2 ondalık basamak içerebilir"""
+        """Fiyat en fazla 2 ondalÄ±k basamak iÃ§erebilir"""
         # Quantize to 2 decimal places to be safe
         return v.quantize(Decimal("0.01"))
 
     @computed_field
     @property
     def toplam_tutar(self) -> Decimal:
-        """Toplam tutarı hesapla"""
+        """Toplam tutarÄ± hesapla"""
         return round(self.fiyat_tl * Decimal(str(self.litre)), 2)
 
 
 class YakitAlimiCreate(BaseModel):
-    """Yakıt alımı oluşturma DTO"""
+    """YakÄ±t alÄ±mÄ± oluÅŸturma DTO"""
 
     tarih: date
     arac_id: int = Field(..., gt=0)
@@ -319,7 +332,7 @@ class YakitAlimiCreate(BaseModel):
 
 
 class YakitUpdate(BaseModel):
-    """Yakıt alımı güncelleme DTO"""
+    """YakÄ±t alÄ±mÄ± gÃ¼ncelleme DTO"""
 
     tarih: Optional[date] = None
     arac_id: Optional[int] = Field(None, gt=0)
@@ -341,7 +354,7 @@ class YakitUpdate(BaseModel):
     @computed_field
     @property
     def toplam_tutar(self) -> Decimal:
-        """Toplam tutarı hesapla"""
+        """Toplam tutarÄ± hesapla"""
         return round(self.fiyat_tl * Decimal(str(self.litre)), 2)
 
 
@@ -370,7 +383,7 @@ class Sefer(BaseEntity):
     varis_yeri: str = Field(..., min_length=2)
     mesafe_km: float = Field(..., ge=0, le=5000)
     bos_sefer: bool = False
-    durum: DurumEnum = DurumEnum.TAMAM
+    durum: SeferDurumEnum = SeferDurumEnum.TAMAM
 
     # Hesaplanan alanlar
     dagitilan_yakit: Optional[float] = None
@@ -381,10 +394,11 @@ class Sefer(BaseEntity):
     otoban_mesafe_km: Optional[float] = None
     sehir_ici_mesafe_km: Optional[float] = None
     tahmini_tuketim: Optional[float] = None
+    tahmin_meta: Optional[Dict[str, Any]] = None
     is_real: bool = False
     rota_detay: Optional[Dict[str, Any]] = None
 
-    # İlişkili veri (JOIN'den)
+    # Ä°liÅŸkili veri (JOIN'den)
     plaka: Optional[str] = None
     sofor_adi: Optional[str] = None
     guzergah_adi: Optional[str] = None
@@ -392,12 +406,17 @@ class Sefer(BaseEntity):
     @computed_field
     @property
     def ton(self) -> float:
-        """Net ağırlığı tona çevir"""
+        """Net aÄŸÄ±rlÄ±ÄŸÄ± tona Ã§evir"""
         return round(self.net_kg / 1000, 2)
+
+    @field_validator("durum", mode="before")
+    @classmethod
+    def normalize_durum(cls, v: Optional[str]) -> Optional[str]:
+        return ensure_canonical_sefer_status(v, field_name="durum", allow_none=False)
 
 
 class SeferCreate(BaseModel):
-    """Sefer oluşturma DTO"""
+    """Sefer oluÅŸturma DTO"""
 
     sefer_no: Optional[str] = None
     tarih: date
@@ -417,12 +436,12 @@ class SeferCreate(BaseModel):
     varis_yeri: str = Field(..., min_length=2)
     mesafe_km: float = Field(..., gt=0, le=5000)
     bos_sefer: bool = False
-    durum: DurumEnum = DurumEnum.TAMAM
+    durum: SeferDurumEnum = SeferDurumEnum.TAMAM
     ascent_m: float = 0.0
     descent_m: float = 0.0
     flat_distance_km: float = 0.0
     tahmini_tuketim: Optional[float] = None
-    is_real: bool = True  # Manuel/API eklemeleri varsayılan olarak gerçek
+    is_real: bool = True  # Manuel/API eklemeleri varsayÄ±lan olarak gerÃ§ek
     notlar: Optional[str] = None
 
     # Round-trip support
@@ -435,9 +454,14 @@ class SeferCreate(BaseModel):
     def validate_yer(cls, v: str) -> str:
         return v.strip().title()
 
+    @field_validator("durum", mode="before")
+    @classmethod
+    def normalize_durum(cls, v: Optional[str]) -> Optional[str]:
+        return ensure_canonical_sefer_status(v, field_name="durum", allow_none=False)
+
 
 class SeferUpdate(BaseModel):
-    """Sefer güncelleme DTO"""
+    """Sefer gÃ¼ncelleme DTO"""
 
     tarih: Optional[date] = None
     saat: Optional[str] = None
@@ -455,7 +479,7 @@ class SeferUpdate(BaseModel):
     varis_yeri: Optional[str] = None
     mesafe_km: Optional[float] = Field(None, gt=0)
     bos_sefer: Optional[bool] = None
-    durum: Optional[DurumEnum] = None
+    durum: Optional[SeferDurumEnum] = None
     ascent_m: Optional[float] = None
     descent_m: Optional[float] = None
     flat_distance_km: Optional[float] = None
@@ -467,15 +491,20 @@ class SeferUpdate(BaseModel):
     return_net_kg: Optional[int] = None
     return_sefer_no: Optional[str] = None
 
-    # İptal desteği
+    @field_validator("durum", mode="before")
+    @classmethod
+    def normalize_durum(cls, v: Optional[str]) -> Optional[str]:
+        return ensure_canonical_sefer_status(v, field_name="durum", allow_none=True)
+
+    # Ä°ptal desteÄŸi
     iptal_nedeni: Optional[str] = None
 
 
-# ============== YAKIT PERİYODU ==============
+# ============== YAKIT PERÄ°YODU ==============
 
 
 class YakitPeriyodu(BaseEntity):
-    """İki yakıt alımı arası periyot"""
+    """Ä°ki yakÄ±t alÄ±mÄ± arasÄ± periyot"""
 
     arac_id: int
     alim1_id: int
@@ -496,11 +525,11 @@ class YakitPeriyodu(BaseEntity):
     @computed_field
     @property
     def gun_sayisi(self) -> int:
-        """Periyot gün sayısı"""
+        """Periyot gÃ¼n sayÄ±sÄ±"""
         return (self.alim2_tarih - self.alim1_tarih).days
 
 
-# ============== ANALİZ SONUÇLARI ==============
+# ============== ANALÄ°Z SONUÃ‡LARI ==============
 
 
 class AnomalyResult(BaseModel):
@@ -519,7 +548,7 @@ class AnomalyResult(BaseModel):
 
 
 class VehicleStats(BaseModel):
-    """Araç istatistikleri"""
+    """AraÃ§ istatistikleri"""
 
     arac_id: int
     plaka: str
@@ -534,7 +563,7 @@ class VehicleStats(BaseModel):
 
 
 class DriverStats(BaseModel):
-    """Şoför istatistikleri - Genişletilmiş"""
+    """ÅofÃ¶r istatistikleri - GeniÅŸletilmiÅŸ"""
 
     sofor_id: int
     ad_soyad: str
@@ -545,24 +574,24 @@ class DriverStats(BaseModel):
     toplam_ton: float = 0.0
     bos_sefer_sayisi: int = 0
 
-    # Yakıt metrikleri
+    # YakÄ±t metrikleri
     toplam_yakit: float = 0.0
     ort_tuketim: float = 0.0
     en_iyi_tuketim: Optional[float] = None
     en_kotu_tuketim: Optional[float] = None
 
     # Performans
-    filo_karsilastirma: float = 0.0  # % filo ortalamasına göre (+/- değer)
+    filo_karsilastirma: float = 0.0  # % filo ortalamasÄ±na gÃ¶re (+/- deÄŸer)
     performans_puani: Optional[float] = None  # 0-100 (None = Veri Yetersiz)
     trend: str = "stable"  # improving/stable/declining
 
-    # Güzergah bazlı
+    # GÃ¼zergah bazlÄ±
     en_cok_gidilen_guzergah: Optional[str] = None
     guzergah_sayisi: int = 0
 
 
 class DashboardStats(BaseModel):
-    """Dashboard özet istatistikleri"""
+    """Dashboard Ã¶zet istatistikleri"""
 
     toplam_sefer: int = 0
     toplam_km: int = 0
@@ -577,7 +606,7 @@ class DashboardStats(BaseModel):
 
 
 class Ayar(BaseModel):
-    """Sistem ayarı"""
+    """Sistem ayarÄ±"""
 
     anahtar: str
     deger: str
@@ -591,3 +620,4 @@ class Ayar(BaseModel):
 
     def as_bool(self) -> bool:
         return self.deger.lower() in ("1", "true", "yes", "evet")
+

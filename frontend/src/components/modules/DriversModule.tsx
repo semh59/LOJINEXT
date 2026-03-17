@@ -11,6 +11,7 @@ import { DriverHeader } from '../drivers/DriverHeader'
 import { driverService } from '../../services/api/driver-service'
 import { Driver } from '../../types'
 import { useNotify } from '../../context/NotificationContext'
+import { useUrlState } from '../../hooks/use-url-state'
 
 // Ehliyet sınıfları
 const EHLIYET_OPTIONS = ['', 'B', 'C', 'CE', 'D', 'D1E', 'E', 'G']
@@ -25,18 +26,20 @@ export function DriversModule() {
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
 
-    // Görünüm modu
-    const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid')
+    // URL State (Synced filters)
+    const [urlState, setUrlState] = useUrlState({
+        search: '',
+        aktif: true as boolean,
+        ehliyet: '',
+        view: 'grid' as 'table' | 'grid',
+        page: 1
+    })
 
-    // Filtreler
-    const [search, setSearch] = useState('')
-    const [aktifOnly, setAktifOnly] = useState(true)
-    const [ehliyetFilter, setEhliyetFilter] = useState('')
-    const page = 1
+    const { search, aktif: aktifOnly, ehliyet: ehliyetFilter, view: viewMode, page } = urlState
     const limit = 20
 
     // React Query: Fetch Drivers
-    const { data: drivers = [], isLoading } = useQuery({
+    const { data, isLoading } = useQuery({
         queryKey: ['drivers', { page, search, aktifOnly, ehliyetFilter }],
         queryFn: () => driverService.getAll({
             skip: (page - 1) * limit,
@@ -46,6 +49,8 @@ export function DriversModule() {
             ehliyet_sinifi: ehliyetFilter || undefined,
         }),
     })
+
+    const drivers = Array.isArray(data) ? data : data?.items || []
 
     // React Query: Mutations
     const deleteMutation = useMutation({
@@ -140,11 +145,13 @@ export function DriversModule() {
 
     const handleImport = async (file: File) => {
         try {
-            await driverService.uploadExcel(file)
+            const res = await driverService.uploadExcel(file)
             notify("success", "Başarılı", "Sürücüler başarıyla içe aktarıldı.")
             queryClient.invalidateQueries({ queryKey: ['drivers'] })
+            return res
         } catch (error) {
             notify("error", "Hata", "İçe aktarma başarısız.")
+            throw error
         }
     }
 
@@ -158,29 +165,29 @@ export function DriversModule() {
                 onAdd={() => { setSelectedDriver(null); setIsModalOpen(true); }}
                 onExport={handleExport}
                 onDownloadTemplate={handleDownloadTemplate}
-                onImport={handleImport}
+                onImport={handleImport as any}
             />
 
             <DriverFilters 
                 search={search}
-                setSearch={setSearch}
+                setSearch={(val) => setUrlState({ search: val, page: 1 })}
                 viewMode={viewMode}
-                setViewMode={setViewMode}
+                setViewMode={(val) => setUrlState({ view: val })}
                 aktifOnly={aktifOnly}
-                setAktifOnly={setAktifOnly}
+                setAktifOnly={(val) => setUrlState({ aktif: val, page: 1 })}
                 ehliyetFilter={ehliyetFilter}
-                setEhliyetFilter={setEhliyetFilter}
+                setEhliyetFilter={(val) => setUrlState({ ehliyet: val, page: 1 })}
                 ehliyetOptions={EHLIYET_OPTIONS}
             />
 
             {isLoading ? (
                 <div className="flex items-center justify-center min-h-[400px]">
-                    <div className="w-12 h-12 border-4 border-secondary border-t-transparent rounded-full animate-spin" />
+                    <div className="w-10 h-10 border-[3px] border-accent/20 border-t-accent rounded-full animate-spin" />
                 </div>
             ) : (
                 <>
                     {viewMode === 'table' ? (
-                        <div className="card glass overflow-hidden border-none shadow-premium">
+                        <div className="bg-surface rounded-[10px] border border-border shadow-sm overflow-hidden">
                             <DriverTable 
                                 drivers={drivers}
                                 onEdit={(d) => { setSelectedDriver(d); setIsModalOpen(true); }}

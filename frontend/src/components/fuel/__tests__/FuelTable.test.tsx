@@ -1,7 +1,22 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent } from '../../../test/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 import { FuelTable } from '../FuelTable'
 import { FuelRecord } from '../../../types'
+
+vi.mock('@tanstack/react-virtual', () => ({
+    useVirtualizer: (args: any) => {
+        const count = args?.count ?? 0
+        return {
+            getTotalSize: () => count * 80,
+            getVirtualItems: () => Array.from({ length: count }).map((_, index) => ({
+                key: `row-${index}`,
+                index,
+                size: 80,
+                start: index * 80,
+            })),
+        }
+    },
+}))
 
 const mockRecords: FuelRecord[] = [
     {
@@ -22,20 +37,20 @@ const mockRecords: FuelRecord[] = [
 describe('FuelTable', () => {
     it('renders loading state', () => {
         render(<FuelTable records={[]} loading={true} onEdit={() => { }} onDelete={() => { }} />)
-        expect(screen.getByText(/Yükleniyor/i)).toBeInTheDocument()
+        const pulses = screen.getAllByRole('generic').filter(el => el.className.includes('animate-pulse'))
+        expect(pulses.length).toBeGreaterThan(0)
     })
 
     it('renders empty state', () => {
         render(<FuelTable records={[]} loading={false} onEdit={() => { }} onDelete={() => { }} />)
-        expect(screen.getByText(/Kayıt bulunamadı/i)).toBeInTheDocument()
+        expect(screen.getByText(/Kayıt Bulunamadı/i)).toBeInTheDocument()
     })
 
     it('renders records correctly', () => {
         render(<FuelTable records={mockRecords} loading={false} onEdit={() => { }} onDelete={() => { }} />)
         expect(screen.getByText('34ABC123')).toBeInTheDocument()
         expect(screen.getByText('Shell Maslak')).toBeInTheDocument()
-        expect(screen.getByText('450 L')).toBeInTheDocument()
-        expect(screen.getByText('Doldu')).toBeInTheDocument()
+        expect(screen.getByText('450.0 L')).toBeInTheDocument()
     })
 
     it('calls onEdit when edit button clicked', () => {

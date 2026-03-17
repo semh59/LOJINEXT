@@ -158,6 +158,47 @@ class AnalizRepository(BaseRepository[Sefer]):
         )
         return [dict(row._mapping) for row in result.fetchall()]
 
+    async def get_filo_ortalama_tuketim(
+        self,
+        baslangic: Optional[date] = None,
+        bitis: Optional[date] = None,
+    ) -> float:
+        """Filo ortalama tuketimini (L/100km) getirir."""
+        params: Dict[str, Any] = {"default_avg": float(DEFAULT_FILO_ORTALAMA)}
+        where_clauses = [
+            "tuketim IS NOT NULL",
+            "tuketim > 0",
+            "is_real = TRUE",
+            "is_deleted = FALSE",
+        ]
+
+        if baslangic:
+            where_clauses.append("tarih >= :baslangic")
+            params["baslangic"] = baslangic
+        if bitis:
+            where_clauses.append("tarih <= :bitis")
+            params["bitis"] = bitis
+
+        query = text(
+            f"""
+            SELECT COALESCE(AVG(tuketim), :default_avg) AS ort_tuketim
+            FROM seferler
+            WHERE {" AND ".join(where_clauses)}
+            """
+        )
+
+        session = self.session
+        try:
+            result = await session.execute(query, params)
+            avg_value = result.scalar_one_or_none()
+            if avg_value is None:
+                return float(DEFAULT_FILO_ORTALAMA)
+            return round(float(avg_value), 2)
+        except Exception as e:
+            logger.warning(f"Fleet average query failed, using default: {e}")
+            return float(DEFAULT_FILO_ORTALAMA)
+
+
     async def get_dashboard_stats(self) -> Dict:
         """Genel dashboard istatistiklerini getir (AI Context için)"""
         query = text("""

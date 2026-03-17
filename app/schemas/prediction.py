@@ -44,22 +44,48 @@ class PredictionRequest(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    """ML tahmin yanıtı şeması."""
+    """ML tahmin yanit semasi."""
 
-    tahmini_tuketim: float = Field(..., ge=0, description="Tahmini tüketim (L/100km)")
+    tahmini_tuketim: float = Field(..., ge=0, description="Tahmini tuketim (L/100km)")
     tahmini_litre: Optional[float] = Field(
-        None, ge=0, description="Tahmini toplam yakıt (litre, mesafe bazlı hesaplanır)"
+        None, ge=0, description="Tahmini toplam yakit (litre, mesafe bazli hesaplanir)"
     )
-    model_used: Literal["linear", "xgboost", "ensemble"] = "ensemble"
+    prediction_liters: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Deprecated alias for tahmini_litre. Geriye donuk uyumluluk icin tutulur.",
+    )
+    model_used: Literal[
+        "linear",
+        "xgboost",
+        "ensemble",
+        "physics",
+        "physics_fallback",
+    ] = "ensemble"
+    model_version: Optional[str] = Field(
+        None, max_length=100, description="Model versiyon etiketi"
+    )
     status: Literal["success", "failure"] = "success"
+    confidence_score: Optional[float] = Field(
+        None, ge=0, le=1, description="Tahmin guven skoru"
+    )
     confidence_low: Optional[float] = Field(
-        None, ge=0, description="Güven aralığı alt sınır (L/100km)"
+        None, ge=0, description="Guven araligi alt sinir (L/100km)"
     )
     confidence_high: Optional[float] = Field(
-        None, ge=0, description="Güven aralığı üst sınır (L/100km)"
+        None, ge=0, description="Guven araligi ust sinir (L/100km)"
     )
-    faktorler: Optional[Dict[str, float]] = Field(
-        None, description="Tahmin faktör breakdown"
+    warning_level: Optional[Literal["GREEN", "YELLOW", "RED"]] = Field(
+        None, description="Guven seviyesine gore uyari seviyesi"
+    )
+    fallback_triggered: Optional[bool] = Field(
+        False, description="Tahmin fallback ile mi sonuclandi"
+    )
+    faktorler: Optional[Dict[str, Any]] = Field(
+        None, description="Tahmin faktor breakdown"
+    )
+    explanation_summary: Optional[str] = Field(
+        None, max_length=500, description="Kisa aciklama ozeti"
     )
 
 
@@ -159,5 +185,24 @@ class PredictionComparisonResponse(BaseModel):
     accuracy_distribution: AccuracyDistribution
     trend: List[PredictionComparisonPoint]
     total_compared: int
+
+
+# Async prediction queue schemas
+class PredictionEnqueueRequest(BaseModel):
+    question: str
+    context: Optional[str] = None
+
+
+class PredictionEnqueueResponse(BaseModel):
+    task_id: str
+    status: str = "queued"
+
+
+class PredictionStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    answer: Optional[str] = None
+    error: Optional[str] = None
+    finished_at: Optional[str] = None
     best_vehicle_id: Optional[int] = None
     worst_vehicle_id: Optional[int] = None

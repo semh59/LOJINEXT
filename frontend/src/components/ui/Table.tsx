@@ -6,10 +6,10 @@ const Table = React.forwardRef<
     HTMLTableElement,
     React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto rounded-xl border border-neutral-100 bg-white shadow-soft">
+    <div className="relative w-full overflow-auto rounded-[10px] border border-border bg-surface shadow-sm">
         <table
             ref={ref}
-            className={cn("w-full caption-bottom text-sm text-left", className)}
+            className={cn("w-full caption-bottom text-[14px] text-left", className)}
             {...props}
         />
     </div>
@@ -20,7 +20,7 @@ const TableHeader = React.forwardRef<
     HTMLTableSectionElement,
     React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn("[&_tr]:border-b bg-neutral-50/50", className)} {...props} />
+    <thead ref={ref} className={cn("[&_tr]:border-b border-border bg-bg-base/80 backdrop-blur-sm sticky top-0 z-10", className)} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
@@ -43,7 +43,7 @@ const TableFooter = React.forwardRef<
     <tfoot
         ref={ref}
         className={cn(
-            "border-t bg-neutral-100/50 font-medium [&>tr]:last:border-b-0",
+            "border-t border-border bg-bg-base/50 font-medium [&>tr]:last:border-b-0",
             className
         )}
         {...props}
@@ -55,10 +55,14 @@ const TableRow = React.forwardRef<
     HTMLTableRowElement,
     React.HTMLAttributes<HTMLTableRowElement>
 >(({ className, ...props }, ref) => (
+    // LojiNext v2.0 Table Rules: Row hover bg-elevated + box-shadow lift 150ms
     <tr
         ref={ref}
         className={cn(
-            "border-b transition-colors hover:bg-neutral-50/50 data-[state=selected]:bg-neutral-50",
+            "border-b border-border transition-all duration-150 relative",
+            "hover:bg-bg-elevated hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:z-10",
+            "data-[state=selected]:bg-bg-elevated",
+            // Alternating rows subtle rule can be applied where TableRow is used with index % 2 === 0
             className
         )}
         {...props}
@@ -73,7 +77,7 @@ const TableHead = React.forwardRef<
     <th
         ref={ref}
         className={cn(
-            "h-12 px-6 text-left align-middle text-xs font-semibold uppercase text-neutral-500 [&:has([role=checkbox])]:pr-0",
+            "h-[48px] px-[24px] text-left align-middle text-[13px] font-semibold text-secondary tracking-wide [&:has([role=checkbox])]:pr-0",
             className
         )}
         {...props}
@@ -87,7 +91,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <td
         ref={ref}
-        className={cn("p-6 align-middle [&:has([role=checkbox])]:pr-0", className)}
+        className={cn("p-[24px] align-middle text-primary [&:has([role=checkbox])]:pr-0", className)}
         {...props}
     />
 ))
@@ -99,7 +103,7 @@ const TableCaption = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <caption
         ref={ref}
-        className={cn("mt-4 text-sm text-neutral-500", className)}
+        className={cn("mt-[16px] text-[13px] text-secondary", className)}
         {...props}
     />
 ))

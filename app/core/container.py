@@ -57,6 +57,7 @@ class Container:
         self._sofor_repo: Optional["SoforRepository"] = None
         self._yakit_repo: Optional["YakitRepository"] = None
         self._lokasyon_repo: Optional["LokasyonRepository"] = None
+        self._dorse_repo: Optional["DorseRepository"] = None
         self._analiz_repo: Optional["AnalizRepository"] = None
 
         # Services
@@ -65,6 +66,7 @@ class Container:
         self._sefer_service: Optional["SeferService"] = None
         self._yakit_service: Optional["YakitService"] = None
         self._lokasyon_service: Optional["LokasyonService"] = None
+        self._dorse_service: Optional["DorseService"] = None
         self._analiz_service: Optional["AnalizService"] = None
         self._import_service: Optional["ImportService"] = None
         self._report_service: Optional["ReportService"] = None

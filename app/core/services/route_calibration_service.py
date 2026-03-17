@@ -1,7 +1,12 @@
 from typing import Optional, Dict, Any
 from sqlalchemy import select
-from shapely.geometry import LineString
-from geoalchemy2.shape import from_shape
+
+try:
+    from shapely.geometry import LineString
+    from geoalchemy2.shape import from_shape
+except ImportError:
+    LineString = None
+    from_shape = None
 
 from app.database.unit_of_work import UnitOfWork
 from app.database.models import GuzergahKalibrasyon
@@ -65,6 +70,11 @@ class RouteCalibrationService:
         """
         Use a high-quality real trip to set the target 'Golden Path' for a route.
         """
+        if LineString is None or from_shape is None:
+            raise RuntimeError(
+                "Route calibration requires 'shapely' and 'geoalchemy2' dependencies."
+            )
+
         async with self.uow:
             sefer = await self.uow.sefer_repo.get(sefer_id)
             if not sefer or not sefer.rota_detay or not sefer.guzergah_id:

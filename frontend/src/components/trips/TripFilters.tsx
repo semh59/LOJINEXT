@@ -56,7 +56,6 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
     }, []);
 
     const handleSaveFilter = async () => {
-        console.log('💾 [FILTER SAVE] Kayıt başlatıldı. Filtre Adı:', newFilterName, 'Değerler:', filters);
         if (!newFilterName.trim()) {
             toast.error('Lütfen filtre için bir isim girin.');
             return;
@@ -64,14 +63,13 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
 
         setIsSaving(true);
         try {
-            const res = await preferenceService.savePreference({
+            await preferenceService.savePreference({
                 modul: 'seferler',
                 ayar_tipi: 'filtre',
                 ad: newFilterName,
                 deger: filters,
                 is_default: false
             });
-            console.log('✅ [FILTER SAVE SUCCESS]:', res);
             toast.success('Filtre kaydedildi.');
             setNewFilterName('');
             setShowSaveInput(false);
@@ -99,17 +97,17 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
     return (
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             {/* Status Pills */}
-            <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded-2xl border border-white/5 backdrop-blur-md">
+            <div className="flex items-center gap-2 p-1 bg-bg-elevated rounded-xl border border-border">
                 {DURUM_TABS.map(tab => {
                     const isActive = filters.durum === tab.value;
                     return (
                         <button
                             key={tab.value}
                             onClick={() => setFilters({ durum: tab.value })}
-                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                                 isActive
-                                    ? 'bg-[#25d1f4]/10 text-[#25d1f4] shadow-[0_0_15px_rgba(37,209,244,0.1)] border border-[#25d1f4]/20'
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                    ? 'bg-accent text-bg-base shadow-sm'
+                                    : 'text-secondary hover:text-primary hover:bg-surface/50'
                             }`}
                         >
                             {tab.label}
@@ -131,8 +129,8 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                                 className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap",
                                     JSON.stringify(filters) === JSON.stringify(pref.deger)
-                                        ? "bg-[#25d1f4]/10 border-[#25d1f4]/30 text-[#25d1f4]"
-                                        : "bg-white/5 border-white/5 text-slate-400 hover:text-white hover:border-white/10"
+                                        ? "bg-accent/10 border-accent/30 text-accent"
+                                        : "bg-surface border-border text-secondary hover:text-primary hover:border-secondary"
                                 )}
                             >
                                 <Bookmark className="w-3 h-3" />
@@ -140,7 +138,7 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                             </button>
                             <button 
                                 onClick={(e) => handleDeleteFilter(pref.id, e)}
-                                className="w-0 overflow-hidden group-hover:w-6 group-hover:ml-1 transition-all text-slate-500 hover:text-red-400"
+                                className="w-0 overflow-hidden group-hover:w-6 group-hover:ml-1 transition-all text-secondary hover:text-danger"
                             >
                                 <TrashIcon className="w-3 h-3" />
                             </button>
@@ -156,28 +154,28 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                         type="date"
                         value={filters.baslangic_tarih || ''}
                         onChange={(e) => setFilters({ baslangic_tarih: e.target.value })}
-                        className="bg-black/20 border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#25d1f4]/50 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert transition-colors"
+                        className="bg-surface border border-border text-primary rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all"
                         title="Başlangıç Tarihi"
                     />
-                    <span className="text-slate-500">-</span>
+                    <span className="text-secondary">-</span>
                     <input 
                         type="date"
                         value={filters.bitis_tarih || ''}
                         onChange={(e) => setFilters({ bitis_tarih: e.target.value })}
-                        className="bg-black/20 border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#25d1f4]/50 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert transition-colors"
+                        className="bg-surface border border-border text-primary rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all"
                         title="Bitiş Tarihi"
                     />
                 </div>
                 
                 <Button 
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => {
                         resetFilters();
                         toast.success('Filtreler sıfırlandı.');
                     }}
-                    className="flex items-center gap-2 bg-black/20 border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 rounded-xl h-[38px]"
+                    className="flex items-center gap-2 h-[32px] px-3 shadow-none"
                 >
-                    <Filter className="w-4 h-4" />
+                    <Filter className="w-3.5 h-3.5" />
                     Sıfırla
                 </Button>
 
@@ -186,8 +184,8 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                         variant="ghost"
                         onClick={() => setShowSaveInput(!showSaveInput)}
                         className={cn(
-                            "flex items-center gap-2 bg-black/20 border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 rounded-xl h-[38px]",
-                            showSaveInput && "border-[#25d1f4]/50 text-[#25d1f4]"
+                            "flex items-center gap-2 bg-bg-elevated/20 border border-border text-secondary hover:text-primary hover:bg-surface/50 rounded-xl h-[38px]",
+                            showSaveInput && "border-accent/50 text-accent"
                         )}
                         title="Mevcut Filtreyi Kaydet"
                     >
@@ -202,7 +200,7 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                 className="absolute right-0 top-full mt-2 w-64 p-3 glass-card border border-white/10 shadow-2xl z-[60]"
                             >
-                                <p className="text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Filtre Adı</p>
+                                <p className="text-xs font-bold text-secondary uppercase mb-2 tracking-wider">Filtre Adı</p>
                                 <div className="flex flex-col gap-3">
                                     <input 
                                         autoFocus
@@ -210,7 +208,7 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                                         placeholder="Örn: Aktif Seferler"
                                         value={newFilterName}
                                         onChange={(e) => setNewFilterName(e.target.value)}
-                                        className="bg-black/40 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#25d1f4]/50"
+                                        className="bg-bg-elevated/40 border border-border text-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50"
                                         onKeyDown={(e) => e.key === 'Enter' && handleSaveFilter()}
                                     />
                                     <div className="flex gap-2">
@@ -225,7 +223,7 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
                                         <Button 
                                             size="sm"
                                             variant="ghost"
-                                            className="text-xs border border-white/5"
+                                            className="text-xs border border-border"
                                             onClick={() => setShowSaveInput(false)}
                                         >
                                             Vazgeç

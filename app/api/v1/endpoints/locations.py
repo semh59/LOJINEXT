@@ -79,6 +79,7 @@ async def create_lokasyon(
     """Yeni güzergah oluştur (Service Layer)."""
     try:
         lokasyon_id = await service.add_lokasyon(lokasyon)
+        await uow.commit()
         # Fetch for response
         created = await uow.lokasyon_repo.get_by_id(lokasyon_id)
         return LokasyonResponse.model_validate(dict(created))
@@ -89,7 +90,7 @@ async def create_lokasyon(
         raise HTTPException(status_code=500, detail="Sunucu hatası")
 
 
-@router.get("/{lokasyon_id}", response_model=LokasyonResponse)
+@router.get("/{lokasyon_id:int}", response_model=LokasyonResponse)
 async def get_lokasyon(
     lokasyon_id: int,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
@@ -102,10 +103,11 @@ async def get_lokasyon(
     return LokasyonResponse.model_validate(dict(loc))
 
 
-@router.put("/{lokasyon_id}", response_model=LokasyonResponse)
+@router.put("/{lokasyon_id:int}", response_model=LokasyonResponse)
 async def update_lokasyon(
     lokasyon_id: int,
     lokasyon_in: LokasyonUpdate,
+    uow: UOWDep,
     current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
     service: Annotated[Any, Depends(get_lokasyon_service)] = None,
 ):
@@ -114,6 +116,7 @@ async def update_lokasyon(
         success = await service.update_lokasyon(lokasyon_id, lokasyon_in)
         if not success:
             raise HTTPException(status_code=404, detail="Güzergah bulunamadı")
+        await uow.commit()
         loc = await service.repo.get_by_id(lokasyon_id)
         return LokasyonResponse.model_validate(dict(loc))
     except Exception as e:
@@ -121,9 +124,10 @@ async def update_lokasyon(
         raise HTTPException(status_code=500)
 
 
-@router.delete("/{lokasyon_id}")
+@router.delete("/{lokasyon_id:int}")
 async def delete_lokasyon(
     lokasyon_id: int,
+    uow: UOWDep,
     current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
     response: Response,
     service: Annotated[Any, Depends(get_lokasyon_service)] = None,
@@ -140,6 +144,7 @@ async def delete_lokasyon(
         success = await service.delete_lokasyon(lokasyon_id)
         if not success:
             raise HTTPException(status_code=404)
+        await uow.commit()
 
         if not was_active:
             response.headers["X-Delete-Type"] = "Hard Delete"
@@ -197,15 +202,17 @@ async def get_unique_names(
     return await uow.lokasyon_repo.get_benzersiz_lokasyonlar()
 
 
-@router.post("/{lokasyon_id}/analyze")
+@router.post("/{lokasyon_id:int}/analyze")
 async def analyze_with_openroute(
     lokasyon_id: int,
+    uow: UOWDep,
     current_admin: Annotated[Kullanici, Depends(get_current_active_admin)],
     service: Annotated[Any, Depends(get_lokasyon_service)] = None,
 ):
     """OpenRouteService kullanarak güzergahı analiz et (Service Layer)."""
     try:
         result = await service.analyze_route(lokasyon_id)
+        await uow.commit()
         # Map hybrid results to frontend expectations
         return {
             "success": True,

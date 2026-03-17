@@ -16,17 +16,17 @@ interface TripStatsProps {
 }
 
 const colorMap = [
-    { text: 'text-[#25d1f4]', bg: 'bg-[#25d1f4]/10', border: 'border-[#25d1f4]/30', glow: 'bg-[#25d1f4]/20' }, // Primary (Cyan)
-    { text: 'text-[#10b981]', bg: 'bg-[#10b981]/10', border: 'border-[#10b981]/30', glow: 'bg-[#10b981]/20' }, // Secondary (Emerald)
-    { text: 'text-[#f59e0b]', bg: 'bg-[#f59e0b]/10', border: 'border-[#f59e0b]/30', glow: 'bg-[#f59e0b]/20' }, // Accent (Amber)
-    { text: 'text-[#ef4444]', bg: 'bg-[#ef4444]/10', border: 'border-[#ef4444]/30', glow: 'bg-[#ef4444]/20' }, // Danger (Red)
+    { text: 'text-accent', bg: 'bg-accent/10', border: 'border-accent/30' },
+    { text: 'text-success', bg: 'bg-success/10', border: 'border-success/30' },
+    { text: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/30' },
+    { text: 'text-danger', bg: 'bg-danger/10', border: 'border-danger/30' },
 ];
 
 export function TripStats({ stats }: TripStatsProps) {
     return (
         <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-white">Sefer Özetleri</h2>
+                <h2 className="text-lg font-bold text-primary tracking-tight">Sefer Özetleri</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat, idx) => {
@@ -35,33 +35,27 @@ export function TripStats({ stats }: TripStatsProps) {
                 return (
                     <motion.div
                         key={idx}
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.1 }}
+                        transition={{ duration: 0.6, delay: idx * 0.1, ease: "easeOut" }}
                         className={cn(
-                            "bg-[#132326]/60 backdrop-blur-md p-6 rounded-2xl relative overflow-hidden group border border-white/5 transition-all hover:border",
-                            theme.border.replace('border-', 'hover:border-')
+                            "bg-surface p-6 rounded-[12px] relative overflow-hidden group border border-border shadow-sm transition-all hover:shadow-md hover:border-accent/20"
                         )}
                     >
-                        <div className={cn(
-                            "absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl transition-all group-hover:scale-110",
-                            theme.glow
-                        )}></div>
-                        
                         <div className="flex justify-between items-start mb-4 relative z-10">
                             <div>
-                                <p className="text-slate-400 font-medium text-sm">{stat.label}</p>
-                                <h3 className="text-3xl font-bold text-white mt-1">
+                                <p className="text-secondary font-medium text-[13px]">{stat.label}</p>
+                                <h3 className="text-2xl font-bold text-primary mt-1 tracking-tight tabular-data">
                                     {typeof stat.value === 'number' && idx > 0 ? stat.value.toLocaleString('tr-TR') : stat.value}
                                     {stat.unit && (
-                                        <span className="text-sm ml-1 text-slate-500 font-medium">
+                                        <span className="text-xs ml-1 text-secondary font-medium uppercase tracking-wider">
                                             {stat.unit}
                                         </span>
                                     )}
                                 </h3>
                             </div>
-                            <div className={cn("p-2 rounded-lg", theme.bg, theme.text)}>
-                                <stat.icon className="w-6 h-6" />
+                            <div className={cn("p-2.5 rounded-lg transition-colors group-hover:bg-accent group-hover:text-bg-base", theme.bg, theme.text)}>
+                                <stat.icon className="w-5 h-5" />
                             </div>
                         </div>
                     </motion.div>

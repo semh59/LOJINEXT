@@ -26,41 +26,41 @@ export function RouteAnalysisCard({ analysis }: RouteAnalysisCardProps) {
     const totalDown = hDown + oDown;
 
     const steepnessData = [
-        { name: 'Düz', value: totalFlat, color: '#22c55e', icon: Minus },
-        { name: 'Çıkış', value: totalUp, color: '#ef4444', icon: ArrowUpRight },
-        { name: 'İniş', value: totalDown, color: '#f59e0b', icon: ArrowDownRight }
+        { name: 'Düz', value: totalFlat, color: 'var(--success)', icon: Minus },
+        { name: 'Çıkış', value: totalUp, color: 'var(--danger)', icon: ArrowUpRight },
+        { name: 'İniş', value: totalDown, color: 'var(--warning)', icon: ArrowDownRight }
     ].filter(d => d.value > 0);
 
     // 2. Road Type Data (3-Tier Distribution)
     const ratios = analysis.ratios || { otoyol: 0, devlet_yolu: 0, sehir_ici: 0 };
     const threeTierData = [
-        { name: 'Otoyol', value: ratios.otoyol, color: '#3b82f6', speed: '85 km/h' },
-        { name: 'Devlet Yolu', value: ratios.devlet_yolu, color: '#10b981', speed: '65 km/h' },
-        { name: 'Şehir İçi', value: ratios.sehir_ici, color: '#f59e0b', speed: '35 km/h' }
+        { name: 'Otoyol', value: ratios.otoyol, color: 'var(--info)', speed: '85 km/h' },
+        { name: 'Devlet Yolu', value: ratios.devlet_yolu, color: 'var(--success)', speed: '65 km/h' },
+        { name: 'Şehir İçi', value: ratios.sehir_ici, color: 'var(--warning)', speed: '35 km/h' }
     ].filter(d => d.value > 0);
 
     return (
-        <div className="bg-white rounded-[32px] border border-neutral-100 p-8 shadow-premium space-y-8">
-            <div className="flex items-center justify-between border-b border-neutral-50 pb-6">
+        <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm space-y-8">
+            <div className="flex items-center justify-between border-b border-border pb-6">
                 <div className="flex items-center gap-4">
-                    <div className="bg-violet-500/10 p-3 rounded-2xl">
-                        <Activity className="w-6 h-6 text-violet-600" />
+                    <div className="bg-accent/10 p-3 rounded-xl">
+                        <Activity className="w-6 h-6 text-accent" />
                     </div>
                     <div>
-                        <h3 className="font-black text-neutral-900 uppercase tracking-tight">Güzergah Zekası</h3>
-                        <p className="text-[10px] text-neutral-400 font-black uppercase tracking-widest">Gelişmiş Rota ve Eğim Analizi</p>
+                        <h3 className="font-bold text-primary uppercase tracking-tight">Güzergah Zekası</h3>
+                        <p className="text-[10px] text-secondary font-bold uppercase tracking-widest">Gelişmiş Rota ve Eğim Analizi</p>
                     </div>
                 </div>
-                <div className="bg-neutral-100 text-neutral-500 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-neutral-200/50">
-                    Mapbox Intelligence v2
+                <div className="bg-bg-elevated text-secondary text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-widest border border-border">
+                    LojiNext Intelligence v2
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                 {/* 3-Tier Distribution Chart */}
                 <div className="space-y-6">
-                    <h4 className="text-xs font-black text-neutral-500 uppercase tracking-widest flex items-center gap-2">
-                        <Map className="w-4 h-4" />
+                    <h4 className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
+                        <Map className="w-4 h-4 text-accent" />
                         Yol Karakteri Dağılımı
                     </h4>
                     
@@ -89,8 +89,8 @@ export function RouteAnalysisCard({ analysis }: RouteAnalysisCardProps) {
                         </ResponsiveContainer>
                         
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[10px] font-black text-neutral-400 uppercase tracking-tighter">Toplam Rota</span>
-                            <span className="text-2xl font-black text-neutral-800 tracking-tighter">
+                            <span className="text-[10px] font-bold text-secondary uppercase tracking-tighter">Toplam Rota</span>
+                            <span className="text-2xl font-bold text-primary tracking-tighter">
                                 {totalDistance.toFixed(0)}
                                 <span className="text-sm font-bold ml-1">km</span>
                             </span>
@@ -99,10 +99,10 @@ export function RouteAnalysisCard({ analysis }: RouteAnalysisCardProps) {
 
                     <div className="grid grid-cols-3 gap-2">
                         {threeTierData.map((item) => (
-                            <div key={item.name} className="bg-neutral-50 p-3 rounded-2xl border border-neutral-100/50 text-center">
+                            <div key={item.name} className="bg-bg-elevated p-3 rounded-2xl border border-border text-center">
                                 <div className="text-[10px] font-black uppercase tracking-tighter opacity-50 mb-1" style={{ color: item.color }}>{item.name}</div>
-                                <div className="text-xs font-black text-neutral-800">%{Math.round(item.value * 100)}</div>
-                                <div className="text-[9px] font-bold text-neutral-400 mt-1 uppercase">@{item.speed}</div>
+                                <div className="text-xs font-black text-primary">%{Math.round(item.value * 100)}</div>
+                                <div className="text-[9px] font-bold text-secondary mt-1 uppercase">@{item.speed}</div>
                             </div>
                         ))}
                     </div>
@@ -110,7 +110,7 @@ export function RouteAnalysisCard({ analysis }: RouteAnalysisCardProps) {
 
                 {/* Steepness Distribution */}
                 <div className="space-y-6">
-                    <h4 className="text-xs font-black text-neutral-500 uppercase tracking-widest flex items-center gap-2">
+                    <h4 className="text-xs font-black text-secondary uppercase tracking-widest flex items-center gap-2">
                         <Activity className="w-4 h-4" />
                         Eğim ve Topografya
                     </h4>
@@ -119,18 +119,18 @@ export function RouteAnalysisCard({ analysis }: RouteAnalysisCardProps) {
                         {steepnessData.map((item) => (
                             <div key={item.name} className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="flex items-center gap-3 text-xs font-black uppercase tracking-wider text-neutral-700">
+                                    <span className="flex items-center gap-3 text-xs font-black uppercase tracking-wider text-primary">
                                         <div className="p-2 rounded-lg" style={{ backgroundColor: `${item.color}15` }}>
                                             <item.icon className="w-4 h-4" style={{ color: item.color }} />
                                         </div>
                                         {item.name}
                                     </span>
                                     <div className="text-right">
-                                        <div className="text-sm font-black text-neutral-900 tracking-tighter">{item.value.toFixed(1)} km</div>
-                                        <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">%{((item.value / (totalFlat + totalUp + totalDown || 1)) * 100).toFixed(0)}</div>
+                                        <div className="text-sm font-black text-primary tracking-tighter">{item.value.toFixed(1)} km</div>
+                                        <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">%{((item.value / (totalFlat + totalUp + totalDown || 1)) * 100).toFixed(0)}</div>
                                     </div>
                                 </div>
-                                <div className="h-3 w-full bg-neutral-100 rounded-full overflow-hidden border border-neutral-200/20">
+                                <div className="h-3 w-full bg-bg-elevated rounded-full overflow-hidden border border-border">
                                     <motion.div 
                                         initial={{ width: 0 }}
                                         animate={{ width: `${(item.value / (totalFlat + totalUp + totalDown || 1)) * 100}%` }}
@@ -145,18 +145,18 @@ export function RouteAnalysisCard({ analysis }: RouteAnalysisCardProps) {
             </div>
 
             {/* AI Insight Box */}
-            <div className="bg-violet-600 text-white rounded-3xl p-6 relative overflow-hidden group">
+            <div className="bg-accent/10 border border-accent/20 text-primary rounded-2xl p-6 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-8 transform translate-x-1/4 -translate-y-1/4 opacity-10 group-hover:scale-110 transition-transform">
-                    <Sparkles className="w-32 h-32" />
+                    <Sparkles className="w-32 h-32 text-accent" />
                 </div>
                 <div className="relative z-10 space-y-2">
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
                         <Bot className="w-4 h-4" />
                         Yapay Zeka Analiz Özeti
                     </div>
-                    <p className="text-sm font-medium leading-relaxed max-w-2xl">
-                        Bu rotada operasyon verimliliği için <span className="font-black text-brand-yellow">%{Math.round(ratios.otoyol * 100)} otoyol</span> kullanımı algılandı. 
-                        Fizik tabanlı yakıt motorumuz, bu yol karakterini dikkate alarak <span className="font-black underline">85 km/h</span> seyir hızı ve aerodinamik sürtünme katsayılarını otomatik kalibre etti.
+                    <p className="text-sm font-medium leading-relaxed max-w-2xl text-secondary">
+                        Bu rotada operasyon verimliliği için <span className="font-bold text-accent">%{Math.round(ratios.otoyol * 100)} otoyol</span> kullanımı algılandı. 
+                        Fizik tabanlı yakıt motorumuz, bu yol karakterini dikkate alarak <span className="font-bold underline decoration-accent/30">85 km/h</span> seyir hızı ve aerodinamik sürtünme katsayılarını otomatik kalibre etti.
                     </p>
                 </div>
             </div>

@@ -2,7 +2,7 @@ import pytest
 from datetime import timezone
 from app.database.models import VehicleEventLog
 from app.core.services.arac_service import AracService
-from app.database.unit_of_work import get_uow
+from app.core.unit_of_work import get_uow
 
 
 @pytest.mark.asyncio

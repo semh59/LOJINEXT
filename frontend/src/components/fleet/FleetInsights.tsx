@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { vehicleService } from '../../services/api/vehicle-service'
 import { dorseService } from '../../services/dorseService'
+import { cn } from '../../lib/utils'
 
 interface StatProps {
     title: string
@@ -15,13 +16,18 @@ interface StatProps {
 
 function StatCard({ title, value, unit, trend, type, className = '' }: StatProps) {
     return (
-        <div className={`bg-[#1a0121]/60 backdrop-blur-md p-5 rounded-2xl relative overflow-hidden group border border-[#d006f9]/20 shadow-[0_0_15px_rgba(208,6,249,0.05)] ${className}`}>
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-[#d006f9]/10 rounded-full blur-2xl group-hover:bg-[#d006f9]/20 transition-colors"></div>
-            <p className="text-white/60 text-xs font-medium uppercase tracking-wider mb-1">{title}</p>
+        <div className={cn(
+            "bg-surface p-5 rounded-[12px] relative overflow-hidden group border border-border shadow-sm transition-all hover:shadow-md",
+            className
+        )}>
+            <p className="text-secondary text-[11px] font-bold uppercase tracking-widest mb-1">{title}</p>
             <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">{value}</span>
-                {unit && <span className="text-white/60 text-sm font-medium">{unit}</span>}
-                <span className={`text-xs font-bold flex items-center ml-auto ${type === 'up' ? 'text-[#0df259]' : 'text-red-400'}`}>
+                <span className="text-3xl font-bold text-primary tracking-tight">{value}</span>
+                {unit && <span className="text-secondary text-sm font-medium">{unit}</span>}
+                <span className={cn(
+                    "text-xs font-bold flex items-center ml-auto",
+                    type === 'up' ? 'text-success' : 'text-danger'
+                )}>
                     {type === 'up' ? <TrendingUp className="w-3.5 h-3.5 mr-1" /> : <TrendingDown className="w-3.5 h-3.5 mr-1" />}
                     {trend}%
                 </span>
@@ -39,7 +45,9 @@ export function FleetInsights({ activeTab = 'vehicles' }: { activeTab?: string }
                 const total = (res as any).total ?? (Array.isArray(res) ? res.length : 0);
                 return { total, label: 'Dorse' };
             } else if (activeTab === 'drivers') {
-                return { total: 42, label: 'Sürücü' };
+                const { driverService } = await import('../../services/api/driver-service');
+                const res = await driverService.getAll({ limit: 1 });
+                return { total: res.total, label: 'Sürücü' };
             } else {
                 const res = await vehicleService.getAll({ limit: 1 });
                 const total = (res as any).total ?? (Array.isArray(res) ? res.length : 0);
@@ -50,13 +58,13 @@ export function FleetInsights({ activeTab = 'vehicles' }: { activeTab?: string }
     
     const totalCount = countData?.total || 0;
     const unitLabel = countData?.label || 'Birim';
-    const activeCount = Math.floor(totalCount * 0.85);
+    const activeCount = totalCount; // Using real total instead of 85% estimation
 
     if (isCountLoading) {
         return (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 {[1,2,3].map(i => (
-                    <div key={i} className="h-28 bg-[#1a0121]/40 rounded-2xl animate-pulse border border-[#d006f9]/10 shadow-[0_0_15px_rgba(208,6,249,0.05)]" />
+                    <div key={i} className="h-28 bg-bg-elevated/50 rounded-[12px] animate-pulse border border-border" />
                 ))}
             </div>
         )
@@ -79,7 +87,7 @@ export function FleetInsights({ activeTab = 'vehicles' }: { activeTab?: string }
                     value={activeCount.toString()} 
                     trend={2} 
                     type="up" 
-                    className="border-l-4 border-l-[#d006f9]/60"
+                    className="border-l-[3px] border-l-accent/60"
                 />
             </motion.div>
 

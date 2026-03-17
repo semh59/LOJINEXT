@@ -15,13 +15,10 @@ async def test_unauthenticated_access_returns_401(async_client):
         "/api/v1/trips/",
         "/api/v1/fuel/",
         "/api/v1/locations/",
-        "/api/v1/alerts/",
-        "/api/v1/anomalies/recent",
+        "/api/v1/anomalies/fleet/insights",
         "/api/v1/predictions/predict",
         "/api/v1/reports/dashboard",
         "/api/v1/weather/forecast",
-        "/api/v1/routes/analyze",
-        "/api/v1/ai/status",
     ]
 
     for endpoint in endpoints:

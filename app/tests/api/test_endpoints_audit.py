@@ -8,51 +8,18 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture
-async def normal_auth_headers(async_client, db_session):
-    """Normal kullanıcı için auth header"""
-    from sqlalchemy import select
-
-    from app.core.security import get_password_hash
-    from app.database.models import Kullanici
-
-    # Check if exists
-    result = await db_session.execute(
-        select(Kullanici).where(Kullanici.kullanici_adi == "normal_user")
-    )
-    user = result.scalar_one_or_none()
-
-    if not user:
-        user = Kullanici(
-            kullanici_adi="normal_user",
-            sifre_hash=get_password_hash("password123"),
-            ad_soyad="Normal User",
-            rol="user",
-            aktif=True,
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-    response = await async_client.post(
-        "/api/v1/auth/token",
-        data={"username": "normal_user", "password": "password123"},
-    )
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
 class TestAuthentication:
     """Authentication testleri"""
 
     async def test_protected_endpoint_without_token(self, async_client):
         """Token olmadan korumalı endpoint'e erişim engellenmeli"""
-        response = await async_client.get("/api/v1/users/")
+        response = await async_client.get("/api/v1/admin/users/")
         assert response.status_code == 401
 
     async def test_invalid_token_rejected(self, async_client):
         """Geçersiz token reddedilmeli"""
         response = await async_client.get(
-            "/api/v1/users/", headers={"Authorization": "Bearer invalid_token"}
+            "/api/v1/admin/users/", headers={"Authorization": "Bearer invalid_token"}
         )
         assert response.status_code == 401
 
@@ -118,7 +85,7 @@ class TestIDOR:
         """Başka kullanıcının verisine erişilememeli"""
         # Normal user trying to delete user (admin only)
         response = await async_client.delete(
-            "/api/v1/users/1", headers=normal_auth_headers
+            "/api/v1/admin/users/1", headers=normal_auth_headers
         )
         assert response.status_code == 403
 

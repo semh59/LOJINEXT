@@ -1,5 +1,8 @@
 from typing import List, AsyncGenerator
-from groq import AsyncGroq
+try:
+    from groq import AsyncGroq
+except ImportError:
+    AsyncGroq = None
 from app.config import settings
 from app.infrastructure.logging.logger import get_logger
 from dataclasses import dataclass
@@ -30,8 +33,10 @@ class GroqService:
         )
         self.model_name = settings.GROQ_MODEL_NAME
         self.client = None
-        if self.api_key:
+        if self.api_key and AsyncGroq is not None:
             self.client = AsyncGroq(api_key=self.api_key)
+        elif self.api_key and AsyncGroq is None:
+            logger.warning("groq package is not installed. GroqService will be inactive.")
         else:
             logger.warning("GROQ_API_KEY is not set. GroqService will be inactive.")
 

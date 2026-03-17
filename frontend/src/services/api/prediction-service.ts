@@ -23,6 +23,19 @@ export interface PredictionComparisonResponse {
     total_compared: number;
 }
 
+export interface PredictionEnqueueResponse {
+    task_id: string;
+    status: string;
+}
+
+export interface PredictionStatusResponse {
+    task_id: string;
+    status: string;
+    answer?: string;
+    error?: string;
+    finished_at?: string;
+}
+
 export const predictionService = {
     /**
      * Get comparison of predicted vs actual consumption
@@ -48,5 +61,30 @@ export const predictionService = {
     explain: async (data: any) => {
         const response = await axiosInstance.post('/predictions/explain', data);
         return response.data;
-    }
+    },
+
+    enqueue: async (payload: { question: string; context?: string }) => {
+        const response = await axiosInstance.post<PredictionEnqueueResponse>('/predictions', payload);
+        return response.data;
+    },
+
+    status: async (taskId: string) => {
+        const response = await axiosInstance.get<PredictionStatusResponse>(`/predictions/${taskId}`);
+        return response.data;
+    },
+
+    stream: (taskId: string, onMessage: (data: PredictionStatusResponse) => void) => {
+        const source = new EventSource(`${axiosInstance.defaults.baseURL}/predictions/${taskId}/stream`, {
+            withCredentials: true,
+        });
+        source.onmessage = (event) => {
+            try {
+                const parsed = JSON.parse(event.data) as PredictionStatusResponse;
+                onMessage(parsed);
+            } catch (err) {
+                console.error('SSE parse error', err);
+            }
+        };
+        return () => source.close();
+    },
 };

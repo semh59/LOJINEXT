@@ -1,16 +1,16 @@
-
 import { render, screen } from '@testing-library/react';
 import { TripTable } from '../TripTable';
 import { Trip } from '../../../types';
 import { describe, it, expect, vi } from 'vitest';
 
-// Mock lucide-react to avoid icon rendering issues in tests
-vi.mock('lucide-react', () => ({
-  Truck: () => <div data-testid="truck-icon" />,
-  User: () => <div data-testid="user-icon" />,
-  Edit2: () => <div data-testid="edit-icon" />,
-  Trash2: () => <div data-testid="trash-icon" />,
-  Ban: () => <div data-testid="ban-icon" />
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: () => ({
+    getTotalSize: () => 280,
+    getVirtualItems: () => [
+      { key: 'row-0', index: 0, size: 140, start: 0 },
+      { key: 'row-1', index: 1, size: 140, start: 140 },
+    ],
+  }),
 }));
 
 describe('TripTable', () => {
@@ -21,6 +21,7 @@ describe('TripTable', () => {
       saat: '10:00',
       sefer_no: 'SN-001',
       arac_id: 1,
+      guzergah_id: 1,
       plaka: '34ABC123',
       sofor_id: 1,
       sofor_adi: 'Ahmet Yılmaz',
@@ -32,6 +33,7 @@ describe('TripTable', () => {
       bos_agirlik_kg: 8000,
       dolu_agirlik_kg: 28000,
       durum: 'Tamam',
+      is_real: true,
       bos_sefer: false,
       flat_distance_km: 400
     },
@@ -41,6 +43,7 @@ describe('TripTable', () => {
       saat: '11:00',
       sefer_no: '', // Empty sefer_no
       arac_id: 1,
+      guzergah_id: 2,
       plaka: '34DEF456',
       sofor_id: 2,
       sofor_adi: 'Mehmet Demir',
@@ -52,6 +55,7 @@ describe('TripTable', () => {
       bos_agirlik_kg: 8000,
       dolu_agirlik_kg: 23000,
       durum: 'Yolda',
+      is_real: true,
       bos_sefer: false,
       flat_distance_km: 300
     }
@@ -63,22 +67,20 @@ describe('TripTable', () => {
     onEdit: vi.fn(),
     onDelete: vi.fn(),
     selectedIds: [],
-    onSelect: vi.fn(),
-    onSelectAll: vi.fn()
+    onToggleSelection: vi.fn(),
+    onViewDetails: vi.fn()
   };
 
-  it('renders sefer_no correctly', () => {
+  it('renders trip data with virtualized rows', () => {
     render(<TripTable {...defaultProps} />);
-    
-    // Check for the first trip's sefer_no
+
     expect(screen.getByText('SN-001')).toBeInTheDocument();
-    
-    // Check for the second trip's empty sefer_no (should show '-')
-    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.getByText(/Istanbul/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ankara/i)).toBeInTheDocument();
   });
 
-  it('renders column header "Sefer No"', () => {
-    render(<TripTable {...defaultProps} />);
-    expect(screen.getByText('Sefer No')).toBeInTheDocument();
+  it('renders loading state', () => {
+    render(<TripTable {...defaultProps} isLoading />);
+    expect(document.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
   });
 });

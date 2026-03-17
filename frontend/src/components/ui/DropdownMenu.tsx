@@ -28,7 +28,6 @@ export function DropdownMenu({
     const menuRef = useRef<HTMLDivElement>(null)
     const buttonRef = useRef<HTMLButtonElement>(null)
 
-    // Click dışına tıklandığında kapat
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -45,7 +44,6 @@ export function DropdownMenu({
         }
     }, [isOpen])
 
-    // ESC tuşu ile kapat
     useEffect(() => {
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
@@ -77,11 +75,11 @@ export function DropdownMenu({
                     ref={buttonRef}
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-all"
+                    className="p-[8px] text-secondary hover:text-primary hover:bg-bg-elevated rounded-[6px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/5"
                     aria-haspopup="true"
                     aria-expanded={isOpen}
                 >
-                    <MoreVertical className="w-4 h-4" />
+                    <MoreVertical className="w-[20px] h-[20px]" />
                 </button>
             )
         }
@@ -109,44 +107,45 @@ export function DropdownMenu({
         )
     }
 
+    // LojiNext v2.0 Dropdown Rules: clip-path or max-height unfold, 180ms
     return (
         <div ref={menuRef} className={cn("relative inline-block", className)}>
             {renderTrigger()}
 
-            {isOpen && (
-                <div
-                    className={cn(
-                        "absolute z-50 mt-1 min-w-[160px] py-1 bg-white rounded-xl shadow-lg border border-neutral-100",
-                        "animate-in fade-in-0 zoom-in-95 duration-100",
-                        align === 'right' ? "right-0" : "left-0"
-                    )}
-                    role="menu"
-                >
-                    {items.map((item, index) => (
-                        <button
-                            key={index}
-                            type="button"
-                            role="menuitem"
-                            disabled={item.disabled}
-                            onClick={() => handleItemClick(item)}
-                            className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors",
-                                item.variant === 'danger'
-                                    ? "text-red-600 hover:bg-red-50"
-                                    : "text-neutral-700 hover:bg-neutral-50",
-                                item.disabled && "opacity-50 cursor-not-allowed"
-                            )}
-                        >
-                            {item.icon && (
-                                <span className="w-4 h-4 flex items-center justify-center">
-                                    {item.icon}
-                                </span>
-                            )}
-                            {item.label}
-                        </button>
-                    ))}
-                </div>
-            )}
+            <div
+                className={cn(
+                    "absolute z-50 mt-[4px] min-w-[180px] p-[6px] bg-surface rounded-[10px] shadow-premium border border-border",
+                    // Unfold animation mimicking max-height/clip-path natively in tailwind
+                    "origin-top transition-all duration-180 ease-out",
+                    isOpen ? "opacity-100 scale-y-100 transform-none select-auto pointer-events-auto" : "opacity-0 scale-y-95 pointer-events-none",
+                    align === 'right' ? "right-0" : "left-0"
+                )}
+                role="menu"
+            >
+                {items.map((item, index) => (
+                    <button
+                        key={index}
+                        type="button"
+                        role="menuitem"
+                        disabled={item.disabled}
+                        onClick={() => handleItemClick(item)}
+                        className={cn(
+                            "w-full flex items-center gap-[12px] px-[12px] py-[8px] text-[13px] font-medium transition-colors rounded-[6px] select-none outline-none",
+                            item.variant === 'danger'
+                                ? "text-danger hover:bg-danger/10 focus:bg-danger/10"
+                                : "text-primary hover:bg-bg-elevated focus:bg-bg-elevated",
+                            item.disabled && "opacity-50 cursor-not-allowed"
+                        )}
+                    >
+                        {item.icon && (
+                            <span className="w-[16px] h-[16px] flex items-center justify-center shrink-0">
+                                {item.icon}
+                            </span>
+                        )}
+                        {item.label}
+                    </button>
+                ))}
+            </div>
         </div>
     )
 }

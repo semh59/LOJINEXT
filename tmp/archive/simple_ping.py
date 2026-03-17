@@ -1,1 +1,0 @@
-print("Hello form Simple Ping", flush=True)

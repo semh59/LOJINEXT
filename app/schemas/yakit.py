@@ -44,6 +44,26 @@ class YakitBase(BaseModel):
         """String alanları XSS koruması."""
         return validate_safe_string(v)
 
+    @field_validator("depo_durumu", mode="before")
+    @classmethod
+    def normalize_depo_durumu(cls, v: Optional[str]) -> Optional[str]:
+        """Legacy/EN values are normalized to canonical TR labels."""
+        if v is None:
+            return v
+        normalized = str(v).strip().lower()
+        mapping = {
+            "full": "Dolu",
+            "filled": "Doldu",
+            "dolu": "Dolu",
+            "doldu": "Doldu",
+            "kismi": "Kısmi",
+            "kısmi": "Kısmi",
+            "partial": "Kısmi",
+            "bilinmiyor": "Bilinmiyor",
+            "unknown": "Bilinmiyor",
+        }
+        return mapping.get(normalized, v)
+
     @field_validator("toplam_tutar")
     @classmethod
     def validate_toplam_tutar(cls, v: Decimal, info) -> Decimal:
@@ -81,6 +101,25 @@ class YakitUpdate(BaseModel):
     def validate_strings(cls, v: Optional[str]) -> Optional[str]:
         """String alanları XSS koruması."""
         return validate_safe_string(v)
+
+    @field_validator("depo_durumu", mode="before")
+    @classmethod
+    def normalize_depo_durumu(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = str(v).strip().lower()
+        mapping = {
+            "full": "Dolu",
+            "filled": "Doldu",
+            "dolu": "Dolu",
+            "doldu": "Doldu",
+            "kismi": "Kısmi",
+            "kısmi": "Kısmi",
+            "partial": "Kısmi",
+            "bilinmiyor": "Bilinmiyor",
+            "unknown": "Bilinmiyor",
+        }
+        return mapping.get(normalized, v)
 
 
 class YakitResponse(YakitBase):

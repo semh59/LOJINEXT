@@ -11,6 +11,7 @@ from app.api.deps import (
     get_current_active_admin,
     get_current_user,
 )
+from app.schemas.base import StandardResponse
 from app.core.entities.models import VehicleStats
 from app.core.services.arac_service import AracService
 from app.core.services.excel_service import ExcelService
@@ -27,7 +28,7 @@ router = APIRouter()
 # Let's clean up Create/Update/Delete first.
 
 
-@router.get("/", response_model=List[AracResponse])
+@router.get("/", response_model=StandardResponse[List[AracResponse]])
 async def read_araclar(
     db: SessionDep,
     current_user: Annotated[Kullanici, Depends(get_current_user)],
@@ -253,7 +254,7 @@ async def upload_vehicles(
     file: UploadFile = File(...),
 ):
     # ... existing implementation ...
-    from app.api.deps import get_import_service
+    from app.core.services.import_service import get_import_service
 
     # MIME Type Validation
     ALLOWED_MIME_TYPES = {

@@ -1,42 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card } from '@/components/ui/Card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { adminUsersApi } from '@/services/api/legacy'
-import { useNotify } from '@/context/NotificationContext'
 import { UserPlus, Edit2 } from 'lucide-react'
 
 export default function KullanicilarPage() {
-    const [users, setUsers] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-    const { notify } = useNotify()
 
-    useEffect(() => {
-        loadUsers()
-    }, [])
-
-    const loadUsers = async () => {
-        try {
-            setLoading(true)
-            const data = await adminUsersApi.getAll(0, 100)
-            setUsers(data)
-        } catch (error) {
-            console.error('Failed to load users:', error)
-            notify('error', 'Kullanıcılar yüklenemedi')
-        } finally {
-            setLoading(false)
-        }
-    }
+    const { data: users = [], isLoading: loading } = useQuery({
+        queryKey: ['adminUsers'],
+        queryFn: () => adminUsersApi.getAll(0, 100),
+        staleTime: 5 * 60 * 1000,
+    })
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Kullanıcılar ve Roller</h1>
-                    <p className="text-neutral-500 mt-1">Platformdaki kullanıcıları ve yetkilerini yönetin.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-primary">Kullanıcılar ve Roller</h1>
+                    <p className="text-secondary mt-1">Platformdaki kullanıcıları ve yetkilerini yönetin.</p>
                 </div>
-                <Button variant="glossy-purple" className="flex items-center gap-2">
+                <Button variant="primary" className="flex items-center gap-2">
                     <UserPlus className="w-4 h-4" />
                     Yeni Kullanıcı
                 </Button>
@@ -60,7 +45,7 @@ export default function KullanicilarPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users.map((user) => (
+                            {users.map((user: any) => (
                                 <TableRow key={user.id}>
                                     <TableCell className="font-medium">{user.email}</TableCell>
                                     <TableCell>{user.ad_soyad}</TableCell>
@@ -70,11 +55,11 @@ export default function KullanicilarPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={user.aktif ? 'success' : 'error'} >
+                                        <Badge variant={user.aktif ? 'success' : 'danger'} >
                                             {user.aktif ? 'Aktif' : 'Pasif'}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-neutral-500 text-sm">
+                                    <TableCell className="text-secondary text-sm">
                                         {user.son_giris 
                                             ? new Date(user.son_giris).toLocaleDateString('tr-TR', {
                                                 day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit'
@@ -91,7 +76,7 @@ export default function KullanicilarPage() {
                             ))}
                             {users.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center text-neutral-500">
+                                    <TableCell colSpan={6} className="h-32 text-center text-secondary">
                                         Kayıtlı kullanıcı bulunamadı
                                     </TableCell>
                                 </TableRow>

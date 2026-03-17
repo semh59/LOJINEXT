@@ -1,6 +1,6 @@
 from typing import Any, List, Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class PreferenceBase(BaseModel):
@@ -20,9 +20,7 @@ class PreferenceItem(PreferenceBase):
     kullanici_id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PreferenceListResponse(BaseModel):

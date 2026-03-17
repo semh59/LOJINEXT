@@ -106,120 +106,127 @@ export function VehicleModal({ isOpen, onClose, onSave, vehicle }: VehicleModalP
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                />
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-[#1a0121]/90 backdrop-blur-xl rounded-[32px] w-full max-w-xl border border-[#d006f9]/30 shadow-[0_0_40px_rgba(208,6,249,0.15)] overflow-hidden max-h-[90vh] flex flex-col"
+                    className="bg-surface rounded-[12px] w-full max-w-xl border border-border shadow-xl overflow-hidden max-h-[90vh] flex flex-col"
                 >
-                    <div className="flex items-center justify-between p-6 border-b border-[#d006f9]/20 bg-black/40 shrink-0">
+                    <div className="flex items-center justify-between p-6 border-b border-border bg-bg-elevated shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-[#d006f9]/20 border border-[#d006f9]/40 rounded-xl flex items-center justify-center text-[#d006f9] shadow-[0_0_15px_rgba(208,6,249,0.3)]">
+                            <div className="w-10 h-10 bg-bg-elevated border border-border rounded-[10px] flex items-center justify-center text-accent shadow-sm">
                                 <Truck className="w-5 h-5" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-white">
+                                <h2 className="text-lg font-bold text-primary tracking-tight">
                                     {vehicle ? 'Aracı Düzenle' : 'Yeni Araç Ekle'}
                                 </h2>
-                                <p className="text-xs text-white/50 font-medium">
+                                <p className="text-xs text-secondary font-medium">
                                     {vehicle ? 'Araç bilgilerini güncelleyin' : 'Filoya yeni araç ekleyin'}
                                 </p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+                        <button onClick={onClose} className="p-2 text-secondary hover:text-primary hover:bg-surface rounded-full transition-colors">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
                     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-                        <div className="p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar bg-surface">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Plaka *</label>
+                                <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Plaka *</label>
                                 <Input
                                     {...register('plaka')}
                                     placeholder="34 ABC 123"
-                                    className="font-mono uppercase text-lg tracking-wider bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
+                                    className="font-mono uppercase text-lg tracking-wider"
                                     error={!!errors.plaka}
                                 />
-                                {errors.plaka && <p className="text-xs text-red-400 font-medium ml-1">{errors.plaka.message}</p>}
+                                {errors.plaka && <p className="text-xs text-danger font-medium ml-1">{errors.plaka.message}</p>}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Marka *</label>
-                                    <Input {...register('marka')} placeholder="Mercedes" className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.marka} />
-                                    {errors.marka && <p className="text-xs text-red-400 font-medium ml-1">{errors.marka.message}</p>}
+                                    <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Marka *</label>
+                                    <Input {...register('marka')} placeholder="Mercedes" error={!!errors.marka} />
+                                    {errors.marka && <p className="text-xs text-danger font-medium ml-1">{errors.marka.message}</p>}
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Model</label>
-                                    <Input {...register('model')} placeholder="Actros" className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.model} />
-                                    {errors.model && <p className="text-xs text-red-400 font-medium ml-1">{errors.model.message}</p>}
+                                    <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Model</label>
+                                    <Input {...register('model')} placeholder="Actros" error={!!errors.model} />
+                                    {errors.model && <p className="text-xs text-danger font-medium ml-1">{errors.model.message}</p>}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Yıl</label>
-                                    <Input type="number" {...register('yil', { valueAsNumber: true })} className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.yil} />
-                                    {errors.yil && <p className="text-xs text-red-400 font-medium ml-1">{errors.yil.message}</p>}
+                                    <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Yıl</label>
+                                    <Input type="number" {...register('yil', { valueAsNumber: true })} error={!!errors.yil} />
+                                    {errors.yil && <p className="text-xs text-danger font-medium ml-1">{errors.yil.message}</p>}
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Tank Kapasitesi</label>
+                                    <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Tank Kapasitesi</label>
                                     <div className="relative">
-                                        <Input type="number" {...register('tank_kapasitesi', { valueAsNumber: true })} className="pr-8 bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.tank_kapasitesi} />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 text-sm font-medium">L</span>
+                                        <Input type="number" {...register('tank_kapasitesi', { valueAsNumber: true })} className="pr-8" error={!!errors.tank_kapasitesi} />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary text-sm font-medium">L</span>
                                     </div>
-                                    {errors.tank_kapasitesi && <p className="text-xs text-red-400 font-medium ml-1">{errors.tank_kapasitesi.message}</p>}
+                                    {errors.tank_kapasitesi && <p className="text-xs text-danger font-medium ml-1">{errors.tank_kapasitesi.message}</p>}
                                 </div>
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Hedef Tüketim</label>
+                                <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Hedef Tüketim</label>
                                 <div className="relative max-w-[200px]">
-                                    <Input type="number" step="0.1" {...register('hedef_tuketim', { valueAsNumber: true })} className="pr-20 bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.hedef_tuketim} />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 text-xs font-medium">L/100km</span>
+                                    <Input type="number" step="0.1" {...register('hedef_tuketim', { valueAsNumber: true })} className="pr-20" error={!!errors.hedef_tuketim} />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary text-xs font-medium">L/100km</span>
                                 </div>
-                                {errors.hedef_tuketim && <p className="text-xs text-red-400 font-medium ml-1">{errors.hedef_tuketim.message}</p>}
+                                {errors.hedef_tuketim && <p className="text-xs text-danger font-medium ml-1">{errors.hedef_tuketim.message}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider ml-1">Notlar</label>
+                                <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Notlar</label>
                                 <textarea
                                     {...register('notlar')}
                                     placeholder="Araç hakkında ek bilgiler..."
                                     rows={2}
-                                    className="flex w-full rounded-xl border border-[#d006f9]/30 bg-black/40 text-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-[#d006f9]/60 resize-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-colors"
+                                    className="flex w-full rounded-md border border-border bg-bg-elevated text-primary px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-accent resize-none transition-colors placeholder:text-secondary"
                                 />
-                                <p className="text-xs text-white/30 text-right">{notlar.length}/500</p>
+                                <p className="text-xs text-secondary text-right">{notlar.length}/500</p>
                             </div>
 
-                            <label className="flex items-center gap-3 cursor-pointer p-3 border border-white/10 rounded-xl hover:bg-black/30 transition-colors bg-black/20">
-                                <input type="checkbox" {...register('aktif')} className="w-5 h-5 text-[#d006f9] rounded border-white/20 focus:ring-[#d006f9] bg-black/50" />
+                            <label className="flex items-center gap-3 cursor-pointer p-3 border border-border rounded-xl hover:bg-bg-elevated transition-colors bg-surface">
+                                <input type="checkbox" {...register('aktif')} className="w-5 h-5 text-accent rounded border-border focus:ring-accent bg-bg-elevated" />
                                 <div>
-                                    <span className="text-sm font-bold text-white">Araç Aktif</span>
-                                    <p className="text-xs text-white/50">Pasif araçlar listede gri görünür</p>
+                                    <span className="text-sm font-bold text-primary">Araç Aktif</span>
+                                    <p className="text-xs text-secondary">Pasif araçlar listede gri görünür</p>
                                 </div>
                             </label>
 
-                            <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
-                                <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full flex items-center justify-between p-4 hover:bg-black/40 transition-colors">
+                            <div className="border border-border rounded-xl overflow-hidden bg-surface">
+                                <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full flex items-center justify-between p-4 hover:bg-bg-elevated transition-colors">
                                     <div className="flex items-center gap-2">
-                                        <Settings2 className="w-4 h-4 text-[#d006f9]/80" />
-                                        <span className="text-sm font-bold text-white">Fizik Parametreleri</span>
+                                        <Settings2 className="w-4 h-4 text-primary" />
+                                        <span className="text-sm font-bold text-primary">Fizik Parametreleri</span>
                                     </div>
-                                    {showAdvanced ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
+                                    {showAdvanced ? <ChevronUp className="w-4 h-4 text-secondary" /> : <ChevronDown className="w-4 h-4 text-secondary" />}
                                 </button>
                                 <AnimatePresence>
                                     {showAdvanced && (
-                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="p-4 space-y-4 bg-black/40 border-t border-white/5">
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="p-4 space-y-4 bg-bg-elevated border-t border-border">
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1"><label className="text-xs font-medium text-white/50">Boş Ağırlık</label><Input type="number" className="bg-black/50 border-white/10 text-white" {...register('bos_agirlik_kg', { valueAsNumber: true })} /></div>
-                                                <div className="space-y-1"><label className="text-xs font-medium text-white/50">Hava Direnci (Cd)</label><Input type="number" step="0.01" className="bg-black/50 border-white/10 text-white" {...register('hava_direnc_katsayisi', { valueAsNumber: true })} /></div>
-                                                <div className="space-y-1"><label className="text-xs font-medium text-white/50">Ön Kesit Alanı</label><Input type="number" step="0.1" className="bg-black/50 border-white/10 text-white" {...register('on_kesit_alani_m2', { valueAsNumber: true })} /></div>
-                                                <div className="space-y-1"><label className="text-xs font-medium text-white/50">Motor Verimi</label><Input type="number" step="0.01" className="bg-black/50 border-white/10 text-white" {...register('motor_verimliligi', { valueAsNumber: true })} /></div>
-                                                <div className="space-y-1"><label className="text-xs font-medium text-white/50">Lastik Direnci</label><Input type="number" step="0.001" className="bg-black/50 border-white/10 text-white" {...register('lastik_direnc_katsayisi', { valueAsNumber: true })} /></div>
-                                                <div className="space-y-1"><label className="text-xs font-medium text-white/50">Max Yük Kapasitesi</label><Input type="number" className="bg-black/50 border-white/10 text-white" {...register('maks_yuk_kapasitesi_kg', { valueAsNumber: true })} /></div>
+                                                <div className="space-y-1"><label className="text-xs font-medium text-secondary">Boş Ağırlık</label><Input type="number" {...register('bos_agirlik_kg', { valueAsNumber: true })} /></div>
+                                                <div className="space-y-1"><label className="text-xs font-medium text-secondary">Hava Direnci (Cd)</label><Input type="number" step="0.01" {...register('hava_direnc_katsayisi', { valueAsNumber: true })} /></div>
+                                                <div className="space-y-1"><label className="text-xs font-medium text-secondary">Ön Kesit</label><Input type="number" step="0.1" {...register('on_kesit_alani_m2', { valueAsNumber: true })} /></div>
+                                                <div className="space-y-1"><label className="text-xs font-medium text-secondary">Motor Verimi</label><Input type="number" step="0.01" {...register('motor_verimliligi', { valueAsNumber: true })} /></div>
+                                                <div className="space-y-1"><label className="text-xs font-medium text-secondary">Lastik Direnci</label><Input type="number" step="0.001" {...register('lastik_direnc_katsayisi', { valueAsNumber: true })} /></div>
+                                                <div className="space-y-1"><label className="text-xs font-medium text-secondary">Max Yük Kapasitesi</label><Input type="number" {...register('maks_yuk_kapasitesi_kg', { valueAsNumber: true })} /></div>
                                             </div>
                                         </motion.div>
                                     )}
@@ -227,13 +234,13 @@ export function VehicleModal({ isOpen, onClose, onSave, vehicle }: VehicleModalP
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-[#d006f9]/20 bg-black/40 shrink-0">
+                        <div className="p-6 border-t border-border bg-bg-elevated/30 shrink-0">
                             <div className="flex gap-4">
-                                <Button type="button" variant="secondary" className="flex-1 h-12" onClick={onClose}>İptal</Button>
+                                <Button type="button" variant="secondary" onClick={onClose} className="flex-1">İptal</Button>
                                 <Button 
                                     type="submit" 
-                                    variant="glossy-purple"
-                                    className="flex-1 h-12" 
+                                    variant="primary"
+                                    className="flex-1 h-9" 
                                     isLoading={isSubmitting}
                                 >
                                     {vehicle ? 'Güncelle' : 'Ekle'}

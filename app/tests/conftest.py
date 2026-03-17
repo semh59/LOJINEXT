@@ -22,6 +22,7 @@ sys.path.insert(0, str(APP_DIR.parent))
 os.environ["OPENROUTESERVICE_API_KEY"] = "dummy_test_key"
 os.environ["OPENROUTE_API_KEY"] = "dummy_test_key"
 os.environ["CORS_ORIGINS"] = "http://localhost"
+os.environ["MAPBOX_API_KEY"] = ""
 
 import app.core.container as container_mod  # noqa: E402
 import app.database.repositories.analiz_repo as analiz_mod  # noqa: E402
@@ -68,8 +69,40 @@ async def async_db_engine(temp_db_url):
     async with engine.begin() as conn:
         # Explicitly drop removed tables to avoid FK issues during drop_all
         await conn.execute(text("DROP TABLE IF EXISTS guzergahlar CASCADE"))
+        # Some legacy tables are outside SQLAlchemy metadata and can block drop_all.
+        await conn.execute(text("DROP TABLE IF EXISTS alerts CASCADE"))
+        # Materialized view can depend on seferler and block drop_all between test runs.
+        await conn.execute(
+            text("DROP MATERIALIZED VIEW IF EXISTS sefer_istatistik_mv CASCADE")
+        )
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+        # Test parity: stats endpoint expects materialized view in PostgreSQL.
+        await conn.execute(text("DROP MATERIALIZED VIEW IF EXISTS sefer_istatistik_mv"))
+        await conn.execute(
+            text(
+                """
+                CREATE MATERIALIZED VIEW sefer_istatistik_mv AS
+                SELECT
+                    durum,
+                    COUNT(id) AS toplam_sefer,
+                    COALESCE(SUM(mesafe_km), 0) AS toplam_km,
+                    COALESCE(SUM(otoban_mesafe_km), 0) AS highway_km,
+                    COALESCE(SUM(ascent_m), 0) AS total_ascent,
+                    COALESCE(SUM(net_kg / 1000.0), 0) AS total_weight,
+                    MAX(created_at) AS last_updated
+                FROM seferler
+                WHERE is_real = TRUE AND is_deleted = FALSE
+                GROUP BY durum
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX idx_sefer_istatistik_mv_durum "
+                "ON sefer_istatistik_mv (durum)"
+            )
+        )
 
     yield engine
     await engine.dispose()
@@ -184,9 +217,10 @@ def sofor_service(db_session):
 
 @pytest.fixture
 def sefer_service(db_session):
-    from app.core.services.sefer_service import get_sefer_service
+    from app.core.services.sefer_service import SeferService
+    from app.database.repositories.sefer_repo import SeferRepository
 
-    return get_sefer_service()
+    return SeferService(repo=SeferRepository(session=db_session))
 
 
 @pytest.fixture
@@ -282,34 +316,16 @@ async def async_client(db_session):
 
 
 @pytest.fixture
-async def auth_headers(db_session):
-    """Admin/Superuser auth headers for tests - Ensures admin exists in DB"""
+async def auth_headers():
+    """Admin/Superuser auth headers for tests via virtual super-admin token."""
     from datetime import timedelta
 
-    from sqlalchemy import select
-
-    from app.core.security import create_access_token, get_password_hash
-    from app.database.models import Kullanici
-
-    # Ensure admin exists
-    result = await db_session.execute(
-        select(Kullanici).where(Kullanici.kullanici_adi == "admin")
-    )
-    admin = result.scalar_one_or_none()
-
-    if not admin:
-        admin = Kullanici(
-            kullanici_adi="admin",
-            sifre_hash=get_password_hash("adminpassword"),
-            ad_soyad="Admin User",
-            rol="admin",
-            aktif=True,
-        )
-        db_session.add(admin)
-        await db_session.commit()
+    from app.config import settings
+    from app.core.security import create_access_token
 
     token = create_access_token(
-        data={"sub": "admin", "role": "admin"}, expires_delta=timedelta(minutes=30)
+        data={"sub": settings.SUPER_ADMIN_USERNAME, "is_super": True},
+        expires_delta=timedelta(minutes=30),
     )
     return {"Authorization": f"Bearer {token}"}
 
@@ -327,26 +343,77 @@ async def normal_auth_headers(db_session):
     from sqlalchemy import select
 
     from app.core.security import create_access_token, get_password_hash
-    from app.database.models import Kullanici
+    from app.database.models import Kullanici, Rol
 
-    # Ensure testuser exists
+    # Ensure role exists
+    role_result = await db_session.execute(select(Rol).where(Rol.ad == "izleyici"))
+    role = role_result.scalar_one_or_none()
+    if not role:
+        role = Rol(ad="izleyici", yetkiler={"sefer:read": True})
+        db_session.add(role)
+        await db_session.flush()
+
+    # Ensure test user exists
     result = await db_session.execute(
-        select(Kullanici).where(Kullanici.kullanici_adi == "testuser")
+        select(Kullanici).where(Kullanici.email == "testuser@lojinext.test")
     )
     user = result.scalar_one_or_none()
 
     if not user:
         user = Kullanici(
-            kullanici_adi="testuser",
+            email="testuser@lojinext.test",
             sifre_hash=get_password_hash("userpassword"),
             ad_soyad="Regular User",
-            rol="user",
+            rol_id=role.id,
             aktif=True,
         )
         db_session.add(user)
         await db_session.commit()
 
     token = create_access_token(
-        data={"sub": "testuser", "role": "user"}, expires_delta=timedelta(minutes=30)
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=30),
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def no_trip_read_auth_headers(db_session):
+    """Auth headers for a user that does not have sefer:read permission."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.core.security import create_access_token, get_password_hash
+    from app.database.models import Kullanici, Rol
+
+    role_name = "kisitli"
+    role_result = await db_session.execute(select(Rol).where(Rol.ad == role_name))
+    role = role_result.scalar_one_or_none()
+    if not role:
+        role = Rol(ad=role_name, yetkiler={"dashboard:read": True})
+        db_session.add(role)
+        await db_session.flush()
+
+    user_email = "noread@lojinext.test"
+    result = await db_session.execute(select(Kullanici).where(Kullanici.email == user_email))
+    user = result.scalar_one_or_none()
+    if not user:
+        user = Kullanici(
+            email=user_email,
+            sifre_hash=get_password_hash("userpassword"),
+            ad_soyad="No Read User",
+            rol_id=role.id,
+            aktif=True,
+        )
+        db_session.add(user)
+    elif user.rol_id != role.id:
+        user.rol_id = role.id
+
+    await db_session.commit()
+
+    token = create_access_token(
+        data={"sub": user_email},
+        expires_delta=timedelta(minutes=30),
     )
     return {"Authorization": f"Bearer {token}"}

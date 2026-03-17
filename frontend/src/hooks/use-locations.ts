@@ -31,8 +31,9 @@ export const useLocations = (filters: LocationFilters = {}) => {
                 queryClient.invalidateQueries({ queryKey: ['locations'] });
                 toast.success('Güzergah başarıyla oluşturuldu.');
             },
-            onError: (error: any) => {
-                toast.error(error?.message || 'Güzergah oluşturulurken bir hata oluştu.');
+            onError: (error: unknown) => {
+                const message = error instanceof Error ? error.message : 'Güzergah oluşturulurken bir hata oluştu.';
+                toast.error(message);
             }
         });
     };
@@ -46,8 +47,9 @@ export const useLocations = (filters: LocationFilters = {}) => {
                 queryClient.invalidateQueries({ queryKey: ['locations'] });
                 toast.success('Güzergah başarıyla güncellendi.');
             },
-            onError: (error: any) => {
-                toast.error(error?.message || 'Güzergah güncellenirken bir hata oluştu.');
+            onError: (error: unknown) => {
+                const message = error instanceof Error ? error.message : 'Güzergah güncellenirken bir hata oluştu.';
+                toast.error(message);
             }
         });
     };
@@ -60,8 +62,9 @@ export const useLocations = (filters: LocationFilters = {}) => {
                 queryClient.invalidateQueries({ queryKey: ['locations'] });
                 toast.success('Güzergah başarıyla silindi.');
             },
-            onError: (error: any) => {
-                toast.error(error?.message || 'Güzergah silinirken bir hata oluştu.');
+            onError: (error: unknown) => {
+                const message = error instanceof Error ? error.message : 'Güzergah silinirken bir hata oluştu.';
+                toast.error(message);
             }
         });
     };
@@ -74,8 +77,9 @@ export const useLocations = (filters: LocationFilters = {}) => {
                 queryClient.invalidateQueries({ queryKey: ['locations'] });
                 // Note: Analiz sonrası toast uyarısını bileşende (LocationAnalyzeModal) verebiliriz
             },
-            onError: (error: any) => {
-                toast.error(error?.message || 'Analiz sırasında bir hata oluştu.');
+            onError: (error: unknown) => {
+                const message = error instanceof Error ? error.message : 'Analiz sırasında bir hata oluştu.';
+                toast.error(message);
             }
         });
     };
@@ -98,8 +102,9 @@ export const useLocations = (filters: LocationFilters = {}) => {
                 varis_lat: number;
                 varis_lon: number;
             }) => locationService.getRouteInfo(params),
-            onError: (error: any) => {
-                toast.error(error?.message || 'Rota bilgileri çekilirken bir hata oluştu.');
+            onError: (error: unknown) => {
+                const message = error instanceof Error ? error.message : 'Rota bilgileri çekilirken bir hata oluştu.';
+                toast.error(message);
             }
         });
     };

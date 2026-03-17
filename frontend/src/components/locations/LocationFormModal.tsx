@@ -218,50 +218,50 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Lokasyon Bilgileri */}
                     <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <MapIcon className="w-5 h-5 text-primary" />
-                            <h3 className="font-black text-neutral-900 uppercase tracking-widest text-sm">Rota Bilgileri</h3>
+                        <div className="flex items-center gap-2 mb-2 px-1">
+                            <MapIcon className="w-4 h-4 text-accent" />
+                            <h3 className="font-bold text-primary uppercase tracking-widest text-xs">Rota Bilgileri</h3>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Çıkış Yeri*</label>
+                            <label className="text-xs font-bold text-secondary uppercase tracking-widest px-1">Çıkış Yeri*</label>
                             <Input
                                 {...register('cikis_yeri')}
                                 placeholder="Örn: Ankara"
                                 error={!!errors.cikis_yeri}
                             />
-                            {errors.cikis_yeri && <p className="text-[10px] text-red-500 font-bold px-1">{errors.cikis_yeri.message}</p>}
+                            {errors.cikis_yeri && <p className="text-[10px] text-danger font-bold px-1">{errors.cikis_yeri.message}</p>}
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Varış Yeri*</label>
+                            <label className="text-xs font-bold text-secondary uppercase tracking-widest px-1">Varış Yeri*</label>
                             <Input
                                 {...register('varis_yeri')}
                                 placeholder="Örn: İstanbul"
                                 error={!!errors.varis_yeri}
                             />
-                            {errors.varis_yeri && <p className="text-[10px] text-red-500 font-bold px-1">{errors.varis_yeri.message}</p>}
+                            {errors.varis_yeri && <p className="text-[10px] text-danger font-bold px-1">{errors.varis_yeri.message}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Mesafe (km)*</label>
+                                <label className="text-xs font-bold text-secondary uppercase tracking-widest px-1">Mesafe (km)*</label>
                                 <Input
                                     type="number"
                                     step="any"
                                     {...register('mesafe_km', { valueAsNumber: true })}
                                     readOnly
-                                    className="bg-neutral-50 cursor-not-allowed font-black text-primary border-dashed"
+                                    className="bg-bg-elevated cursor-not-allowed font-black text-primary border-dashed"
                                     error={!!errors.mesafe_km}
                                 />
-                                {errors.mesafe_km && <p className="text-[10px] text-red-500 font-bold px-1">{errors.mesafe_km.message}</p>}
+                                {errors.mesafe_km && <p className="text-[10px] text-danger font-bold px-1">{errors.mesafe_km.message}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Tahmini Süre</label>
+                                <label className="text-xs font-black text-secondary uppercase tracking-widest px-1">Tahmini Süre</label>
                                 <Input
                                     value={formatDuration(watchedSure)}
                                     readOnly
-                                    className="bg-neutral-50 cursor-not-allowed font-black text-primary"
+                                    className="bg-bg-elevated cursor-not-allowed font-black text-primary"
                                     placeholder="00:00:00"
                                 />
                                 <input type="hidden" {...register('tahmini_sure_saat', { valueAsNumber: true })} />
@@ -275,14 +275,14 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                     <div className="space-y-4">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                                <MapIcon className="w-5 h-5 text-primary" />
-                                <h3 className="font-black text-neutral-900 uppercase tracking-widest text-sm">Koordinat Bilgileri</h3>
+                                <MapIcon className="w-5 h-5 text-accent" />
+                                <h3 className="font-black text-primary uppercase tracking-widest text-sm">Koordinat Bilgileri</h3>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Çıkış Enlem (Lat)*</label>
+                                <label className="text-xs font-black text-secondary uppercase tracking-widest px-1">Çıkış Enlem (Lat)*</label>
                                 <Input
                                     type="number"
                                     step="0.000001"
@@ -291,7 +291,7 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Çıkış Boylam (Lon)*</label>
+                                <label className="text-xs font-black text-secondary uppercase tracking-widest px-1">Çıkış Boylam (Lon)*</label>
                                 <Input
                                     type="number"
                                     step="0.000001"
@@ -303,7 +303,7 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Varış Enlem (Lat)*</label>
+                                <label className="text-xs font-black text-secondary uppercase tracking-widest px-1">Varış Enlem (Lat)*</label>
                                 <Input
                                     type="number"
                                     step="0.000001"
@@ -312,7 +312,7 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Varış Boylam (Lon)*</label>
+                                <label className="text-xs font-black text-secondary uppercase tracking-widest px-1">Varış Boylam (Lon)*</label>
                                 <Input
                                     type="number"
                                     step="0.000001"
@@ -323,13 +323,13 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                         </div>
                         
                         <div className="space-y-3">
-                            <div className="text-[10px] text-neutral-400 italic px-1">
+                            <div className="text-[10px] text-secondary italic px-1">
                                 * Koordinatlar girildikten sonra "Rotayı Hesapla" ile veriler otomatik doldurulur.
                             </div>
                             <Button 
                                 type="button" 
                                 variant="primary"
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                                className="w-full"
                                 onClick={handleCalculate}
                                 disabled={!cikisLat || !cikisLon || !varisLat || !varisLon || isCalculating}
                             >
@@ -341,34 +341,34 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                     {/* Teknik Detaylar */}
                     <div className="col-span-full space-y-4">
                         <div className="flex items-center gap-2 mb-2">
-                            <Info className="w-5 h-5 text-primary" />
-                            <h3 className="font-black text-neutral-900 uppercase tracking-widest text-sm">Teknik ve Yol Detayları</h3>
+                            <Info className="w-5 h-5 text-accent" />
+                            <h3 className="font-black text-primary uppercase tracking-widest text-sm">Teknik ve Yol Detayları</h3>
                         </div>
 
                         {routeAnalysisData && (
-                            <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 mb-4 animate-in fade-in slide-in-from-top-2">
-                                <h4 className="font-black text-xs text-neutral-500 uppercase tracking-widest mb-3 border-b border-neutral-200 pb-2">
+                            <div className="bg-bg-elevated p-4 rounded-xl border border-border mb-4 animate-in fade-in slide-in-from-top-2">
+                                <h4 className="font-black text-xs text-secondary uppercase tracking-widest mb-3 border-b border-border pb-2">
                                     Detaylı Yol Analizi
                                 </h4>
                                 <div className="grid grid-cols-2 gap-8">
                                     {/* Otoban */}
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="font-bold text-sm bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Otoban</span>
-                                            <span className="font-black text-sm text-neutral-900">
+                                            <span className="font-bold text-sm bg-info/10 text-info px-2 py-0.5 rounded">Otoban</span>
+                                            <span className="font-black text-sm text-primary">
                                                 {((routeAnalysisData.highway?.flat || 0) + (routeAnalysisData.highway?.up || 0) + (routeAnalysisData.highway?.down || 0)).toFixed(1)} km
                                             </span>
                                         </div>
                                         <div className="space-y-1.5 text-xs">
-                                            <div className="flex justify-between items-center text-neutral-600">
+                                            <div className="flex justify-between items-center text-secondary">
                                                 <span>Düz:</span> 
                                                 <span className="font-mono font-medium">{routeAnalysisData.highway?.flat?.toFixed(1) || 0} km</span>
                                             </div>
-                                            <div className="flex justify-between items-center text-red-600">
+                                            <div className="flex justify-between items-center text-danger">
                                                 <span>Tırmanış:</span> 
                                                 <span className="font-mono font-medium">{(routeAnalysisData.highway?.up || 0).toFixed(1)} km</span>
                                             </div>
-                                            <div className="flex justify-between items-center text-green-600">
+                                            <div className="flex justify-between items-center text-success">
                                                 <span>İniş:</span> 
                                                 <span className="font-mono font-medium">{(routeAnalysisData.highway?.down || 0).toFixed(1)} km</span>
                                             </div>
@@ -378,21 +378,21 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                                     {/* Şehiriçi */}
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="font-bold text-sm bg-orange-50 text-orange-700 px-2 py-0.5 rounded">Şehiriçi / Diğer</span>
-                                            <span className="font-black text-sm text-neutral-900">
+                                            <span className="font-bold text-sm bg-warning/10 text-warning px-2 py-0.5 rounded">Şehiriçi / Diğer</span>
+                                            <span className="font-black text-sm text-primary">
                                                 {((routeAnalysisData.other?.flat || 0) + (routeAnalysisData.other?.up || 0) + (routeAnalysisData.other?.down || 0)).toFixed(1)} km
                                             </span>
                                         </div>
                                         <div className="space-y-1.5 text-xs">
-                                            <div className="flex justify-between items-center text-neutral-600">
+                                            <div className="flex justify-between items-center text-secondary">
                                                 <span>Düz:</span> 
                                                 <span className="font-mono font-medium">{(routeAnalysisData.other?.flat || 0).toFixed(1)} km</span>
                                             </div>
-                                            <div className="flex justify-between items-center text-red-600">
+                                            <div className="flex justify-between items-center text-danger">
                                                 <span>Tırmanış:</span> 
                                                 <span className="font-mono font-medium">{(routeAnalysisData.other?.up || 0).toFixed(1)} km</span>
                                             </div>
-                                            <div className="flex justify-between items-center text-green-600">
+                                            <div className="flex justify-between items-center text-success">
                                                 <span>İniş:</span> 
                                                 <span className="font-mono font-medium">{(routeAnalysisData.other?.down || 0).toFixed(1)} km</span>
                                             </div>
@@ -412,17 +412,17 @@ export const LocationFormModal = ({ isOpen, onClose, onSave, location }: Locatio
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-black text-neutral-400 uppercase tracking-widest px-1">Notlar</label>
+                            <label className="text-xs font-black text-secondary uppercase tracking-widest px-1">Notlar</label>
                             <textarea
                                 {...register('notlar')}
-                                className="flex min-h-[80px] w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex min-h-[80px] w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm placeholder:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 text-primary"
                                 placeholder="Güzergah hakkında ek bilgiler..."
                             />
                         </div>
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-6 border-t border-neutral-100">
+                <div className="flex justify-end gap-3 pt-6 border-t border-border mt-4">
                     <Button variant="secondary" type="button" onClick={onClose}>İptal</Button>
                     <Button type="submit" isLoading={isSubmitting} disabled={isCalculating}>
                         {location ? 'Güncelle' : 'Kaydet'}

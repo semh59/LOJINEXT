@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '../../../test/test-utils';
 import { LocationList } from '../LocationList';
 import { Location } from '../../../types/location';
 import '@testing-library/jest-dom';
@@ -80,6 +80,6 @@ describe('LocationList Component', () => {
       />
     );
 
-    expect(screen.getByText(/kayıt bulunamadı/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Güzergah Bulunamadı/i })).toBeInTheDocument();
   });
 });

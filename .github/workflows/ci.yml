@@ -1,4 +1,4 @@
-name: CI Pipeline
+﻿name: CI Hard Gates
 
 on:
   push:
@@ -6,10 +6,54 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-hard-gates-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  hard-gates:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lojinext_test
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lojinext_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ENVIRONMENT: test
+      SECRET_KEY: test-secret-key
+      ADMIN_PASSWORD: test-admin-password
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/lojinext_test
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/lojinext_test
+      OPENROUTESERVICE_API_KEY: dummy_test_key
+      OPENROUTE_API_KEY: dummy_test_key
+      CORS_ORIGINS: http://localhost
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -17,43 +61,122 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            app/requirements.txt
+            app/requirements-dev.txt
 
-      - name: Install dependencies
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Dependency source contract gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          lines = [
+              line.strip()
+              for line in Path("requirements.txt").read_text(encoding="utf-8-sig").splitlines()
+              if line.strip() and not line.strip().startswith("#")
+          ]
+          expected = ["-r app/requirements.txt"]
+          if lines != expected:
+              raise SystemExit(
+                  f"requirements.txt drift detected. expected={expected}, found={lines}"
+              )
+          print("Dependency source contract OK: requirements.txt -> app/requirements.txt")
+          PY
+
+      - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install -r requirements.txt -r app/requirements-dev.txt
 
-      - name: Run tests with coverage
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Runtime dependency smoke (Celery)
         run: |
-          cd app
-          pytest tests/ --ignore=tests/ui --cov=. --cov-report=xml --cov-report=term-missing -q
+          python - <<'PY'
+          import celery
+          from app.infrastructure.background.celery_app import celery_app
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./app/coverage.xml
-          fail_ci_if_error: false
-          verbose: true
+          print(f"Celery import OK: version={celery.__version__}")
+          print(f"Celery app OK: name={celery_app.main}")
+          PY
 
-  lint:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install linters
+      - name: Forbidden model references gate (qwen/gpt4all)
         run: |
-          pip install ruff
+          if git grep -n -i -E "qwen|gpt4all" -- ':!.github/workflows/ci.yml'; then
+            echo "Forbidden model references detected (qwen/gpt4all)."
+            exit 1
+          fi
+          echo "Forbidden model references gate passed."
 
-      - name: Run Ruff
+      - name: Backend import smoke
+        run: python -c "import app.main"
+
+      - name: Migrate database to head
+        run: alembic upgrade head
+
+      - name: Alembic parity gate
         run: |
-          ruff check app/ --output-format=github || true
+          python - <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          def parse_heads():
+              output = subprocess.check_output(["alembic", "heads"], text=True)
+              revisions = []
+              for line in output.splitlines():
+                  match = re.match(r"^([A-Za-z0-9_]+)\b", line.strip())
+                  if match:
+                      revisions.append(match.group(1))
+              return revisions
+
+          def parse_current():
+              output = subprocess.check_output(["alembic", "current", "--verbose"], text=True)
+              match = re.search(r"^Rev:\s+([A-Za-z0-9_]+)\b", output, flags=re.MULTILINE)
+              if not match:
+                  print(f"Alembic parity failed: could not parse current revision from output:\n{output}")
+                  sys.exit(1)
+              return [match.group(1)]
+
+          heads = parse_heads()
+          current = parse_current()
+
+          if len(heads) != 1:
+              print(f"Alembic parity failed: expected exactly 1 head, found {heads}")
+              sys.exit(1)
+
+          if current != heads:
+              print(f"Alembic parity failed: current={current}, head={heads}")
+              sys.exit(1)
+
+          print(f"Alembic parity OK: {heads[0]}")
+          PY
+
+      - name: Alembic drift gate
+        run: alembic --raiseerr check
+
+      - name: Backend unit tests
+        run: pytest app/tests/unit -q
+
+      - name: Backend integration tests
+        run: pytest app/tests/integration -q
+
+      - name: Frontend tests
+        run: npm --prefix frontend run test -- --run
+
+      - name: Frontend build
+        run: npm --prefix frontend run build
+
+      - name: Frontend lint
+        run: npm --prefix frontend run lint

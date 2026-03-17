@@ -121,12 +121,38 @@ class TestTripE2EFlow:
         else:
             driver_id = drivers[0]["id"]
 
+        # Step 3.5: Get routes (guzergah)
+        routes_response = await client.get("/api/v1/routes/")
+        if routes_response.status_code != 200:
+            # Try /api/v1/locations/ as fallback
+            routes_response = await client.get("/api/v1/locations/")
+        
+        routes = routes_response.json()
+        if not routes:
+            route_data = {
+                "cikis_yeri": "E2E Başlangıç",
+                "varis_yeri": "E2E Varış",
+                "mesafe_km": 350,
+                "aktif": True
+            }
+            create_route = await client.post("/api/v1/routes/", json=route_data)
+            if create_route.status_code != 201:
+                create_route = await client.post("/api/v1/locations/", json=route_data)
+            route_id = create_route.json()["id"]
+        else:
+            # Handle list or dict response
+            if isinstance(routes, dict) and "items" in routes:
+                route_id = routes["items"][0]["id"]
+            else:
+                route_id = routes[0]["id"]
+
         # Step 4: Create new trip
         trip_data = {
             "tarih": date.today().isoformat(),
             "saat": "09:00",
             "arac_id": vehicle_id,
             "sofor_id": driver_id,
+            "guzergah_id": route_id,
             "cikis_yeri": "E2E Başlangıç",
             "varis_yeri": "E2E Varış",
             "mesafe_km": 350,

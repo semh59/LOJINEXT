@@ -1,5 +1,8 @@
 import axiosInstance from './axios-instance';
 import { Driver } from '../../types';
+import { validateResponse } from '../../lib/api-validator';
+import { DriverSchema, PaginatedResponseSchema } from '../../schemas/entities';
+import { z } from 'zod';
 
 /**
  * Şoförler (Drivers) API Servisi
@@ -19,9 +22,26 @@ export const driverService = {
     /**
      * Tüm şoförleri filtreler ile getirir
      */
-    getAll: async (params: DriverFilters = {}): Promise<Driver[]> => {
-        const response = await axiosInstance.get<Driver[]>('/drivers/', { params });
-        return response.data;
+    getAll: async (params: DriverFilters = {}): Promise<{ items: Driver[], total: number }> => {
+        const response = await axiosInstance.get<Record<string, unknown>>('/drivers/', { params });
+        let result: { items: Driver[], total: number };
+
+        // Handle standardized response { data, meta }
+        if (response.data && response.data.data !== undefined) {
+            result = {
+                items: response.data.data as Driver[],
+                total: (response.data.meta as Record<string, number>)?.total ?? (response.data.data as Driver[]).length
+            };
+        }
+        // Fallback for raw list
+        else {
+            result = {
+                items: Array.isArray(response.data) ? response.data as Driver[] : [],
+                total: Array.isArray(response.data) ? (response.data as Driver[]).length : 0
+            };
+        }
+
+        return validateResponse(PaginatedResponseSchema(DriverSchema), result, 'driverService.getAll');
     },
 
     /**
@@ -29,13 +49,13 @@ export const driverService = {
      */
     getById: async (id: number): Promise<Driver> => {
         const response = await axiosInstance.get<Driver>(`/drivers/${id}`);
-        return response.data;
+        return validateResponse(DriverSchema, response.data, `driverService.getById(${id})`);
     },
 
     /**
      * Yeni şoför oluşturur
      */
-    create: async (data: any): Promise<Driver> => {
+    create: async (data: Partial<Driver>): Promise<Driver> => {
         const response = await axiosInstance.post<Driver>('/drivers/', data);
         return response.data;
     },
@@ -58,8 +78,8 @@ export const driverService = {
     /**
      * Şoför puanı günceller
      */
-    updateScore: async (id: number, score: number): Promise<any> => {
-        const response = await axiosInstance.post(`/drivers/${id}/score`, null, {
+    updateScore: async (id: number, score: number): Promise<{ success: boolean; new_score: number }> => {
+        const response = await axiosInstance.post<{ success: boolean; new_score: number }>(`/drivers/${id}/score`, null, {
             params: { score }
         });
         return response.data;
@@ -68,10 +88,10 @@ export const driverService = {
     /**
      * Excel dosyası ile toplu şoför yükler
      */
-    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: unknown[] }> => {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await axiosInstance.post('/drivers/excel/upload', formData, {
+        const response = await axiosInstance.post<{ success: boolean; inserted: number; errors: unknown[] }>('/drivers/excel/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -105,6 +125,6 @@ export const driverService = {
      */
     getPerformance: async (id: number): Promise<any> => {
         const response = await axiosInstance.get(`/drivers/${id}/performance`)
-        return response.data
+        return validateResponse(z.any(), response.data, `driverService.getPerformance(${id})`);
     }
 };

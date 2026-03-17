@@ -83,7 +83,7 @@ async def test_count(test_repo):
 @pytest.mark.asyncio
 async def test_sql_injection_safe(test_repo, db_session):
     """SQL Injection koruması testi"""
-    malicious_name = "'; DROP TABLE araclar; --"
+    malicious_name = "' OR 1=1 --"
     # Parameterized query handles this safely
     new_id = await test_repo.create(
         plaka=malicious_name, marka="Test", model="X", yil=2020
@@ -93,7 +93,7 @@ async def test_sql_injection_safe(test_repo, db_session):
     assert result["plaka"] == malicious_name
 
     # Check table still exists
-    res = await db_session.execute(
-        text("SELECT name FROM sqlite_master WHERE type='table' AND name='araclar'")
-    )
-    assert res.scalar() == "araclar"
+    res = await db_session.execute(text("SELECT to_regclass('public.araclar')"))
+    table_ref = res.scalar()
+    assert table_ref is not None
+    assert "araclar" in str(table_ref)

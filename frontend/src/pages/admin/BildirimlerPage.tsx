@@ -33,20 +33,20 @@ export default function BildirimlerPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Bildirim Yönetimi</h1>
-                    <p className="text-neutral-500 mt-1">Sistem içi bildirim ve e-posta kurallarını yapılandırın.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-primary">Bildirim Yönetimi</h1>
+                    <p className="text-secondary mt-1">Sistem içi bildirim ve e-posta kurallarını yapılandırın.</p>
                 </div>
-                <Button variant="glossy-purple" className="flex items-center gap-2">
+                <Button variant="primary" className="flex items-center gap-2">
                     <Plus className="w-4 h-4" />
                     Yeni Kural
                 </Button>
             </div>
 
             <Card padding="none">
-                <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 flex items-center justify-between">
+                <div className="p-4 border-b border-border bg-bg-elevated/50 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Bell className="w-5 h-5 text-neutral-500" />
-                        <h2 className="text-base font-bold text-neutral-800">Aktif Kurallar</h2>
+                        <Bell className="w-5 h-5 text-secondary" />
+                        <h2 className="text-base font-bold text-primary">Aktif Kurallar</h2>
                     </div>
                 </div>
                 {loading ? (
@@ -67,7 +67,7 @@ export default function BildirimlerPage() {
                         <TableBody>
                             {rules.map((rule) => (
                                 <TableRow key={rule.id}>
-                                    <TableCell className="font-medium text-purple-700">{rule.olay_tipi}</TableCell>
+                                    <TableCell className="font-medium text-accent">{rule.olay_tipi}</TableCell>
                                     <TableCell>
                                         <div className="flex gap-1 flex-wrap">
                                             {rule.kanallar.map((kanal: string) => (
@@ -78,7 +78,7 @@ export default function BildirimlerPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell>Rol #{rule.alici_rol_id}</TableCell>
-                                    <TableCell className="text-neutral-500 max-w-xs truncate">{rule.sablon_icerik || '-'}</TableCell>
+                                    <TableCell className="text-secondary max-w-xs truncate">{rule.sablon_icerik || '-'}</TableCell>
                                     <TableCell>
                                         <Badge variant={rule.aktif ? 'success' : 'default'}>
                                             {rule.aktif ? 'Aktif' : 'Pasif'}
@@ -88,7 +88,7 @@ export default function BildirimlerPage() {
                             ))}
                             {rules.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center text-neutral-500">
+                                    <TableCell colSpan={5} className="h-32 text-center text-secondary">
                                         Bildirim kuralı bulunamadı.
                                     </TableCell>
                                 </TableRow>

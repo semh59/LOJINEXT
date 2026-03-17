@@ -42,7 +42,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (!token) return;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host === 'localhost:3000' ? 'localhost:8000' : window.location.host;
+        // Improved hostname detection to handle multiple local dev scenarios
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? `${window.location.hostname}:8000` 
+            : window.location.host;
         const wsUrl = `${protocol}//${host}/api/v1/admin/ws/live?token=${token}`;
 
         const connect = () => {

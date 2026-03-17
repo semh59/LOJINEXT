@@ -1,5 +1,7 @@
 import axiosInstance from './axios-instance';
 import { Vehicle, VehicleStats, PaginatedResponse } from '../../types';
+import { validateResponse } from '../../lib/api-validator';
+import { VehicleSchema, PaginatedResponseSchema, VehicleStatsSchema } from '../../schemas/entities';
 
 /**
  * Araçlar (Vehicles) API Servisi
@@ -17,12 +19,28 @@ export interface VehicleFilters {
 }
 
 export const vehicleService = {
-    /**
-     * Tüm araçları filtreler ile getirir
-     */
     getAll: async (params: VehicleFilters = {}): Promise<PaginatedResponse<Vehicle>> => {
-        const response = await axiosInstance.get<PaginatedResponse<Vehicle>>('/vehicles/', { params });
-        return response.data;
+        const response = await axiosInstance.get<Record<string, unknown>>('/vehicles/', { params });
+        let result: PaginatedResponse<Vehicle>;
+
+        // Handle standardized response { data, meta }
+        if (response.data && response.data.data !== undefined) {
+            result = {
+                items: response.data.data as Vehicle[],
+                total: (response.data.meta as Record<string, number>)?.total ?? (response.data.data as Vehicle[]).length
+            };
+        }
+        // Fallback for raw list (old behavior)
+        else if (Array.isArray(response.data)) {
+            result = {
+                items: response.data as Vehicle[],
+                total: (response.data as Vehicle[]).length
+            };
+        } else {
+            result = response.data as unknown as PaginatedResponse<Vehicle>;
+        }
+
+        return validateResponse(PaginatedResponseSchema(VehicleSchema), result, 'vehicleService.getAll');
     },
 
     /**
@@ -30,7 +48,7 @@ export const vehicleService = {
      */
     getById: async (id: number): Promise<Vehicle> => {
         const response = await axiosInstance.get<Vehicle>(`/vehicles/${id}`);
-        return response.data;
+        return validateResponse(VehicleSchema, response.data, `vehicleService.getById(${id})`);
     },
 
     /**
@@ -61,16 +79,16 @@ export const vehicleService = {
      */
     getStats: async (id: number): Promise<VehicleStats> => {
         const response = await axiosInstance.get<VehicleStats>(`/vehicles/${id}/stats`);
-        return response.data;
+        return validateResponse(VehicleStatsSchema, response.data, `vehicleService.getStats(${id})`);
     },
 
     /**
      * Excel dosyası ile toplu araç yükler
      */
-    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: unknown[] }> => {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await axiosInstance.post('/vehicles/upload', formData, {
+        const response = await axiosInstance.post<{ success: boolean; inserted: number; errors: unknown[] }>('/vehicles/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },

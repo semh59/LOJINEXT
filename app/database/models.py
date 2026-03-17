@@ -21,7 +21,7 @@ from sqlalchemy import (
     Index,
     CheckConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB, INET, ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY
 
 # from geoalchemy2 import Geometry
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -193,8 +193,12 @@ class Sofor(Base):
     hiz_disiplin_skoru: Mapped[float] = mapped_column(Float, default=1.0)
     agresif_surus_faktoru: Mapped[float] = mapped_column(Float, default=1.0)
     # Phase 5A: Elite Driver Factors
-    ramp_skoru: Mapped[float] = mapped_column(Float, default=1.0)  # Slope behavior
-    istikrar_skoru: Mapped[float] = mapped_column(Float, default=1.0)  # Consistency
+    ramp_skoru: Mapped[float] = mapped_column(
+        Float, default=1.0, server_default=text("1.0")
+    )  # Slope behavior
+    istikrar_skoru: Mapped[float] = mapped_column(
+        Float, default=1.0, server_default=text("1.0")
+    )  # Consistency
 
     aktif: Mapped[bool] = mapped_column(Boolean, default=True)
     is_deleted: Mapped[bool] = mapped_column(
@@ -280,6 +284,7 @@ class Lokasyon(Base):
     kalibrasyonlar: Mapped[List["GuzergahKalibrasyon"]] = relationship(
         back_populates="lokasyon", cascade="all, delete-orphan"
     )
+    seferler: Mapped[List["Sefer"]] = relationship(back_populates="guzergah")
 
 
 class YakitAlimi(Base):
@@ -336,6 +341,7 @@ class Sefer(Base):
             name="check_sefer_durum_enum",
         ),
         Index("idx_seferler_rota_detay_gin", "rota_detay", postgresql_using="gin"),
+        Index("idx_seferler_tahmin_meta_gin", "tahmin_meta", postgresql_using="gin"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -398,7 +404,8 @@ class Sefer(Base):
     tahmini_tuketim: Mapped[Optional[float]] = mapped_column(
         Float
     )  # AI predicted consumption
-    rota_detay: Mapped[Optional[dict]] = mapped_column(JSONB)  # Route path and details
+    tahmin_meta: Mapped[Optional[dict]] = mapped_column(JSON)
+    rota_detay: Mapped[Optional[dict]] = mapped_column(JSON)  # Route path and details
     tuketim: Mapped[Optional[float]] = mapped_column(Float)
     ascent_m: Mapped[Optional[float]] = mapped_column(Float)
     descent_m: Mapped[Optional[float]] = mapped_column(Float)
@@ -420,6 +427,10 @@ class Sefer(Base):
         ForeignKey("kullanicilar.id", ondelete="SET NULL"), index=True
     )
     iptal_nedeni: Mapped[Optional[str]] = mapped_column(String(255))
+    # B-004: Optimistic Locking — her update'te version +1 artar
+    version: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
 
     # PostGIS Spatial Data (Removed temporarily due to missing columns/extension)
     # cikis_geom: Mapped[Optional[Any]] = mapped_column(Geometry("POINT", srid=4326))
@@ -440,9 +451,7 @@ class Sefer(Base):
     arac: Mapped["Arac"] = relationship(back_populates="seferler")
     dorse: Mapped[Optional["Dorse"]] = relationship(back_populates="seferler")
     sofor: Mapped["Sofor"] = relationship(back_populates="seferler")
-    guzergah: Mapped[Optional["Lokasyon"]] = relationship(
-        primaryjoin="foreign(Sefer.guzergah_id) == Lokasyon.id"
-    )
+    guzergah: Mapped[Optional["Lokasyon"]] = relationship(back_populates="seferler")
     created_by: Mapped[Optional["Kullanici"]] = relationship(
         foreign_keys=[created_by_id]
     )
@@ -466,7 +475,9 @@ class Sefer(Base):
 class SeferLog(Base):
     __tablename__ = "seferler_log"
     id: Mapped[int] = mapped_column(primary_key=True)
-    sefer_id: Mapped[int] = mapped_column(Integer, index=True)
+    sefer_id: Mapped[int] = mapped_column(
+        ForeignKey("seferler.id", ondelete="CASCADE"), index=True
+    )
     degisen_alan: Mapped[Optional[str]] = mapped_column(String(50))
     eski_deger: Mapped[Optional[str]] = mapped_column(String)
     yeni_deger: Mapped[Optional[str]] = mapped_column(String)
@@ -475,6 +486,7 @@ class SeferLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+    sefer: Mapped["Sefer"] = relationship()
 
 
 class YakitPeriyodu(Base):
@@ -529,7 +541,7 @@ class Rol(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     ad: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     yetkiler: Mapped[dict] = mapped_column(
-        JSONB, server_default=text("'{}'"), nullable=False
+        JSON, server_default=text("'{}'"), nullable=False
     )
     olusturma: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -548,7 +560,7 @@ class Kullanici(Base):
 
     # Oturum ve Güvenlik
     son_giris: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    son_giris_ip: Mapped[Optional[str]] = mapped_column(INET)
+    son_giris_ip: Mapped[Optional[str]] = mapped_column(String(45))
     basarisiz_giris_sayisi: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False
     )
@@ -602,7 +614,7 @@ class KullaniciOturumu(Base):
     )
     access_token_hash: Mapped[str] = mapped_column(Text, nullable=False)
     refresh_token_hash: Mapped[Optional[str]] = mapped_column(Text)
-    ip_adresi: Mapped[str] = mapped_column(INET, nullable=False)
+    ip_adresi: Mapped[str] = mapped_column(String(45), nullable=False)
     tarayici: Mapped[Optional[str]] = mapped_column(Text)
     olusturma: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -637,9 +649,9 @@ class AdminAuditLog(Base):
     hedef_tablo: Mapped[Optional[str]] = mapped_column(String(100))
     hedef_id: Mapped[Optional[str]] = mapped_column(Text)
     aciklama: Mapped[Optional[str]] = mapped_column(Text)
-    eski_deger: Mapped[Optional[dict]] = mapped_column(JSONB)
-    yeni_deger: Mapped[Optional[dict]] = mapped_column(JSONB)
-    ip_adresi: Mapped[Optional[str]] = mapped_column(INET)
+    eski_deger: Mapped[Optional[dict]] = mapped_column(JSON)
+    yeni_deger: Mapped[Optional[dict]] = mapped_column(JSON)
+    ip_adresi: Mapped[Optional[str]] = mapped_column(String(45))
     tarayici: Mapped[Optional[str]] = mapped_column(Text)
     istek_id: Mapped[Optional[str]] = mapped_column(String(36))  # UUID as string
     basarili: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -780,7 +792,7 @@ class ModelVersiyon(Base):
     model_dosya_yolu: Mapped[Optional[str]] = mapped_column(Text)
     model_boyut_kb: Mapped[Optional[int]] = mapped_column(Integer)
     egitim_suresi_sn: Mapped[Optional[float]] = mapped_column(Float)
-    kullanilan_ozellikler: Mapped[Optional[dict]] = mapped_column(JSONB)
+    kullanilan_ozellikler: Mapped[Optional[dict]] = mapped_column(JSON)
 
     # Model ağırlıkları (ensemble)
     xgboost_agirligi: Mapped[Optional[float]] = mapped_column(Float)
@@ -836,7 +848,7 @@ class SistemKonfig(Base):
     __tablename__ = "sistem_konfig"
 
     anahtar: Mapped[str] = mapped_column(String(100), primary_key=True)
-    deger: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    deger: Mapped[dict] = mapped_column(JSON, nullable=False)
     tip: Mapped[str] = mapped_column(
         String(20), nullable=False
     )  # string, number, boolean, json
@@ -862,8 +874,8 @@ class KonfigGecmis(Base):
         BigInteger().with_variant(Integer, "sqlite"), primary_key=True
     )
     anahtar: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
-    eski_deger: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    yeni_deger: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    eski_deger: Mapped[dict] = mapped_column(JSON, nullable=False)
+    yeni_deger: Mapped[dict] = mapped_column(JSON, nullable=False)
     degisiklik_sebebi: Mapped[Optional[str]] = mapped_column(Text)
     guncelleyen_id: Mapped[Optional[int]] = mapped_column(ForeignKey("kullanicilar.id"))
     zaman: Mapped[datetime] = mapped_column(
@@ -896,9 +908,9 @@ class IceriAktarimGecmisi(Base):
     hatali_kayit: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     islem_haritasi: Mapped[Optional[dict]] = mapped_column(
-        JSONB
+        JSON
     )  # Storing row-to-DB ID mappings for rollback
-    hatalar: Mapped[Optional[dict]] = mapped_column(JSONB)  # Detailed errors per row
+    hatalar: Mapped[Optional[dict]] = mapped_column(JSON)  # Detailed errors per row
 
     yukleyen_id: Mapped[Optional[int]] = mapped_column(ForeignKey("kullanicilar.id"))
 
@@ -908,7 +920,7 @@ class IceriAktarimGecmisi(Base):
     bitis_zamani: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Optional constraint check tracking for safe deletions
-    rollback_baglantilari: Mapped[Optional[dict]] = mapped_column(JSONB)
+    rollback_baglantilari: Mapped[Optional[dict]] = mapped_column(JSON)
 
 
 class GuzergahKalibrasyon(Base):
@@ -973,7 +985,7 @@ class BildirimKurali(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     olay_tipi: Mapped[str] = mapped_column(String(50), index=True)
-    kanallar: Mapped[List[str]] = mapped_column(ARRAY(String))
+    kanallar: Mapped[List[str]] = mapped_column(JSON)
     alici_rol_id: Mapped[int] = mapped_column(Integer)
     aktif: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -1024,7 +1036,7 @@ class KullaniciAyari(Base):
         String(50), index=True
     )  # 'seferler', 'araclar', etc.
     ayar_tipi: Mapped[str] = mapped_column(String(50), index=True)  # 'filtre', 'sutun'
-    deger: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    deger: Mapped[dict] = mapped_column(JSON, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     ad: Mapped[Optional[str]] = mapped_column(
         String(100)
@@ -1039,3 +1051,32 @@ class KullaniciAyari(Base):
 
     # Relationships
     kullanici: Mapped["Kullanici"] = relationship(back_populates="ayarlar")
+
+
+class PredictionResult(Base):
+    """
+    Kuyruklu tahmin sonuçlarının kalıcı kaydı (task_id bazlı).
+    """
+
+    __tablename__ = "prediction_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[str] = mapped_column(
+        String(128), unique=True, nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("kullanicilar.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), default=get_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=get_utc_now
+    )

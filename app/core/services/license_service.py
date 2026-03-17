@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from sqlalchemy import func, select
 
 from app.database.connection import AsyncSessionLocal
-from app.database.models import Arac, Ayarlar, Sefer
+from app.database.models import Arac, Sefer, SistemKonfig as Ayarlar
 from app.infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__)

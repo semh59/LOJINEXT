@@ -50,6 +50,24 @@ class SoforRepository(BaseRepository[Sofor]):
             include_inactive=not sadece_aktif,
         )
 
+    async def count_all(
+        self,
+        sadece_aktif: bool = True,
+        search: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> int:
+        """Filtrelere uyan toplam şoför sayısını getir"""
+        _filters = filters.copy() if filters else {}
+        if search:
+            _filters["search"] = search
+        if "is_deleted" not in _filters:
+            _filters["is_deleted"] = False
+
+        return await super().count(
+            filters=_filters,
+            include_inactive=not sadece_aktif,
+        )
+
     async def add(
         self,
         ad_soyad: str,

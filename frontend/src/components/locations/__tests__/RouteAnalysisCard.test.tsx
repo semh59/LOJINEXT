@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '../../../test/test-utils';
 import { RouteAnalysisCard } from '../RouteAnalysisCard';
 import { describe, it, expect } from 'vitest';
 
@@ -11,7 +11,7 @@ describe('RouteAnalysisCard', () => {
 
     render(<RouteAnalysisCard analysis={mockAnalysis as any} />);
 
-    expect(screen.getByText(/Detaylı Rota Analizi/i)).toBeInTheDocument();
+    expect(screen.getByText(/Güzergah Zekası/i)).toBeInTheDocument();
     expect(screen.getByText(/Düz/i)).toBeInTheDocument();
     expect(screen.getByText(/150.0 km/i)).toBeInTheDocument(); // 100 + 50
   });
@@ -24,14 +24,14 @@ describe('RouteAnalysisCard', () => {
 
     render(<RouteAnalysisCard analysis={partialAnalysis as any} />);
 
-    expect(screen.getByText(/Detaylı Rota Analizi/i)).toBeInTheDocument();
+    expect(screen.getByText(/Güzergah Zekası/i)).toBeInTheDocument();
     // Should show 100.0 km for flat as 'other' defaults to 0
     expect(screen.getByText(/100.0 km/i)).toBeInTheDocument();
   });
   
   it('handles empty analysis without crashing', () => {
     render(<RouteAnalysisCard analysis={{} as any} />);
-    expect(screen.getByText(/Detaylı Rota Analizi/i)).toBeInTheDocument();
+    expect(screen.getByText(/Güzergah Zekası/i)).toBeInTheDocument();
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 });

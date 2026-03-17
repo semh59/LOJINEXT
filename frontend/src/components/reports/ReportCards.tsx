@@ -13,24 +13,24 @@ export function ReportCards({ onDownload }: ReportCardProps) {
             title: 'Filo Özeti',
             desc: 'Genel filo performansı, yakıt ve maliyet özeti.',
             icon: FileText,
-            color: 'bg-blue-100 text-blue-600',
-            grad: 'from-blue-500/10 to-blue-500/5'
+            color: 'bg-info/10 text-info',
+            grad: 'from-info/10 to-info/5'
         },
         {
             id: 'vehicle_detail',
             title: 'Araç Detay Raporu',
             desc: 'Seçili araçlar için sefer ve tüketim detayları.',
             icon: Truck,
-            color: 'bg-purple-100 text-purple-600',
-            grad: 'from-purple-500/10 to-purple-500/5'
+            color: 'bg-accent/10 text-accent',
+            grad: 'from-accent/10 to-accent/5'
         },
         {
             id: 'driver_comparison',
             title: 'Sürücü Karşılaştırma',
             desc: 'Sürücü puanları ve ihlal analizleri.',
             icon: Users,
-            color: 'bg-emerald-100 text-emerald-600',
-            grad: 'from-emerald-500/10 to-emerald-500/5'
+            color: 'bg-success/10 text-success',
+            grad: 'from-success/10 to-success/5'
         }
     ]
 
@@ -42,23 +42,23 @@ export function ReportCards({ onDownload }: ReportCardProps) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className={`relative overflow-hidden glass p-6 rounded-[32px] border border-white/50 group hover:shadow-lg transition-all`}
+                    className={`relative overflow-hidden bg-surface p-6 rounded-2xl border border-border shadow-sm group hover:shadow-md hover:border-accent/40 transition-all`}
                 >
                     <div className={`absolute inset-0 bg-gradient-to-br ${card.grad} opacity-0 group-hover:opacity-100 transition-opacity`} />
 
                     <div className="relative z-10">
-                        <div className={`w-14 h-14 ${card.color} rounded-2xl flex items-center justify-center mb-6 shadow-sm`}>
-                            <card.icon className="w-7 h-7" />
+                        <div className={`w-12 h-12 ${card.color} rounded-xl flex items-center justify-center mb-6 shadow-sm`}>
+                            <card.icon className="w-6 h-6" />
                         </div>
 
-                        <h3 className="text-xl font-bold text-brand-dark mb-2">{card.title}</h3>
-                        <p className="text-neutral-500 text-sm font-medium mb-8 leading-relaxed h-[40px]">
+                        <h3 className="text-xl font-bold text-primary mb-2">{card.title}</h3>
+                        <p className="text-secondary text-sm font-medium mb-8 leading-relaxed h-[40px]">
                             {card.desc}
                         </p>
 
                         <Button
                             variant="secondary"
-                            className="w-full justify-between group-hover:bg-white transition-all shadow-sm"
+                            className="w-full justify-between group-hover:bg-bg-elevated transition-all shadow-sm"
                             onClick={() => onDownload(card.id)}
                         >
                             <span className="flex items-center gap-2">

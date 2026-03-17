@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.ai.qwen_chatbot import get_chatbot
+from app.core.ai.chatbot import get_chatbot
 from app.core.ai.rag_engine import get_rag_engine
 from app.core.services.anomaly_detector import (
     AnomalyDetector,
@@ -21,18 +21,12 @@ async def test_rag_engine_regression_fixed():
 
 
 @pytest.mark.asyncio
-async def test_chatbot_singleton_reload():
-    """Singleton chatbot'un çalışma zamanında model yükleyebildiğini doğrula"""
-    # Önce model yüklemeden al
-    with patch("app.core.ai.qwen_chatbot._chatbot", None):
-        cb = get_chatbot(load_model=False)
-        assert cb.model_loaded is False
-
-        # Sonra model yükleyerek al
-        with patch.object(cb, "_load_model") as mock_load:
-            # model_loaded check'ini geçmesi için False kalmalı
-            get_chatbot(load_model=True)
-            mock_load.assert_called_once()
+async def test_chatbot_singleton_instance():
+    """Chatbot singleton örneği tek instance olmalı."""
+    with patch("app.core.ai.chatbot._chatbot", None):
+        cb1 = get_chatbot()
+        cb2 = get_chatbot()
+        assert cb1 is cb2
 
 
 @pytest.mark.asyncio

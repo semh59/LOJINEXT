@@ -51,15 +51,15 @@ export default function VeriYonetimPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Veri İçe Aktarım ve Rollback</h1>
-                    <p className="text-neutral-500 mt-1">Geçmiş Excel/CSV aktarımlarını görüntüleyin ve gerekirse geri alın.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-primary">Veri İçe Aktarım ve Rollback</h1>
+                    <p className="text-secondary mt-1">Geçmiş Excel/CSV aktarımlarını görüntüleyin ve gerekirse geri alın.</p>
                 </div>
             </div>
 
             <Card padding="none">
-                <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 flex items-center gap-2">
-                    <Database className="w-5 h-5 text-neutral-500" />
-                    <h2 className="text-base font-bold text-neutral-800">Aktarım Geçmişi</h2>
+                <div className="p-4 border-b border-border bg-bg-elevated/50 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-secondary" />
+                    <h2 className="text-base font-bold text-primary">Aktarım Geçmişi</h2>
                 </div>
                 {loading ? (
                     <div className="flex justify-center items-center h-48">
@@ -81,34 +81,34 @@ export default function VeriYonetimPage() {
                             {history.map((job) => (
                                 <TableRow key={job.id}>
                                     <TableCell className="font-medium">{job.dosya_adi}</TableCell>
-                                    <TableCell className="uppercase text-xs font-bold text-neutral-500">{job.aktarim_tipi}</TableCell>
+                                    <TableCell className="uppercase text-xs font-bold text-secondary">{job.aktarim_tipi}</TableCell>
                                     <TableCell className="text-sm">
                                         {new Date(job.baslama_zamani).toLocaleString('tr-TR')}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={
                                             job.durum === 'tamamlandi' ? 'success' :
-                                            job.durum === 'hata' ? 'error' :
+                                            job.durum === 'hata' ? 'danger' :
                                             job.durum === 'geri_alindi' ? 'warning' : 'default'
                                         }>
                                             {job.durum.replace('_', ' ')}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-sm">
-                                        <span className="text-emerald-600 font-medium">{job.basarili}</span> / 
-                                        <span className="text-red-500 font-medium ml-1">{job.hatali}</span> / 
-                                        <span className="text-neutral-500 ml-1">{job.toplam}</span>
+                                        <span className="text-success font-medium">{job.basarili}</span> / 
+                                        <span className="text-danger font-medium ml-1">{job.hatali}</span> / 
+                                        <span className="text-secondary ml-1">{job.toplam}</span>
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
-                                            className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
+                                            className="h-8 text-warning hover:text-warning/80 hover:bg-warning/5 border-warning/20"
                                             onClick={() => handleRollback(job.id)}
                                             disabled={job.durum === 'geri_alindi' || rollingBack === job.id}
                                         >
                                             {rollingBack === job.id ? (
-                                                <div className="w-3 h-3 border-2 border-amber-600/20 border-t-amber-600 rounded-full animate-spin mr-2" />
+                                                <div className="w-3 h-3 border-2 border-warning/20 border-t-warning rounded-full animate-spin mr-2" />
                                             ) : (
                                                 <RotateCcw className="w-3 h-3 mr-2" />
                                             )}
@@ -119,7 +119,7 @@ export default function VeriYonetimPage() {
                             ))}
                             {history.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center text-neutral-500">
+                                    <TableCell colSpan={6} className="h-32 text-center text-secondary">
                                         Aktarım geçmişi bulunamadı
                                     </TableCell>
                                 </TableRow>

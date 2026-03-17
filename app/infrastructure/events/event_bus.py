@@ -1,25 +1,41 @@
 """
-TIR Yakıt Takip Sistemi - Event Bus
-Observer Pattern implementasyonu
+Merkezi Event Bus
+- Tipli event kontratları (app.infrastructure.events.contracts)
+- Redis tabanlı idempotency (TTL varsayılan 24s)
+- Redis DLQ (events:dlq) fallback in-memory
 """
 
 import asyncio
 import hashlib
 import inspect
+import json
+import os
 import sys
 import threading
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+import redis
+
+from app.infrastructure.cache.redis_cache import get_redis_cache
+from app.infrastructure.events import contracts
 from app.infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Legacy decorator hook; attaches event type metadata to functions
+def publishes(event_type):
+    def decorator(fn):
+        setattr(fn, "_publishes", event_type)
+        return fn
+    return decorator
+
 
 class EventType(Enum):
-    """Olay türleri"""
+    """Eski enum ile geriye dönük uyum."""
 
     # Veri değişiklikleri
     ARAC_ADDED = "arac_added"
@@ -44,17 +60,17 @@ class EventType(Enum):
     LOKASYON_UPDATED = "lokasyon_updated"
     LOKASYON_DELETED = "lokasyon_deleted"
 
-    # Hesaplama olayları
+    # Hesaplama
     PERIYOT_CREATED = "periyot_created"
     YAKIT_DISTRIBUTED = "yakit_distributed"
     ANOMALY_DETECTED = "anomaly_detected"
     SLA_DELAY = "sla_delay"
 
-    # UI olayları
+    # UI
     DATA_REFRESH_NEEDED = "data_refresh_needed"
     CACHE_INVALIDATED = "cache_invalidated"
 
-    # Sistem olayları
+    # Sistem
     APP_STARTED = "app_started"
     APP_CLOSING = "app_closing"
     SETTINGS_CHANGED = "settings_changed"
@@ -62,12 +78,15 @@ class EventType(Enum):
 
 @dataclass
 class Event:
-    """Olay verisi"""
+    """Eski API için basit event objesi."""
 
     type: EventType
     data: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = ""
+    event_id: Optional[str] = None
+    correlation_id: Optional[str] = None
+    version: str = "1.0"
 
     def __str__(self):
         return f"Event({self.type.value}, source={self.source})"
@@ -75,69 +94,72 @@ class Event:
 
 class EventBus:
     """
-    Merkezi olay yönetim sistemi (Singleton).
-
-    Observer Pattern implementasyonu:
-    - subscribe(): Olaya abone ol
-    - unsubscribe(): Aboneliği iptal et
-    - publish(): Olay yayınla
-
-    Thread-safe tasarım.
-
-    Kullanım:
-        event_bus = EventBus()
-
-        # Abone ol
-        def on_yakit_added(event: Event):
-            print(f"Yeni yakıt: {event.data}")
-
-        event_bus.subscribe(EventType.YAKIT_ADDED, on_yakit_added)
-
-        # Olay yayınla
-        event_bus.publish(Event(
-            type=EventType.YAKIT_ADDED,
-            data={"arac_id": 1, "litre": 250}
-        ))
+    Singleton Event Bus.
+    - subscribe / unsubscribe / publish
+    - redis destekli idempotency + DLQ
     """
 
     _instance = None
     _lock = threading.Lock()
 
     def __new__(cls):
-        """Singleton pattern"""
         if cls._instance is None:
             with cls._lock:
-                # Double-check locking
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
                     cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
-        if self._initialized:
+        if getattr(self, "_initialized", False):
             return
 
         self._subscribers: Dict[EventType, List[Callable[[Event], None]]] = {}
         self._event_history: List[Event] = []
-        self._failed_events: List[
-            Tuple[Event, str, str, datetime]
-        ] = []  # DLQ: event, callback, error, time
-        self._processed_events: Set[str] = set()  # Idempotency tracking
+        self._failed_events: List[Tuple[Event, str, str, datetime]] = []
+        self._processed_events: Set[str] = set()
         self._max_history = 100
         self._max_dlq_size = 100
-        self._max_processed_cache = 1000  # Son 1000 event ID
-        self._max_payload_size = 1024 * 1024  # 1MB
+        self._max_processed_cache = 1000
+        self._max_payload_size = 1024 * 1024
         self._enabled = True
         self._initialized = True
 
+        self._dlq_key = os.getenv("EVENT_DLQ_KEY", "events:dlq")
+        self._dedup_ttl = int(os.getenv("EVENT_IDEMPOTENCY_TTL", "86400"))
+        self._redis = None
+        self._connect_redis()
+
+    # ------------------------------------------------------------------ #
+    # Redis
+    # ------------------------------------------------------------------ #
+    def _connect_redis(self):
+        try:
+            cache = get_redis_cache()
+            if cache.is_redis_available:
+                self._redis = cache._redis_client
+                return
+        except Exception:
+            self._redis = None
+
+        redis_url = os.getenv("CELERY_BROKER_URL") or os.getenv(
+            "REDIS_URL", "redis://localhost:6379/0"
+        )
+        try:
+            self._redis = redis.Redis.from_url(redis_url, decode_responses=True)
+            self._redis.ping()
+        except Exception as exc:
+            logger.warning(f"Redis connection for EventBus failed, fallback: {exc}")
+            self._redis = None
+
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
     def _validate_event(self, event: Event):
-        """Event validasyonu"""
         if not event or not event.type:
             raise ValueError("Invalid event: Event must have a type")
         if event.data is None:
-            event.data = {}  # Default safe
-
-        # Payload size limit
+            event.data = {}
         payload_size = sys.getsizeof(str(event.data))
         if payload_size > self._max_payload_size:
             raise ValueError(
@@ -145,337 +167,147 @@ class EventBus:
             )
 
     def _get_event_id(self, event: Event) -> str:
-        """Event için unique ID üret (idempotency için)"""
+        if getattr(event, "event_id", None):
+            return event.event_id
         data_str = (
             f"{event.type.value}:{event.timestamp.isoformat()}:{str(event.data)[:100]}"
         )
         return hashlib.md5(data_str.encode()).hexdigest()[:16]
 
     def _is_duplicate(self, event: Event) -> bool:
-        """Event daha önce işlendi mi kontrol et"""
         event_id = self._get_event_id(event)
+        if self._redis:
+            try:
+                added = self._redis.set(
+                    f"events:processed:{event_id}", 1, ex=self._dedup_ttl, nx=True
+                )
+                if not added:
+                    logger.debug(f"Duplicate event detected (redis): {event_id}")
+                    return True
+            except Exception as exc:
+                logger.warning(f"Redis dedup failed, fallback to memory: {exc}")
+
         if event_id in self._processed_events:
-            logger.debug(f"Duplicate event detected: {event_id}")
+            logger.debug(f"Duplicate event detected (memory): {event_id}")
             return True
 
-        # Cache'e ekle
         self._processed_events.add(event_id)
-
-        # Cache boyutunu sınırla
         if len(self._processed_events) > self._max_processed_cache:
-            # Eski entryleri temizle (basit FIFO - set'i yenile)
             self._processed_events = set(list(self._processed_events)[-500:])
-
         return False
 
     def _handle_failure(self, event: Event, callback_name: str, error: str):
-        """Hata durumunu kaydet (DLQ yönetimi)"""
         if len(self._failed_events) >= self._max_dlq_size:
-            # En eskiyi sil
             self._failed_events.pop(0)
-
         self._failed_events.append(
             (event, callback_name, error, datetime.now(timezone.utc))
         )
+        if self._redis:
+            try:
+                payload = {
+                    "event_id": self._get_event_id(event),
+                    "callback": callback_name,
+                    "error": error,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "event": {
+                        "type": event.type.value,
+                        "data": event.data,
+                        "source": event.source,
+                        "correlation_id": event.correlation_id,
+                    },
+                }
+                self._redis.lpush(self._dlq_key, json.dumps(payload, ensure_ascii=False))
+            except Exception as exc:
+                logger.error(f"Failed to push event to DLQ: {exc}")
 
+    # ------------------------------------------------------------------ #
+    # API
+    # ------------------------------------------------------------------ #
     def subscribe(
         self, event_type: EventType, callback: Callable[[Event], None]
     ) -> None:
-        """
-        Olaya abone ol.
-
-        Args:
-            event_type: Abone olunacak olay türü
-            callback: Olay tetiklendiğinde çağrılacak fonksiyon
-        """
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
-
         if callback not in self._subscribers[event_type]:
             self._subscribers[event_type].append(callback)
 
     def unsubscribe(
         self, event_type: EventType, callback: Callable[[Event], None]
-    ) -> bool:
-        """
-        Aboneliği iptal et.
-
-        Args:
-            event_type: Olay türü
-            callback: Kaldırılacak callback
-
-        Returns:
-            Başarılı mı
-        """
+    ) -> None:
         if event_type in self._subscribers:
-            try:
-                self._subscribers[event_type].remove(callback)
-                return True
-            except ValueError:
-                pass
-        return False
+            self._subscribers[event_type] = [
+                cb for cb in self._subscribers[event_type] if cb != callback
+            ]
 
-    async def publish_async(self, event: Event) -> int:
-        """
-        Olayı asenkron yayınla (Async IO dostu).
-
-        Args:
-            event: Yayınlanacak olay
-
-        Returns:
-            Bilgilendirilen abone sayısı
-        """
-        if not self._enabled:
-            return 0
-
+    def publish(self, event: Event):
+        """Eski Event API"""
         self._validate_event(event)
-
-        # Idempotency check
         if self._is_duplicate(event):
-            logger.debug(f"Skipping duplicate event: {event.type.value}")
-            return 0
+            return
 
-        # Geçmişe ekle
         self._event_history.append(event)
         if len(self._event_history) > self._max_history:
             self._event_history.pop(0)
 
-        # Abonelere bildir
-        count = 0
+        callbacks = self._subscribers.get(event.type, [])
+        for cb in callbacks:
+            try:
+                if inspect.iscoroutinefunction(cb):
+                    asyncio.create_task(cb(event))
+                else:
+                    cb(event)
+            except Exception as exc:
+                logger.exception(f"Event handler failed: {cb.__name__}: {exc}")
+                self._handle_failure(event, cb.__name__, str(exc))
 
-        for callback in self._subscribers.get(event.type, []):
-            callback_name = getattr(callback, "__name__", str(callback))
-            max_retries = 3
-            current_try = 0
-            success = False
-
-            while current_try <= max_retries and not success:
-                try:
-                    if inspect.iscoroutinefunction(callback):
-                        # Async callback - await
-                        await callback(event)
-                    else:
-                        # Sync callback - run directly
-                        callback(event)
-                    count += 1
-                    success = True
-                except Exception as e:
-                    current_try += 1
-                    if current_try <= max_retries:
-                        backoff = 2**current_try
-                        logger.warning(
-                            f"EventBus callback failed (try {current_try}/{max_retries}) | "
-                            f"Event: {event.type.value} | Callback: {callback_name} | "
-                            f"Waiting {backoff}s to retry. Error: {e}"
-                        )
-                        await asyncio.sleep(backoff)
-                    else:
-                        logger.error(
-                            f"EventBus async callback failed | Event: {event.type.value} | "
-                            f"Callback: {callback_name} | Error: {e}",
-                            exc_info=True,
-                        )
-                        self._handle_failure(event, callback_name, str(e))
-
-        return count
-
-    def publish(self, event: Event) -> int:
-        """
-        Olay yayınla (Senkron).
-        Uyarı: Async subscriber'lar 'fire-and-forget' mantığıyla task olarak atılır.
-        """
-        if not self._enabled:
-            return 0
-
+    async def publish_async(self, event: Event):
+        """Async publish path used by services and tests."""
         self._validate_event(event)
-
-        # Idempotency check
         if self._is_duplicate(event):
-            logger.debug(f"Skipping duplicate event: {event.type.value}")
-            return 0
+            return
 
-        # Geçmişe ekle
         self._event_history.append(event)
         if len(self._event_history) > self._max_history:
             self._event_history.pop(0)
 
-        # Abonelere bildir
-        count = 0
-        for callback in self._subscribers.get(event.type, []):
-            callback_name = getattr(callback, "__name__", str(callback))
-
-            # Helper for async retry
-            async def retry_async_cb(cb, ev, name):
-                m_retries = 3
-                c_try = 0
-                while c_try <= m_retries:
-                    try:
-                        await cb(ev)
-                        return True
-                    except Exception as exc:
-                        c_try += 1
-                        if c_try <= m_retries:
-                            b_off = 2**c_try
-                            logger.warning(
-                                f"EventBus async cb failed in sync publish (try {c_try}/{m_retries}) | "
-                                f"Waiting {b_off}s to retry. Error: {exc}"
-                            )
-                            await asyncio.sleep(b_off)
-                        else:
-                            logger.error(
-                                f"EventBus async cb failed | Error: {exc}",
-                                exc_info=True,
-                            )
-                            self._handle_failure(ev, name, str(exc))
-                return False
-
-            if inspect.iscoroutinefunction(callback):
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        loop.create_task(retry_async_cb(callback, event, callback_name))
-                        count += 1
-                    else:
-                        logger.warning(
-                            f"Skipping async subscriber {callback} inside sync publish (no running loop)"
-                        )
-                except RuntimeError:
-                    logger.warning(
-                        f"Skipping async subscriber {callback} inside sync publish (RuntimeError getting loop)"
-                    )
-            else:
-                max_retries = 3
-                current_try = 0
-                success = False
-                while current_try <= max_retries and not success:
-                    try:
-                        callback(event)
-                        count += 1
-                        success = True
-                    except Exception as e:
-                        current_try += 1
-                        if current_try <= max_retries:
-                            backoff = 2**current_try
-                            logger.warning(
-                                f"EventBus sync cb failed (try {current_try}/{max_retries}) | "
-                                f"Waiting {backoff}s to retry. Error: {e}"
-                            )
-                            import time
-
-                            time.sleep(backoff)
-                        else:
-                            logger.error(
-                                f"EventBus sync callback failed | Event: {event.type.value} | "
-                                f"Callback: {callback_name} | Error: {e}",
-                                exc_info=True,
-                            )
-                            self._handle_failure(event, callback_name, str(e))
-
-        return count
-
-    async def publish_simple_async(self, event_type: EventType, **data) -> int:
-        """Asenkron basit olay yayınla"""
-        return await self.publish_async(Event(type=event_type, data=data))
-
-    def publish_simple(self, event_type: EventType, **data) -> int:
-        """Basit olay yayınla (Event nesnesi oluşturmadan)"""
-        return self.publish(Event(type=event_type, data=data))
-
-    def get_subscribers_count(self, event_type: EventType = None) -> int:
-        """
-        Abone sayısını getir.
-
-        Args:
-            event_type: Olay türü (None ise toplam)
-
-        Returns:
-            Abone sayısı
-        """
-        if event_type:
-            return len(self._subscribers.get(event_type, []))
-
-        return sum(len(subs) for subs in self._subscribers.values())
-
-    def clear_history(self):
-        """Olay geçmişini temizle"""
-        self._event_history.clear()
-        self._failed_events.clear()
-
-    async def retry_failed_events(self) -> int:
-        """DLQ'daki başarısız olayları tekrar dener."""
-        if not self._failed_events:
-            return 0
-
-        events_to_retry = self._failed_events.copy()
-        self._failed_events.clear()
-
-        success_count = 0
-        for event, callback_name, error, fail_time in events_to_retry:
-            logger.info(
-                f"Retrying DLQ event: {event.type.value} for callback {callback_name}"
-            )
+        callbacks = self._subscribers.get(event.type, [])
+        for cb in callbacks:
             try:
-                callbacks = self._subscribers.get(event.type, [])
-                cb = next(
-                    (
-                        c
-                        for c in callbacks
-                        if getattr(c, "__name__", str(c)) == callback_name
-                    ),
-                    None,
-                )
-
-                if not cb:
-                    logger.warning(
-                        f"Callback {callback_name} no longer subscribed for {event.type.value}, dropping event."
-                    )
-                    continue
-
                 if inspect.iscoroutinefunction(cb):
                     await cb(event)
                 else:
                     cb(event)
-                success_count += 1
-            except Exception as e:
-                logger.error(
-                    f"DLQ retry failed for {event.type.value}-{callback_name}: {e}"
-                )
-                self._handle_failure(event, callback_name, str(e))
+            except Exception as exc:
+                logger.exception(f"Event handler failed: {cb.__name__}: {exc}")
+                self._handle_failure(event, cb.__name__, str(exc))
 
-        return success_count
+    def clear_history(self):
+        """Test helper to reset in-memory event history."""
+        self._event_history.clear()
+
+    def reset_all_for_tests(self):
+        """Hard reset singleton state for deterministic tests."""
+        self._subscribers.clear()
+        self._event_history.clear()
+        self._failed_events.clear()
+        self._processed_events.clear()
+
+    def publish_typed(self, event: contracts.BaseEvent):
+        """Yeni tipli kontrat API"""
+        mapped = Event(
+            type=EventType(event.event_type.value)
+            if event.event_type.value in EventType._value2member_map_
+            else EventType.APP_STARTED,
+            data=event.payload if hasattr(event, "payload") else {},
+            timestamp=event.timestamp.replace(tzinfo=timezone.utc),
+            event_id=event.event_id or uuid.uuid4().hex,
+            correlation_id=event.correlation_id,
+            version=event.version,
+            source="typed",
+        )
+        self.publish(mapped)
 
 
+# Singleton accessor
 def get_event_bus() -> EventBus:
-    """EventBus singleton instance"""
     return EventBus()
-
-
-# Decorator for auto-publishing
-def publishes(event_type: EventType):
-    """
-    Method sonucu otomatik event publish eden decorator.
-    Hem sync hem async metodları destekler.
-    """
-    from functools import wraps
-
-    def decorator(func):
-        if inspect.iscoroutinefunction(func):
-
-            @wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                result = await func(*args, **kwargs)
-                await get_event_bus().publish_simple_async(event_type, result=result)
-                return result
-
-            return async_wrapper
-        else:
-
-            @wraps(func)
-            def sync_wrapper(*args, **kwargs):
-                result = func(*args, **kwargs)
-                get_event_bus().publish_simple(event_type, result=result)
-                return result
-
-            return sync_wrapper
-
-    return decorator

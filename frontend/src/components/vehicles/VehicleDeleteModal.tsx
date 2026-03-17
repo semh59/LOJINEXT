@@ -17,15 +17,15 @@ export function VehicleDeleteModal({ isOpen, onClose, onConfirm, vehicle }: Vehi
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-bg-base/20 backdrop-blur-sm">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-white rounded-[32px] w-full max-w-md shadow-2xl overflow-hidden border border-neutral-100"
+                    className="bg-surface rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-border"
                 >
                     <div className="p-8 text-center">
-                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 ${isSoftDelete ? 'bg-amber-50 text-amber-500' : 'bg-red-50 text-red-500'
+                        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 ${isSoftDelete ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'
                             }`}>
                             {isSoftDelete ? (
                                 <AlertTriangle className="w-10 h-10" />
@@ -34,19 +34,19 @@ export function VehicleDeleteModal({ isOpen, onClose, onConfirm, vehicle }: Vehi
                             )}
                         </div>
 
-                        <h2 className="text-2xl font-black text-neutral-900 mb-2">
+                        <h2 className="text-2xl font-black text-primary mb-2">
                             {isSoftDelete ? 'Aracı Pasife Al' : 'Kalıcı Olarak Sil'}
                         </h2>
 
-                        <p className="text-neutral-500 font-medium mb-8 leading-relaxed">
-                            <span className="font-bold text-neutral-800">{vehicle.plaka}</span> plakalı aracı
+                        <p className="text-secondary font-medium mb-8 leading-relaxed">
+                            <span className="font-bold text-primary">{vehicle.plaka}</span> plakalı aracı
                             {isSoftDelete
                                 ? ' pasif duruma getirmek üzeresiniz. Bu araç artık listelerde varsayılan olarak görünmeyecek ancak verileri saklanacaktır.'
                                 : ' tamamen silmek üzeresiniz. Bu işlem geri alınamaz ve tüm geçmiş verileri kaybolacaktır.'}
                         </p>
 
                         <div className="flex gap-3">
-                            <Button variant="secondary" onClick={onClose} className="flex-1 h-12 rounded-xl text-base">
+                            <Button variant="secondary" onClick={onClose} className="flex-1 h-12 text-base">
                                 İptal
                             </Button>
                             <Button
@@ -55,7 +55,7 @@ export function VehicleDeleteModal({ isOpen, onClose, onConfirm, vehicle }: Vehi
                                     await onConfirm()
                                     onClose()
                                 }}
-                                className={`flex-1 h-12 rounded-xl text-base ${isSoftDelete ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+                                className={`flex-1 h-12 text-base ${isSoftDelete ? 'bg-warning hover:bg-warning/80 text-bg-base' : ''}`}
                             >
                                 {isSoftDelete ? 'Pasife Al' : 'Evet, Sil'}
                             </Button>

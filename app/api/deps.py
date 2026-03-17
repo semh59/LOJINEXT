@@ -96,8 +96,17 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> Kullanici:
             algorithms=[settings.ALGORITHM],
             options={"leeway": 60},
         )
+        token_type = payload.get("typ")
         username: str = payload.get("sub")
         is_super: bool = payload.get("is_super", False)
+
+        if token_type != "access":
+            logger.warning(f"Token validation failed: Invalid typ={token_type!r}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid access token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         if username is None:
             logger.warning("Token validation failed: Missing subject (sub)")
@@ -140,6 +149,8 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> Kullanici:
             detail="Token signature has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning(f"Token decoding failed or other error: {e!s}")
         raise HTTPException(
@@ -171,6 +182,13 @@ async def get_current_active_admin(
 ) -> Kullanici:
     """RBAC check for ADMIN level access."""
     SecurityService.verify_permission(current_user, Permission.ADMIN)
+    return current_user
+
+
+async def get_current_active_user(
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
+) -> Kullanici:
+    """Active user guard used by endpoints requiring only authentication."""
     return current_user
 
 

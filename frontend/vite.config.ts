@@ -2,13 +2,22 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [react()],
+    plugins: [
+        react(),
+        visualizer({
+            open: false,
+            filename: 'bundle-stats.html',
+            gzipSize: true,
+            brotliSize: true,
+        }),
+    ],
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "./src"),
@@ -20,7 +29,7 @@ export default defineConfig({
         port: 3000,
         proxy: {
             '/api': {
-                target: 'http://127.0.0.1:8080',
+                target: 'http://127.0.0.1:8000',
                 changeOrigin: true,
                 secure: false,
             }

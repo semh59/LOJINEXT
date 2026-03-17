@@ -1,21 +1,18 @@
 from typing import Optional, Tuple
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
 import datetime
 from datetime import timezone
 
-from app.database.unit_of_work import UnitOfWork
-from app.infrastructure.security import jwt_handler
 from app.database.models import KullaniciOturumu
+from app.database.unit_of_work import UnitOfWork
 from app.infrastructure.logging.logger import get_logger
+from app.infrastructure.security import jwt_handler
 
 logger = get_logger(__name__)
 
 
 class AuthService:
-    """
-    Elite Service for Authentication and Session Management.
-    Follows UoW pattern for data integrity.
-    """
+    """Authentication and session management service."""
 
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
@@ -23,28 +20,22 @@ class AuthService:
     async def authenticate(
         self, email: str, password: str, request: Request
     ) -> Tuple[str, str]:
-        """
-        Authenticate user and create session.
-        Returns (access_token, refresh_token).
-        """
+        """Authenticate user and create session."""
         async with self.uow:
             user = await self.uow.kullanici_repo.get_by_email(email)
 
-            # Brute Force Protection Logic
-            if user:
-                if user.basarisiz_giris_sayisi >= 5:
-                    if user.son_basarisiz_giris:
-                        lockout_time = user.son_basarisiz_giris + datetime.timedelta(
-                            minutes=30
-                        )
-                        if datetime.datetime.now(timezone.utc) < lockout_time:
-                            raise HTTPException(
-                                status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Çok fazla başarısız deneme. Hesabınız geçici olarak kilitlenmiştir. Lütfen 30 dakika sonra tekrar deneyin.",
-                            )
-                        else:
-                            # Lockout period expired, reset counter to give them another chance
-                            user.basarisiz_giris_sayisi = 0
+            if user and user.kilitli_kadar:
+                now = datetime.datetime.now(timezone.utc)
+                if now < user.kilitli_kadar:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=(
+                            "Cok fazla basarisiz deneme. Hesabiniz gecici olarak "
+                            "kilitlenmistir. Lutfen 30 dakika sonra tekrar deneyin."
+                        ),
+                    )
+                user.basarisiz_giris_sayisi = 0
+                user.kilitli_kadar = None
 
             dummy_hash = "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L6s57Wy60Q2i9ki"
             hash_to_check = user.sifre_hash if user else dummy_hash
@@ -52,20 +43,22 @@ class AuthService:
             if not user or not jwt_handler.verify_password(password, hash_to_check):
                 logger.warning(f"Failed login attempt: {email}")
                 if user:
+                    now = datetime.datetime.now(timezone.utc)
                     user.basarisiz_giris_sayisi += 1
-                    user.son_basarisiz_giris = datetime.datetime.now(timezone.utc)
+                    if user.basarisiz_giris_sayisi >= 5:
+                        user.kilitli_kadar = now + datetime.timedelta(minutes=30)
                     await self.uow.commit()
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Hatalı e-posta veya şifre",
+                    detail="Hatali e-posta veya sifre",
                 )
 
-            # If successful login, reset the counter
             if user.basarisiz_giris_sayisi > 0:
                 user.basarisiz_giris_sayisi = 0
+                user.kilitli_kadar = None
 
             if not user.aktif:
-                raise HTTPException(status_code=403, detail="Kullanıcı hesabı pasif")
+                raise HTTPException(status_code=403, detail="Kullanici hesabi pasif")
 
         access_token = jwt_handler.create_access_token(
             data={"sub": user.email, "role": user.rol.ad if user.rol else "user"}
@@ -82,16 +75,16 @@ class AuthService:
                 refresh_token_hash=jwt_handler.get_password_hash(refresh_token),
                 ip_adresi=request.client.host if request.client else "0.0.0.0",
                 tarayici=request.headers.get("user-agent"),
-                access_bitis=datetime.fromtimestamp(
+                access_bitis=datetime.datetime.fromtimestamp(
                     access_payload["exp"], tz=timezone.utc
                 ),
-                refresh_bitis=datetime.fromtimestamp(
+                refresh_bitis=datetime.datetime.fromtimestamp(
                     refresh_payload["exp"], tz=timezone.utc
                 ),
             )
             self.uow.session.add(session)
 
-            user.son_giris = datetime.now(timezone.utc)
+            user.son_giris = datetime.datetime.now(timezone.utc)
             user.son_giris_ip = session.ip_adresi
 
             await self.uow.commit()
@@ -116,12 +109,14 @@ class AuthService:
 
             sessions = await self.uow.session_repo.get_active_sessions(user.id)
             target_session = None
-            for s in sessions:
-                if jwt_handler.verify_password(refresh_token, s.refresh_token_hash):
-                    target_session = s
+            for session in sessions:
+                if jwt_handler.verify_password(
+                    refresh_token, session.refresh_token_hash
+                ):
+                    target_session = session
                     break
 
-            if not target_session or target_session.refresh_bitis < datetime.now(
+            if not target_session or target_session.refresh_bitis < datetime.datetime.now(
                 timezone.utc
             ):
                 raise HTTPException(
@@ -136,10 +131,10 @@ class AuthService:
                 access_token
             )
             access_payload = jwt_handler.decode_token(access_token)
-            target_session.access_bitis = datetime.fromtimestamp(
+            target_session.access_bitis = datetime.datetime.fromtimestamp(
                 access_payload["exp"], tz=timezone.utc
             )
-            target_session.son_aktivite = datetime.now(timezone.utc)
+            target_session.son_aktivite = datetime.datetime.now(timezone.utc)
 
             await self.uow.commit()
 
@@ -181,7 +176,7 @@ class AuthService:
             user.sifre_hash = jwt_handler.get_password_hash(new_password)
             user.sifre_sifir_token = None
             user.sifre_sifir_son = None
-            user.sifre_degisim_tarihi = datetime.now(timezone.utc)
+            user.sifre_degisim_tarihi = datetime.datetime.now(timezone.utc)
 
             await self.uow.session_repo.deactivate_all(user.id)
             await self.uow.commit()

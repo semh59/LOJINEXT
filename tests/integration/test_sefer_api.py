@@ -109,6 +109,7 @@ class TestSeferAPI:
             "tarih": "2023-05-20",
             "arac_id": seed_data["arac"].id,
             "sofor_id": seed_data["sofor"].id,
+            "guzergah_id": seed_data["guzergah"].id,
             "cikis_yeri": "Istanbul",
             "varis_yeri": "Ankara",
             "mesafe_km": 450.5,

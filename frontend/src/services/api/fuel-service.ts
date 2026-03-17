@@ -1,5 +1,7 @@
 import axiosInstance from './axios-instance';
 import { FuelRecord, FuelStats } from '../../types';
+import { validateResponse } from '../../lib/api-validator';
+import { FuelRecordSchema, PaginatedResponseSchema, FuelStatsSchema } from '../../schemas/entities';
 
 /**
  * Yakıt Kayıtları (Fuel) API Servisi
@@ -20,13 +22,13 @@ export const fuelService = {
      */
     getAll: async (params: FuelFilters = {}): Promise<{ items: FuelRecord[], total: number }> => {
         const response = await axiosInstance.get<{ items: FuelRecord[], total: number }>('/fuel/', { params });
-        return response.data;
+        return validateResponse(PaginatedResponseSchema(FuelRecordSchema), response.data, 'fuelService.getAll');
     },
 
     /**
      * Yeni yakıt kaydı oluşturur
      */
-    create: async (data: any): Promise<FuelRecord> => {
+    create: async (data: Partial<FuelRecord>): Promise<FuelRecord> => {
         const response = await axiosInstance.post<FuelRecord>('/fuel/', data);
         return response.data;
     },
@@ -34,7 +36,7 @@ export const fuelService = {
     /**
      * Yakıt kaydı günceller
      */
-    update: async (id: number, data: any): Promise<FuelRecord> => {
+    update: async (id: number, data: Partial<FuelRecord>): Promise<FuelRecord> => {
         const response = await axiosInstance.put<FuelRecord>(`/fuel/${id}`, data);
         return response.data;
     },
@@ -72,16 +74,16 @@ export const fuelService = {
      */
     getStats: async (params: Omit<FuelFilters, 'skip' | 'limit'> = {}): Promise<FuelStats> => {
         const response = await axiosInstance.get<FuelStats>('/fuel/stats', { params });
-        return response.data;
+        return validateResponse(FuelStatsSchema, response.data, 'fuelService.getStats');
     },
 
     /**
      * Excel dosyası ile toplu yakıt yükler
      */
-    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+    uploadExcel: async (file: File): Promise<{ success: boolean; inserted: number; errors: unknown[] }> => {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await axiosInstance.post('/fuel/excel/upload', formData, {
+        const response = await axiosInstance.post<{ success: boolean; inserted: number; errors: unknown[] }>('/fuel/excel/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },

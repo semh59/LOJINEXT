@@ -54,6 +54,8 @@ async def test_arac_repo_toctou_concurrency(async_db_engine):
     for r in results:
         if isinstance(r, int):
             success_count += 1
+        elif hasattr(r, "id") and isinstance(getattr(r, "id"), int):
+            success_count += 1
         elif isinstance(r, (ValueError, IntegrityError)):
             conflict_count += 1
             error_details.append(str(r))

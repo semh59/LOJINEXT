@@ -14,6 +14,7 @@ class RouteValidator:
     # Anomali eşiği (Türkiye otoyolları için kümülatif eğim limiti)
     # Tırmanış / Mesafe oranı
     SUSPICIOUS_GRADE_THRESHOLD = 0.010  # %1.0 (Büyük ölçekli gürültü filtresi)
+    CORRECTION_GRADE_CAP = 0.015  # %1.5
 
     @staticmethod
     def validate_and_correct(route_data: Dict) -> Dict:
@@ -48,16 +49,16 @@ class RouteValidator:
         # Ascent Check
         avg_incline = ascent / (dist_km * 1000)
         if avg_incline > RouteValidator.SUSPICIOUS_GRADE_THRESHOLD:
-            # Otomatik düzeltme: %1.2 (Ortalama otoyol tırmanış limiti)
-            ascent = round(dist_km * 1000 * 0.012, 1)
+            # Otomatik düzeltme: %1.5
+            ascent = round(dist_km * 1000 * RouteValidator.CORRECTION_GRADE_CAP, 1)
             is_corrected = True
             reasons.append(f"High Incline ({avg_incline:.1%})")
 
         # Descent Check
         avg_decline = descent / (dist_km * 1000)
         if avg_decline > RouteValidator.SUSPICIOUS_GRADE_THRESHOLD:
-            # Otomatik düzeltme: %1.2 (Ortalama otoyol iniş limiti)
-            descent = round(dist_km * 1000 * 0.012, 1)
+            # Otomatik düzeltme: %1.5
+            descent = round(dist_km * 1000 * RouteValidator.CORRECTION_GRADE_CAP, 1)
             is_corrected = True
             reasons.append(f"High Decline ({avg_decline:.1%})")
 

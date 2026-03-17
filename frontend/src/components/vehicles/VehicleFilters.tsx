@@ -1,4 +1,3 @@
-import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Filter } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -18,12 +17,7 @@ interface VehicleFiltersProps {
         min_yil: string
         max_yil: string
     }
-    setFilters: React.Dispatch<React.SetStateAction<{
-        marka: string
-        model: string
-        min_yil: string
-        max_yil: string
-    }>>
+    setFilters: (val: any) => void
 }
 
 export function VehicleFilters({
@@ -40,17 +34,17 @@ export function VehicleFilters({
     const handleApplyFilters = () => setIsFilterOpen(false)
 
     return (
-        <div className="bg-[#1a0121]/60 backdrop-blur-md p-4 rounded-xl border border-[#d006f9]/20 shadow-[0_0_15px_rgba(208,6,249,0.05)] w-full mb-4">
+        <div className="bg-surface p-4 rounded-[10px] border border-border shadow-sm w-full mb-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 
                 {/* Search Bar */}
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#d006f9]/60" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
                     <Input
                         placeholder="Araç, plaka veya marka ara..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-10 h-11 bg-black/40 border-[#d006f9]/30 text-white placeholder:text-white/30 focus:border-[#d006f9] focus:ring-[#d006f9]/20 rounded-xl"
+                        className="pl-10"
                     />
                 </div>
 
@@ -59,23 +53,23 @@ export function VehicleFilters({
                     <button
                         onClick={() => setShowOnlyActive(!showOnlyActive)}
                         className={cn(
-                            "px-4 h-11 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border",
+                            "px-4 h-[40px] rounded-[6px] text-xs font-bold transition-all flex items-center gap-2 border",
                             showOnlyActive
-                                ? "bg-[#0df259]/10 text-[#0df259] border-[#0df259]/20 shadow-[0_0_10px_rgba(13,242,89,0.1)]"
-                                : "bg-black/20 text-white/50 border-white/10 hover:bg-black/40"
+                                ? "bg-success/10 text-success border-success/20"
+                                : "bg-surface text-secondary border-border hover:bg-bg-elevated"
                         )}
                     >
-                        <div className={cn("w-2 h-2 rounded-full", showOnlyActive ? "bg-[#0df259] shadow-[0_0_5px_#0df259] animate-pulse" : "bg-white/20")} />
+                        <div className={cn("w-2 h-2 rounded-full", showOnlyActive ? "bg-success shadow-[0_0_8px_rgba(34,197,94,0.3)]" : "bg-border")} />
                         Aktif Araçlar
                     </button>
 
                     <button
                         onClick={() => setIsFilterOpen(!isFilterOpen)}
                         className={cn(
-                            "h-11 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border",
+                            "h-[40px] px-4 rounded-[6px] text-xs font-bold transition-all flex items-center gap-2 border",
                             isFilterOpen 
-                                ? "bg-[#d006f9]/20 text-white border-[#d006f9]/50 shadow-[0_0_15px_rgba(208,6,249,0.2)]" 
-                                : "bg-black/20 text-white/60 border-white/10 hover:bg-black/40 hover:text-white"
+                                ? "bg-accent/10 text-accent border-accent/20" 
+                                : "bg-surface text-secondary border-border hover:bg-bg-elevated hover:text-primary"
                         )}
                     >
                         <Filter className="w-4 h-4" /> Detaylı Filtre
@@ -89,56 +83,56 @@ export function VehicleFilters({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-[#d006f9]/20"
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border"
                     >
                         <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-[#d006f9]/80 tracking-widest pl-1">Marka</label>
+                            <label className="text-[10px] uppercase font-bold text-secondary tracking-widest pl-1">Marka</label>
                             <Input
                                 placeholder="Örn: Mercedes"
                                 value={filters.marka}
-                                onChange={(e) => setFilters(f => ({ ...f, marka: e.target.value }))}
-                                className="h-10 bg-black/40 border-[#d006f9]/30 text-white placeholder:text-white/20 rounded-xl"
+                                onChange={(e) => setFilters((f: any) => ({ ...f, marka: e.target.value }))}
+                                className="h-10 bg-bg-elevated border-border text-primary placeholder:text-secondary rounded-xl"
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-[#d006f9]/80 tracking-widest pl-1">Model</label>
+                            <label className="text-[10px] uppercase font-bold text-secondary tracking-widest pl-1">Model</label>
                             <Input
                                 placeholder="Örn: Actros"
                                 value={filters.model}
-                                onChange={(e) => setFilters(f => ({ ...f, model: e.target.value }))}
-                                className="h-10 bg-black/40 border-[#d006f9]/30 text-white placeholder:text-white/20 rounded-xl"
+                                onChange={(e) => setFilters((f: any) => ({ ...f, model: e.target.value }))}
+                                className="h-10 bg-bg-elevated border-border text-primary placeholder:text-secondary rounded-xl"
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-[#d006f9]/80 tracking-widest pl-1">Minimum Yıl</label>
+                            <label className="text-[10px] uppercase font-bold text-secondary tracking-widest pl-1">Minimum Yıl</label>
                             <Input
                                 type="number"
                                 placeholder="2015"
                                 value={filters.min_yil}
-                                onChange={(e) => setFilters(f => ({ ...f, min_yil: e.target.value }))}
-                                className="h-10 bg-black/40 border-[#d006f9]/30 text-white placeholder:text-white/20 rounded-xl"
+                                onChange={(e) => setFilters((f: any) => ({ ...f, min_yil: e.target.value }))}
+                                className="h-10 bg-bg-elevated border-border text-primary placeholder:text-secondary rounded-xl"
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-[#d006f9]/80 tracking-widest pl-1">Maksimum Yıl</label>
+                            <label className="text-[10px] uppercase font-bold text-secondary tracking-widest pl-1">Maksimum Yıl</label>
                             <Input
                                 type="number"
                                 placeholder="2024"
                                 value={filters.max_yil}
-                                onChange={(e) => setFilters(f => ({ ...f, max_yil: e.target.value }))}
-                                className="h-10 bg-black/40 border-[#d006f9]/30 text-white placeholder:text-white/20 rounded-xl"
+                                onChange={(e) => setFilters((f: any) => ({ ...f, max_yil: e.target.value }))}
+                                className="h-10 bg-bg-elevated border-border text-primary placeholder:text-secondary rounded-xl"
                             />
                         </div>
                         <div className="col-span-full flex justify-end gap-2 mt-2">
                             <Button
                                 variant="ghost"
                                 onClick={handleReset}
-                                className="text-white/60 hover:text-white"
+                                className="text-secondary hover:text-primary"
                             >
                                 Temizle
                             </Button>
                             <Button
-                                variant="glossy-purple"
+                                variant="primary"
                                 onClick={handleApplyFilters}
                             >
                                 Uygula

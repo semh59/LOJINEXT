@@ -71,7 +71,7 @@ export default function KonfigurasyonPage() {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
         )
     }
@@ -86,26 +86,26 @@ export default function KonfigurasyonPage() {
     return (
         <div className="max-w-4xl space-y-6">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Konfigürasyon Yönetimi</h1>
-                <p className="text-neutral-500 mt-1">Platform davranışlarını, ML parametrelerini ve sistem sınırlarını yönetin.</p>
+                <h1 className="text-2xl font-bold tracking-tight text-primary">Konfigürasyon Yönetimi</h1>
+                <p className="text-secondary mt-1">Platform davranışlarını, ML parametrelerini ve sistem sınırlarını yönetin.</p>
             </div>
 
             {Object.entries(groupedConfigs).map(([group, items]) => (
                 <Card key={group} padding="md">
-                    <h2 className="text-lg font-bold text-neutral-800 capitalize mb-4 border-b border-neutral-100 pb-2">
+                    <h2 className="text-lg font-bold text-primary capitalize mb-4 border-b border-border pb-2">
                         {group.replace('_', ' ')} Ayarları
                     </h2>
                     
                     <div className="space-y-6">
                         {items.map(config => (
-                            <div key={config.anahtar} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start p-4 bg-neutral-50/50 rounded-xl border border-neutral-100">
+                            <div key={config.anahtar} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start p-4 bg-bg-elevated/50 rounded-xl border border-border">
                                 <div>
-                                    <label className="text-sm font-bold text-neutral-800">{config.anahtar}</label>
+                                    <label className="text-sm font-bold text-primary">{config.anahtar}</label>
                                     {config.aciklama && (
-                                        <p className="text-xs text-neutral-500 mt-1">{config.aciklama}</p>
+                                        <p className="text-xs text-secondary mt-1">{config.aciklama}</p>
                                     )}
                                     {config.yeniden_baslat && (
-                                        <div className="flex items-center gap-1.5 text-amber-600 mt-2 bg-amber-50 px-2 py-1 rounded w-fit">
+                                        <div className="flex items-center gap-1.5 text-warning mt-2 bg-warning/10 px-2 py-1 rounded w-fit">
                                             <AlertCircle className="w-3 h-3" />
                                             <span className="text-[10px] font-bold">Yeniden Başlatma Gerektirir</span>
                                         </div>
@@ -127,14 +127,14 @@ export default function KonfigurasyonPage() {
                                             className="w-full"
                                         />
                                         {config.birim && (
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">
                                                 {config.birim}
                                             </span>
                                         )}
                                     </div>
                                     
                                     <Button
-                                        variant="glossy-purple"
+                                        variant="primary"
                                         onClick={() => handleSave(config.anahtar)}
                                         disabled={saving === config.anahtar || localValues[config.anahtar] === config.deger}
                                         className="shrink-0"

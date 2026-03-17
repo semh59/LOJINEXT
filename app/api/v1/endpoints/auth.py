@@ -1,3 +1,4 @@
+import secrets
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -43,12 +44,17 @@ async def login(
     super_admin_pass = (
         settings.SUPER_ADMIN_PASSWORD.get_secret_value()
         if settings.SUPER_ADMIN_PASSWORD
-        else "!23efe25ali!"
+        else (
+            settings.ADMIN_PASSWORD.get_secret_value()
+            if hasattr(settings, "ADMIN_PASSWORD") and settings.ADMIN_PASSWORD
+            else None
+        )
     )
 
     if (
-        form_data.username == super_admin_user
-        and form_data.password == super_admin_pass
+        super_admin_pass
+        and form_data.username == super_admin_user
+        and secrets.compare_digest(form_data.password, super_admin_pass)
     ):
         # Virtual tokens for superadmin
         access_token = jwt_handler.create_access_token(
@@ -59,6 +65,11 @@ async def login(
         )
         return Token(
             access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+        )
+
+    if form_data.username == super_admin_user and not super_admin_pass:
+        logger.warning(
+            "SUPER_ADMIN_PASSWORD is not configured; bypass auth is disabled."
         )
 
     # ── REGULAR AUTH ──────────────────────────────────────────

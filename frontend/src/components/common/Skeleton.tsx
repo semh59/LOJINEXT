@@ -15,7 +15,7 @@ interface SkeletonProps {
  * Base Skeleton with pulse animation
  */
 export const Skeleton: React.FC<SkeletonProps> = ({ className = '' }) => (
-  <div className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded ${className}`} />
+  <div className={`animate-pulse bg-border dark:bg-bg-elevated/40 rounded ${className}`} />
 )
 
 /**
@@ -26,7 +26,7 @@ interface SkeletonRowProps {
 }
 
 export const SkeletonRow: React.FC<SkeletonRowProps> = ({ columns = 6 }) => (
-  <tr className="border-b border-gray-200 dark:border-gray-700">
+  <tr className="border-b border-border">
     {Array.from({ length: columns }).map((_, i) => (
       <td key={i} className="px-4 py-3">
         <Skeleton className="h-4 w-full" />
@@ -44,9 +44,9 @@ interface TableSkeletonProps {
 }
 
 export const TableSkeleton: React.FC<TableSkeletonProps> = ({ rows = 5, columns = 6 }) => (
-  <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+  <div className="overflow-hidden rounded-lg border border-border">
     <table className="min-w-full">
-      <thead className="bg-gray-50 dark:bg-gray-800">
+      <thead className="bg-bg-elevated/50">
         <tr>
           {Array.from({ length: columns }).map((_, i) => (
             <th key={i} className="px-4 py-3">
@@ -68,7 +68,7 @@ export const TableSkeleton: React.FC<TableSkeletonProps> = ({ rows = 5, columns 
  * Card Skeleton - for card layouts
  */
 export const CardSkeleton: React.FC = () => (
-  <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+  <div className="p-4 rounded-lg border border-border space-y-3">
     <Skeleton className="h-6 w-3/4" />
     <Skeleton className="h-4 w-1/2" />
     <Skeleton className="h-4 w-full" />
@@ -80,7 +80,7 @@ export const CardSkeleton: React.FC = () => (
  * Stat Card Skeleton - for dashboard stat cards
  */
 export const StatSkeleton: React.FC = () => (
-  <div className="p-6 rounded-xl border border-gray-200 dark:border-gray-700 space-y-2">
+  <div className="p-6 rounded-xl border border-border space-y-2">
     <Skeleton className="h-4 w-24" />
     <Skeleton className="h-8 w-16" />
     <Skeleton className="h-3 w-20" />

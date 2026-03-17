@@ -2,21 +2,29 @@
  * API Service - Backend ile iletişim
  */
 import { Vehicle } from '../../types'
+import { storageService } from '../storage-service';
 
 const API_BASE = '/api/v1'
 
 // Token yönetimi
 export const tokenStorage = {
-    get: () => localStorage.getItem('access_token'),
-    getRefreshToken: () => localStorage.getItem('refresh_token'),
+    get: () => storageService.getItem<string>('access_token'),
+    getRefreshToken: () => storageService.getItem<string>('refresh_token'),
     set: (accessToken: string, refreshToken?: string) => {
-        localStorage.setItem('access_token', accessToken)
-        if (refreshToken) localStorage.setItem('refresh_token', refreshToken)
+        storageService.setItem('access_token', accessToken)
+        if (refreshToken) storageService.setItem('refresh_token', refreshToken)
+    },
+    setRefreshToken: (token: string) => {
+        storageService.setItem('refresh_token', token)
     },
     remove: () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        storageService.removeItem('access_token')
+        storageService.removeItem('refresh_token')
     },
+    clear: () => {
+        storageService.removeItem('access_token')
+        storageService.removeItem('refresh_token')
+    }
 }
 
 // Fetch wrapper with auth
@@ -27,10 +35,8 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     const headers = new Headers(options.headers)
 
     if (token) {
-        console.log(`[API] Authorization header set for ${url}`);
         headers.set('Authorization', `Bearer ${token}`);
     } else {
-        console.warn(`[API] No token found in storage for ${url}`);
     }
 
     // Ensure JSON content type if not set (for POST/PUT) and not FormData
@@ -46,7 +52,6 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
     // ADVANCED LOGGING
     if (response.redirected) {
-        console.warn(`⚠️ API Redirect Detected! Original: ${url}, Final: ${response.url}. This may cause auth headers to be lost.`)
     }
 
     if (!response.ok) {
@@ -87,7 +92,6 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
         
         throw new Error(errorMessage)
     } else {
-        console.debug(`API Success: ${response.status} ${url}`)
     }
 
     return response
@@ -593,6 +597,18 @@ export const reportsApi = {
         const finalUrl = searchParams.toString() ? `${url}?${searchParams.toString()}` : url
         const response = await fetchWithAuth(finalUrl)
         if (!response.ok) throw new Error('PDF indirilemedi')
+        return response.blob()
+    },
+
+    downloadExcel: async (type: string, params: Record<string, string | number> = {}) => {
+        const searchParams = new URLSearchParams()
+        searchParams.append('report_type', type)
+        Object.entries(params).forEach(([key, val]) => {
+            searchParams.append(key, val.toString())
+        })
+
+        const response = await fetchWithAuth(`/advanced-reports/excel/export?${searchParams.toString()}`)
+        if (!response.ok) throw new Error('Excel dosyası indirilemedi')
         return response.blob()
     }
 }

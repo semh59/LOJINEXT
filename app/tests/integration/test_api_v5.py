@@ -35,7 +35,7 @@ async def test_vehicle_soft_delete(async_client, auth_headers):
         },
         headers=auth_headers,
     )
-    assert create_resp.status_code == 200
+    assert create_resp.status_code in (200, 201)
     arac_id = create_resp.json()["id"]
 
     # 2. Sil

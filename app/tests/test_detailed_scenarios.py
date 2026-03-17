@@ -3,10 +3,8 @@ from datetime import date
 import pytest
 from sqlalchemy import text
 
+from app.core.container import get_container, reset_container
 from app.core.entities.models import SeferCreate
-from app.database.repositories.arac_repo import get_arac_repo
-from app.database.repositories.sefer_repo import get_sefer_repo
-from app.database.repositories.sofor_repo import get_sofor_repo
 
 
 class TestDetailedScenarios:
@@ -23,20 +21,34 @@ class TestDetailedScenarios:
         self, db_session, report_service, sefer_service
     ):
         """SENARYO 1: Pasif şoförlerin raporlarda görünmesi"""
-        # 1. Şoför oluştur
-        sofor_repo = get_sofor_repo()
-        sofor_id = await sofor_repo.add(
-            ad_soyad="Pasif Şoför",
-            telefon="555",
-            ise_baslama="2023-01-01",
-            ehliyet_sinifi="E",
-        )
+        from app.database.unit_of_work import UnitOfWork
 
-        # 2. Araç oluştur
-        arac_repo = get_arac_repo()
-        arac_id = await arac_repo.add(
-            plaka="34 PAS 99", marka="Test", model="Model", yil=2023
-        )
+        async with UnitOfWork() as uow:
+            # 1. Şoför oluştur
+            sofor_model = await uow.sofor_repo.add(
+                ad_soyad="Pasif Şoför",
+                telefon="555",
+                ise_baslama=date(2023, 1, 1),
+                ehliyet_sinifi="E",
+            )
+            sofor_id = sofor_model.id if hasattr(sofor_model, "id") else sofor_model
+
+            # 2. Araç oluştur
+            arac_model = await uow.arac_repo.add(
+                plaka="34 PAS 99", marka="Test", model="Model", yil=2023
+            )
+            arac_id = arac_model.id if hasattr(arac_model, "id") else arac_model
+
+            # 3. Güzergah/Lokasyon oluştur
+            from sqlalchemy import text
+
+            await uow.session.execute(
+                text(
+                    "INSERT INTO lokasyonlar (cikis_yeri, varis_yeri, mesafe_km, zorluk, flat_distance_km, aktif, is_corrected) VALUES ('Ankara', 'İstanbul', 450, 'Normal', 0, true, false)"
+                )
+            )
+            guz_id = 1
+            await uow.commit()
 
         # 3. Seferler ekle (Bu şoför 2 sefer yapsın)
         # SeferService.add_sefer kullanıyoruz (Validasyonlar için)
@@ -45,6 +57,7 @@ class TestDetailedScenarios:
                 tarih=date(2023, 1, 1),
                 arac_id=arac_id,
                 sofor_id=sofor_id,
+                guzergah_id=guz_id,
                 mesafe_km=100,
                 net_kg=25000,
                 cikis_yeri="Ankara",
@@ -56,6 +69,7 @@ class TestDetailedScenarios:
                 tarih=date(2023, 1, 2),
                 arac_id=arac_id,
                 sofor_id=sofor_id,
+                guzergah_id=guz_id,
                 mesafe_km=100,
                 net_kg=25000,
                 cikis_yeri="İstanbul",
@@ -63,19 +77,34 @@ class TestDetailedScenarios:
             )
         )
 
-        # 4. Şoförü PASİF yap
-        await sofor_repo.delete(sofor_id)  # Bu soft delete yapar (aktif=0)
+        # 4. Şoförü PASİF yap ve doğrula
+        from app.database.unit_of_work import UnitOfWork
 
-        # 5. Pasif olduğunu doğrula
-        sofor = await sofor_repo.get_by_id(sofor_id)
-        assert sofor["aktif"] == 0
+        async with UnitOfWork() as uow:
+            await uow.sofor_repo.delete(sofor_id)  # Bu soft delete yapar (aktif=0)
+            await uow.commit()
+
+            sofor = await uow.sofor_repo.get_by_id(sofor_id)
+            assert sofor["aktif"] == 0
 
         # 6. RAPOR SORGUSU (ReportService üzerinden)
         # generate_driver_report son 30 günü alır, o yüzden tarihleri yakın seçelim veya days parametresini artıralım
         # Senaryo gereği 2023 Ocak verilerini istiyoruz.
         # generate_driver_report default 30 gün geriye gider.
         days_diff = (date.today() - date(2023, 1, 1)).days + 1
-        stats = await report_service.generate_driver_report(sofor_id, days=days_diff)
+        async with UnitOfWork() as uow:
+            # Container'daki tüm repo'lara session enjekte ediyoruz
+            # Bu sayede ReportService içindeki tüm alt servisler (örn. DegerlendirmeService) doğru session'ı kullanır.
+            container = get_container()
+            container.sofor_repo.session = uow.session
+            container.analiz_repo.session = uow.session
+            container.sefer_repo.session = uow.session
+            container.yakit_repo.session = uow.session
+            container.arac_repo.session = uow.session
+
+            stats = await report_service.generate_driver_report(
+                sofor_id, days=days_diff
+            )
 
         # 7. Sonuçları doğrula
         assert stats is not None
@@ -128,16 +157,29 @@ class TestDetailedScenarios:
     @pytest.mark.asyncio
     async def test_sefer_service_logic(self, sefer_service):
         """SENARYO 3: Sefer Servisi Mantığı (Validasyon & Boş Dönüş)"""
-        # Hazırlık
-        sofor_repo = get_sofor_repo()
-        sofor_id = await sofor_repo.add(
-            ad_soyad="Seferci", telefon="555", ise_baslama="2023-01-01"
-        )
+        from app.database.unit_of_work import UnitOfWork
 
-        arac_repo = get_arac_repo()
-        arac_id = await arac_repo.add(
-            plaka="06 SEF 01", marka="Test", model="Model", yil=2023
-        )
+        async with UnitOfWork() as uow:
+            sofor_model = await uow.sofor_repo.add(
+                ad_soyad="Seferci", telefon="555", ise_baslama=date(2023, 1, 1)
+            )
+            sofor_id = sofor_model.id if hasattr(sofor_model, "id") else sofor_model
+
+            arac_model = await uow.arac_repo.add(
+                plaka="06 SEF 01", marka="Test", model="Model", yil=2023
+            )
+            arac_id = arac_model.id if hasattr(arac_model, "id") else arac_model
+
+            # 3. Güzergah/Lokasyon oluştur
+            from sqlalchemy import text
+
+            await uow.session.execute(
+                text(
+                    "INSERT INTO lokasyonlar (cikis_yeri, varis_yeri, mesafe_km, zorluk, flat_distance_km, aktif, is_corrected) VALUES ('Ankara', 'İstanbul', 450, 'Normal', 0, true, false)"
+                )
+            )
+            guz_id = 1
+            await uow.commit()
 
         # 1. Hatalı Sefer (Negatif mesafe) - Pydantic validasyonu
         from pydantic import ValidationError
@@ -147,6 +189,7 @@ class TestDetailedScenarios:
                 tarih=date.today(),
                 arac_id=arac_id,
                 sofor_id=sofor_id,
+                guzergah_id=guz_id,
                 cikis_yeri="CikisYeri",
                 varis_yeri="VarisYeri",
                 mesafe_km=-50,
@@ -158,6 +201,7 @@ class TestDetailedScenarios:
             tarih=date.today(),
             arac_id=arac_id,
             sofor_id=sofor_id,
+            guzergah_id=guz_id,
             cikis_yeri="Ankara",
             varis_yeri="İstanbul",
             mesafe_km=450,
@@ -166,9 +210,9 @@ class TestDetailedScenarios:
         )
 
         sid = await sefer_service.add_sefer(valid_sefer)
-        sefer_repo = get_sefer_repo()
-        saved = await sefer_repo.get_by_id(sid)
-        assert saved["bos_sefer"] is True or saved["bos_sefer"] == 1
+        async with UnitOfWork() as uow:
+            saved = await uow.sefer_repo.get_by_id(sid)
+            assert saved["bos_sefer"] is True or saved["bos_sefer"] == 1
 
     @pytest.mark.skip(
         reason="SQLite FK constraint enforcement requires PRAGMA foreign_keys=ON at connection time"
@@ -176,27 +220,28 @@ class TestDetailedScenarios:
     @pytest.mark.asyncio
     async def test_foreign_key_integrity(self, db_session):
         """SENARYO 4: Foreign Key Bütünlüğü"""
-        # Araç ve Sefer ekle
-        arac_repo = get_arac_repo()
-        arac_id = await arac_repo.add(
-            plaka="34 FK 01", marka="Test", model="X", yil=2022
-        )
+        from app.database.unit_of_work import UnitOfWork
 
-        sofor_repo = get_sofor_repo()
-        sofor_id = await sofor_repo.add(
-            ad_soyad="Test", telefon="555", ise_baslama="2020-01-01", ehliyet_sinifi="E"
-        )
-
-        sefer_repo = get_sefer_repo()
-        await sefer_repo.add(
-            tarih="2023-01-01",
-            arac_id=arac_id,
-            sofor_id=sofor_id,
-            mesafe_km=100,
-            net_kg=1000,
-            cikis_yeri="A",
-            varis_yeri="B",
-        )
+        async with UnitOfWork() as uow:
+            arac_id = await uow.arac_repo.add(
+                plaka="34 FK 01", marka="Test", model="X", yil=2022
+            )
+            sofor_id = await uow.sofor_repo.add(
+                ad_soyad="Test",
+                telefon="555",
+                ise_baslama="2020-01-01",
+                ehliyet_sinifi="E",
+            )
+            await uow.sefer_repo.add(
+                tarih="2023-01-01",
+                arac_id=arac_id,
+                sofor_id=sofor_id,
+                mesafe_km=100,
+                net_kg=1000,
+                cikis_yeri="A",
+                varis_yeri="B",
+            )
+            await uow.commit()
 
         # Aracı silmeye çalış (Hard Delete simülasyonu - FK hatası vermeli)
         from sqlalchemy.exc import IntegrityError

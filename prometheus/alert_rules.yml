@@ -1,0 +1,42 @@
+groups:
+  - name: lojinext_critical
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate > 5% (5m)"
+
+      - alert: HighP99Latency
+        expr: histogram_quantile(0.99, http_request_duration_seconds_bucket) > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "P99 latency > 2s"
+
+      - alert: WorkerQueueLag
+        expr: celery_queue_length > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue lag > 100 tasks"
+
+      - alert: CacheHitRateLow
+        expr: redis_cache_hit_ratio < 0.7
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit rate < 70%"
+
+      - alert: WorkerFailures
+        expr: increase(celery_task_failed_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery task failures detected"

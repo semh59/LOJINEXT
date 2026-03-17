@@ -1,5 +1,7 @@
 import sys
+from contextlib import ExitStack
 from unittest.mock import MagicMock
+from unittest import mock
 
 import pytest
 import pytest_asyncio
@@ -58,30 +60,41 @@ sys.modules["geoalchemy2.shape"] = MagicMock()
 
 # PostgreSQL Configuration from app config
 from app.config import settings  # noqa: E402
+from sqlalchemy.pool import NullPool  # noqa: E402
 
-# Override database URL for tests BEFORE importing anything that creates an engine
+# Override database URL for tests
 TEST_DATABASE_URL = str(settings.DATABASE_URL).replace("tir_yakit", "tir_yakit_test")
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,  # SQL logging disabled for load tests to avoid noise
-    pool_size=60,
-    max_overflow=20,
-    pool_timeout=30,
-)
-TestSessionLocal = async_sessionmaker(
-    test_engine, class_=AsyncSession, expire_on_commit=False
-)
-
-# CRITICAL: Patch AsyncSessionLocal in ALL relevant modules
-import app.database.connection  # noqa: E402
-import app.database.unit_of_work  # noqa: E402
-
-app.database.connection.AsyncSessionLocal = TestSessionLocal
-app.database.unit_of_work.AsyncSessionLocal = TestSessionLocal
 
 
-@pytest_asyncio.fixture(scope="function", autouse=True)
-async def setup_test_db():
+@pytest_asyncio.fixture(scope="function")
+async def db_engine():
+    """Session scoped engine to avoid attached to a different loop errors."""
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,
+    )
+    yield engine
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="function")
+def db_session_factory(db_engine):
+    """Session scoped session maker that also patches the globally used SessionLocals."""
+    factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    # CRITICAL: Patch AsyncSessionLocal when the factory is created
+    import app.database.connection  # noqa: E402
+    import app.database.unit_of_work  # noqa: E402
+
+    app.database.connection.AsyncSessionLocal = factory
+    app.database.unit_of_work.AsyncSessionLocal = factory
+
+    return factory
+
+
+@pytest_asyncio.fixture(scope="function")
+async def setup_test_db(db_engine, db_session_factory):
     from app.database.models import (
         Base,
         Rol,
@@ -92,13 +105,13 @@ async def setup_test_db():
     from app.core.security import get_password_hash
 
     async def override_get_db():
-        async with TestSessionLocal() as session:
+        async with db_session_factory() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
 
     print("\n--- DEBUG: setup_test_db starting ---")
-    async with test_engine.begin() as conn:
+    async with db_engine.begin() as conn:
         # Re-create all tables in the test database
         print("Dropping tables...")
         await conn.execute(text("DROP TABLE IF EXISTS lokasyonlar CASCADE"))
@@ -124,7 +137,7 @@ async def setup_test_db():
     print("--- DEBUG: setup_test_db finished ---\n")
 
     # Seed mandatory users for tests
-    async with TestSessionLocal() as session:
+    async with db_session_factory() as session:
         # Create Roles
         super_rol = Rol(ad="super_admin", yetkiler={"*": True})
         user_rol = Rol(ad="user", yetkiler={"read": True, "write": True})
@@ -153,15 +166,14 @@ async def setup_test_db():
 
     yield
     app.dependency_overrides.clear()
-    async with test_engine.begin() as conn:
+    async with db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    await test_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
-async def db_session():
-    """Async database session fixture"""
-    async with TestSessionLocal() as session:
+async def db_session(db_session_factory, setup_test_db):
+    """Async database session fixture (requires setup_test_db implicitly)"""
+    async with db_session_factory() as session:
         yield session
         await session.rollback()
 
@@ -208,3 +220,60 @@ async def async_normal_user_token_headers(async_client):
 
     token = create_access_token(data={"sub": "user@example.com", "typ": "access"})
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(scope="function")
+def mocker():
+    """Minimal pytest-mock compatible fixture for legacy tests."""
+
+    class SimpleMocker:
+        Mock = mock.Mock
+        MagicMock = mock.MagicMock
+        AsyncMock = mock.AsyncMock
+        call = mock.call
+        ANY = mock.ANY
+
+        def __init__(self):
+            self._stack = ExitStack()
+
+        def patch(self, target, *args, **kwargs):
+            return self._stack.enter_context(mock.patch(target, *args, **kwargs))
+
+        def patch_object(self, target, attribute, *args, **kwargs):
+            return self._stack.enter_context(
+                mock.patch.object(target, attribute, *args, **kwargs)
+            )
+
+        def spy(self, obj, name):
+            original = getattr(obj, name)
+            wrapper = mock.Mock(wraps=original)
+            self._stack.enter_context(mock.patch.object(obj, name, wrapper))
+            return wrapper
+
+        def stopall(self):
+            self._stack.close()
+
+    fixture = SimpleMocker()
+    try:
+        yield fixture
+    finally:
+        fixture.stopall()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def sofor_id(db_session_factory, setup_test_db):
+    """Seed a disposable driver record for legacy delete smoke tests."""
+    from app.database.models import Sofor
+
+    async with db_session_factory() as session:
+        sofor = Sofor(
+            ad_soyad="Delete Test Driver",
+            telefon="05000000000",
+            ehliyet_sinifi="E",
+            aktif=True,
+            is_deleted=False,
+        )
+        session.add(sofor)
+        await session.commit()
+        await session.refresh(sofor)
+        yield sofor.id

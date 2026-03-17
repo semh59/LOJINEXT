@@ -37,22 +37,22 @@ export class ErrorBoundary extends Component<Props, State> {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full h-full min-h-[300px] flex flex-col items-center justify-center p-8 bg-white/50 backdrop-blur rounded-2xl border border-red-100 shadow-sm"
+          className="w-full h-full min-h-[300px] flex flex-col items-center justify-center p-8 bg-surface/50 backdrop-blur rounded-2xl border border-danger/20 shadow-sm"
         >
-          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-6">
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+          <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center mb-6">
+            <AlertTriangle className="w-8 h-8 text-danger" />
           </div>
-          <h2 className="text-xl font-bold text-neutral-800 mb-2 text-center">
+          <h2 className="text-xl font-bold text-primary mb-2 text-center">
             {this.props.fallbackMessage || 'Bir şeyler ters gitti'}
           </h2>
-          <p className="text-sm text-neutral-500 text-center max-w-md mb-8">
+          <p className="text-sm text-secondary text-center max-w-md mb-8">
             Bu bölüm yüklenirken beklenmedik bir hata oluştu. Lütfen sayfayı yenilemeyi veya bileşeni yeniden başlatmayı deneyin.
           </p>
           
           <div className="flex gap-4">
             <button
               onClick={this.handleReset}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent text-bg-base font-medium hover:bg-accent/80 transition-colors shadow-lg shadow-accent/20 active:scale-95"
             >
               <RefreshCw className="w-4 h-4" />
               Yeniden Dene
@@ -60,8 +60,8 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           
           {this.state.error && process.env.NODE_ENV === 'development' && (
-            <div className="mt-8 w-full max-w-2xl bg-neutral-900 rounded-lg p-4 overflow-auto">
-              <pre className="text-xs text-red-400 whitespace-pre-wrap font-mono">
+            <div className="mt-8 w-full max-w-2xl bg-bg-elevated rounded-lg p-4 overflow-auto border border-border">
+              <pre className="text-xs text-danger whitespace-pre-wrap font-mono">
                 {this.state.error.toString()}
               </pre>
             </div>

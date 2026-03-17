@@ -3,6 +3,8 @@
 # Builder Stage
 FROM python:3.10-slim AS builder
 
+ARG INSTALL_DEV=false
+
 WORKDIR /app
 
 # Install system dependencies needed for building requirements
@@ -14,11 +16,17 @@ RUN apt-get update && apt-get install -y \
 
 # Copy and install dependencies
 COPY app/requirements.txt ./
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY app/requirements-dev.txt ./
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt && \
+    if [ "$INSTALL_DEV" = "true" ]; then \
+      pip install --no-cache-dir --prefix=/install -r requirements-dev.txt; \
+    fi
 
 # ============================================================
 # Final Stage
 FROM python:3.10-slim
+
+ARG INSTALL_DEV=false
 
 WORKDIR /app
 

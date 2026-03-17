@@ -21,7 +21,11 @@ def get_password_hash(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain text password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    # Truncate to 72 bytes for bcrypt compatibility (Python 3.14+)
+    password_to_check = (
+        plain_password[:72] if len(plain_password) > 72 else plain_password
+    )
+    return pwd_context.verify(password_to_check, hashed_password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

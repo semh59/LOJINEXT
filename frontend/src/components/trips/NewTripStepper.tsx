@@ -160,16 +160,22 @@ export function NewTripStepper({ onComplete, onCancel, isSubmitting = false }: N
 
 
     return (
-        <div className="glass p-8 rounded-[32px] border border-white/50 relative overflow-hidden bg-white/40">
+        <div className="bg-surface/40 backdrop-blur-xl p-8 rounded-[32px] border border-border relative overflow-hidden">
             <div className="flex justify-between relative mb-12">
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-neutral-100 -z-10 rounded-full"></div>
-                <div className="absolute top-1/2 left-0 h-1 bg-indigo-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${((currentStep - 1) / 2) * 100}%` }}></div>
+                <div className="absolute top-1/2 left-0 right-0 h-1 bg-bg-elevated -z-10 rounded-full"></div>
+                <div className="absolute top-1/2 left-0 h-1 bg-accent -z-10 rounded-full transition-all duration-500" style={{ width: `${((currentStep - 1) / 2) * 100}%` }}></div>
                 {steps.map((s) => (
                     <div key={s.id} className="flex flex-col items-center gap-2 bg-transparent px-2">
-                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all", s.id === currentStep ? "border-indigo-500 bg-indigo-600 text-white scale-110 shadow-lg shadow-indigo-500/30" : s.id < currentStep ? "border-emerald-500 bg-emerald-500 text-white" : "border-neutral-200 bg-white text-neutral-300")}>
+                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all", 
+                            s.id === currentStep 
+                                ? "border-accent bg-accent text-bg-base scale-110 shadow-lg shadow-accent/20" 
+                                : s.id < currentStep 
+                                    ? "border-success bg-success text-bg-base" 
+                                    : "border-border bg-surface text-secondary"
+                        )}>
                             {s.id < currentStep ? <Check className="w-5 h-5" /> : <s.icon className="w-5 h-5" />}
                         </div>
-                        <span className={cn("text-xs font-bold", s.id === currentStep ? "text-indigo-600" : "text-neutral-400")}>{s.title}</span>
+                        <span className={cn("text-xs font-bold", s.id === currentStep ? "text-accent" : "text-secondary")}>{s.title}</span>
                     </div>
                 ))}
             </div>
@@ -179,57 +185,57 @@ export function NewTripStepper({ onComplete, onCancel, isSubmitting = false }: N
                     {/* STEP 1: ARAÇ */}
                     {currentStep === 1 && (
                         <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                            <h3 className="text-xl font-bold text-brand-dark mb-4">Hangi araç yola çıkacak?</h3>
+                            <h3 className="text-xl font-bold text-primary mb-4">Hangi araç yola çıkacak?</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {(vehicles as Vehicle[]).map(v => (
-                                    <div key={v.id} onClick={() => { if(v.id) { setValue('arac_id', v.id); trigger('arac_id'); } }} className={cn("p-4 rounded-xl border-2 cursor-pointer transition-all", watchAracId === v.id ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200" : "border-neutral-100 hover:border-indigo-200 bg-white")}>
+                                    <div key={v.id} onClick={() => { if(v.id) { setValue('arac_id', v.id); trigger('arac_id'); } }} className={cn("p-4 rounded-xl border-2 cursor-pointer transition-all", watchAracId === v.id ? "border-accent bg-accent/10 ring-2 ring-accent/20" : "border-border hover:border-accent/40 bg-surface")}>
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-neutral-100 rounded-lg text-neutral-500"><Truck className="w-6 h-6" /></div>
-                                            <div><div className="font-bold text-neutral-900">{v.plaka}</div><div className="text-xs text-neutral-500">{v.marka} - {v.model}</div></div>
+                                            <div className="p-2 bg-bg-elevated rounded-lg text-secondary"><Truck className="w-6 h-6" /></div>
+                                            <div><div className="font-bold text-primary">{v.plaka}</div><div className="text-xs text-secondary">{v.marka} - {v.model}</div></div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                            {errors.arac_id && <p className="text-xs text-red-500 font-medium">{errors.arac_id.message}</p>}
+                            {errors.arac_id && <p className="text-xs text-danger font-medium">{errors.arac_id.message}</p>}
                         </motion.div>
                     )}
 
                     {/* STEP 2: SÜRÜCÜ */}
                     {currentStep === 2 && (
                         <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                            <h3 className="text-xl font-bold text-brand-dark mb-4">Sürücüyü belirleyin</h3>
+                            <h3 className="text-xl font-bold text-primary mb-4">Sürücüyü belirleyin</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {(drivers as Driver[]).map(d => (
-                                    <div key={d.id} onClick={() => { if(d.id) { setValue('sofor_id', d.id); trigger('sofor_id'); } }} className={cn("p-4 rounded-xl border-2 cursor-pointer transition-all", watchSoforId === d.id ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200" : "border-neutral-100 hover:border-indigo-200 bg-white")}>
+                                    <div key={d.id} onClick={() => { if(d.id) { setValue('sofor_id', d.id); trigger('sofor_id'); } }} className={cn("p-4 rounded-xl border-2 cursor-pointer transition-all", watchSoforId === d.id ? "border-accent bg-accent/10 ring-2 ring-accent/20" : "border-border hover:border-accent/40 bg-surface")}>
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-neutral-100 rounded-lg text-neutral-500"><User className="w-6 h-6" /></div>
-                                            <div><div className="font-bold text-neutral-900">{d.ad_soyad}</div><div className="text-xs text-neutral-500">{d.ehliyet_sinifi} Sınıfı • {d.score} Puan</div></div>
+                                            <div className="p-2 bg-bg-elevated rounded-lg text-secondary"><User className="w-6 h-6" /></div>
+                                            <div><div className="font-bold text-primary">{d.ad_soyad}</div><div className="text-xs text-secondary">{d.ehliyet_sinifi} Sınıfı • {d.score} Puan</div></div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                            {errors.sofor_id && <p className="text-xs text-red-500 font-medium">{errors.sofor_id.message}</p>}
+                            {errors.sofor_id && <p className="text-xs text-danger font-medium">{errors.sofor_id.message}</p>}
                         </motion.div>
                     )}
 
                     {/* STEP 3: ROTA & YÜK (REFACTORED) */}
                     {currentStep === 3 && (
                         <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-                            <h3 className="text-xl font-bold text-brand-dark">Rota ve yük detayları</h3>
+                            <h3 className="text-xl font-bold text-primary">Rota ve yük detayları</h3>
                             
                             {/* Weather Card (Conditional) */}
                             {/* Weather Card (Reusable) */}
                             <WeatherAnalysisCard weatherImpact={weatherImpact} weatherLoading={weatherLoading} />
-
+ 
                             {/* Route Selection */}
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
+                                    <label className="text-xs font-bold text-secondary uppercase tracking-wider flex items-center gap-2">
                                         <Route className="w-4 h-4" /> Güzergah Seçimi
                                     </label>
                                     <select
                                         {...register('guzergah_id')}
-                                        className="w-full text-lg font-bold p-4 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white transition-all outline-none appearance-none"
+                                        className="w-full text-lg font-bold p-4 rounded-xl border-2 border-border focus:border-accent focus:ring-4 focus:ring-accent/20 bg-surface transition-all outline-none appearance-none"
                                     >
                                         <option value="">Bir güzergah seçiniz...</option>
                                         {routes?.map((r: Guzergah) => (
@@ -238,24 +244,24 @@ export function NewTripStepper({ onComplete, onCancel, isSubmitting = false }: N
                                             </option>
                                         ))}
                                     </select>
-                                    {errors.guzergah_id && <p className="text-xs text-red-500 font-bold">{errors.guzergah_id.message}</p>}
+                                    {errors.guzergah_id && <p className="text-xs text-danger font-bold">{errors.guzergah_id.message}</p>}
                                 </div>
-
+ 
                                 {/* Route Details Card */}
                                 {Number(watchGuzergahId) > 0 && (
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <div className="bg-bg-elevated/20 p-4 rounded-xl border border-border">
                                         <div className="flex items-center justify-between text-sm">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase">Çıkış</span>
-                                                <span className="font-bold text-slate-700">{watchCikis}</span>
+                                                <span className="text-[10px] text-secondary font-bold uppercase">Çıkış</span>
+                                                <span className="font-bold text-primary">{watchCikis}</span>
                                             </div>
                                             <div className="flex flex-col items-center px-4">
-                                                <span className="text-xs text-slate-300">➜</span>
-                                                <span className="text-[10px] font-black text-slate-400 text-center uppercase">{watch('mesafe_km')} km</span>
+                                                <span className="text-xs text-secondary/40">➜</span>
+                                                <span className="text-[10px] font-black text-secondary text-center uppercase">{watch('mesafe_km')} km</span>
                                             </div>
                                             <div className="flex flex-col items-end">
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase">Varış</span>
-                                                <span className="font-bold text-slate-700">{watchVaris}</span>
+                                                <span className="text-[10px] text-secondary font-bold uppercase">Varış</span>
+                                                <span className="font-bold text-primary">{watchVaris}</span>
                                             </div>
                                         </div>
                                         {/* Hidden inputs to stash data for submit */}
@@ -268,30 +274,30 @@ export function NewTripStepper({ onComplete, onCancel, isSubmitting = false }: N
 
                             {/* Time */}
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-neutral-500 px-1">Planlanan Zaman</label>
+                                <label className="text-xs font-bold text-secondary px-1">Planlanan Zaman</label>
                                 <Input type="datetime-local" {...register('_datetime')} onChange={e => {
                                     const v = e.target.value; setValue('_datetime', v); setValue('tarih', v.split('T')[0]); setValue('saat', v.split('T')[1] || '00:00');
                                 }} />
                             </div>
-
+ 
                             {/* Weight Inputs */}
-                             <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 space-y-3">
-                                <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                             <div className="bg-success/5 p-4 rounded-xl border border-success/20 space-y-3">
+                                <h4 className="text-xs font-bold text-success uppercase tracking-widest flex items-center gap-2">
                                     <Weight className="w-3.5 h-3.5" /> Kantar / Ağırlık
                                 </h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-500 ml-1">Boş (kg)</label>
+                                        <label className="text-[10px] font-bold text-secondary ml-1">Boş (kg)</label>
                                         <Input type="number" {...register('bos_agirlik_kg')} className="h-10 text-sm font-semibold" />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-500 ml-1">Dolu (kg)</label>
+                                        <label className="text-[10px] font-bold text-secondary ml-1">Dolu (kg)</label>
                                         <Input type="number" {...register('dolu_agirlik_kg')} className="h-10 text-sm font-semibold" />
                                     </div>
                                 </div>
-                                <div className="pt-2 border-t border-emerald-200/50 flex justify-between items-center">
-                                    <span className="text-xs font-bold text-emerald-700">Net Yük:</span>
-                                    <span className="text-lg font-black text-emerald-700">{Number(watch('net_kg') || 0).toLocaleString()} kg</span>
+                                <div className="pt-2 border-t border-success/20 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-success">Net Yük:</span>
+                                    <span className="text-lg font-black text-success">{Number(watch('net_kg') || 0).toLocaleString()} kg</span>
                                 </div>
                                 <input type="hidden" {...register('net_kg')} />
                                 <input type="hidden" {...register('ton')} />
@@ -300,8 +306,8 @@ export function NewTripStepper({ onComplete, onCancel, isSubmitting = false }: N
                     )}
                 </AnimatePresence>
             </div>
-
-            <div className="flex justify-between mt-8 pt-6 border-t border-neutral-100">
+ 
+            <div className="flex justify-between mt-8 pt-6 border-t border-border">
                 <Button variant="secondary" onClick={currentStep === 1 ? onCancel : () => setCurrentStep(c => c - 1)}>
                     {currentStep === 1 ? 'İptal Et' : <><ChevronLeft className="w-4 h-4 mr-2" /> Geri</>}
                 </Button>

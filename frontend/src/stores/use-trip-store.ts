@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { Trip } from '../types';
+import { storageService } from '../services/storage-service';
 
 interface TripFilters {
     durum: string;
@@ -45,6 +46,21 @@ const initialFilters: TripFilters = {
     bitis_tarih: '',
     skip: 0,
     limit: 100,
+};
+
+const userScopedStorage: StateStorage = {
+    getItem: (name: string) => {
+        const key = storageService.getUserScopedKey(name);
+        return localStorage.getItem(key);
+    },
+    setItem: (name: string, value: string) => {
+        const key = storageService.getUserScopedKey(name);
+        localStorage.setItem(key, value);
+    },
+    removeItem: (name: string) => {
+        const key = storageService.getUserScopedKey(name);
+        localStorage.removeItem(key);
+    },
 };
 
 export const useTripStore = create<TripState>()(
@@ -99,7 +115,7 @@ export const useTripStore = create<TripState>()(
         }),
         {
             name: 'lojinext-trip-storage',
-            storage: createJSONStorage(() => localStorage),
+            storage: createJSONStorage(() => userScopedStorage),
             partialize: (state) => ({ 
                 filters: state.filters, 
                 viewMode: state.viewMode 

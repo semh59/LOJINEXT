@@ -13,6 +13,8 @@ import { vehicleService } from '../services/api/vehicle-service'
 import { predictionService } from '../services/api/prediction-service'
 import { FuelRecord } from '../types'
 import { useNotify } from '../context/NotificationContext'
+import { useUrlState } from '../hooks/use-url-state'
+import ErrorBoundary from '../components/common/ErrorBoundary'
 
 export default function FuelPage() {
     const { notify } = useNotify()
@@ -22,21 +24,23 @@ export default function FuelPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [selectedRecord, setSelectedRecord] = useState<FuelRecord | null>(null)
 
-    // Filter & Pagination State
-    const [page, setPage] = useState(1)
-    const [pageSize] = useState(20)
-    const [startDate, setStartDate] = useState(
-        new Date(new Date().setMonth(new Date().getMonth() - 1))
-            .toISOString()
-            .slice(0, 10),
-    )
-    const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10))
-    const [vehicleFilter, setVehicleFilter] = useState("")
+    // Filter & Pagination State (Synced with URL)
+    const [filters, setFilters] = useUrlState({
+        page: 1,
+        start: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 10),
+        end: new Date().toISOString().slice(0, 10),
+        vehicle: ""
+    })
+
+    const { page, start: startDate, end: endDate, vehicle: vehicleFilter } = filters
+    const pageSize = 20
 
     // React Query: Fetch Vehicles for selection
     const { data: vehiclesData = [] } = useQuery({
         queryKey: ['vehicles', 'minimal'],
         queryFn: () => vehicleService.getAll({ limit: 100 }),
+        staleTime: 30 * 60 * 1000, // Static-ish data
+        gcTime: 60 * 60 * 1000,
     })
     const vehicles: any[] = Array.isArray(vehiclesData) ? vehiclesData : (vehiclesData as any)?.items || []
 
@@ -44,6 +48,7 @@ export default function FuelPage() {
     const { data: comparisonData, isLoading: isComparisonLoading } = useQuery({
         queryKey: ['predictionComparison'],
         queryFn: () => predictionService.getComparison(30),
+        staleTime: 15 * 60 * 1000, // 15 mins
     })
 
     // React Query: Fetch Fuel Records (Paginated)
@@ -56,6 +61,7 @@ export default function FuelPage() {
             skip: (page - 1) * pageSize,
             limit: pageSize,
         }),
+        staleTime: 5 * 60 * 1000, // 5 mins
     })
     const records = recordsResult?.items || []
     const totalRecords = recordsResult?.total || 0
@@ -70,6 +76,7 @@ export default function FuelPage() {
             bitis_tarih: endDate,
             arac_id: vehicleFilter ? Number(vehicleFilter) : undefined,
         }),
+        staleTime: 5 * 60 * 1000, // 5 mins
     })
 
     // Mutations
@@ -86,13 +93,13 @@ export default function FuelPage() {
             } else {
                 await fuelService.create(payload)
                 notify("success", "Eklendi", "Yeni yakıt kaydı eklendi.")
-                setPage(1) // Yeni kayıt eklendiğinde başa dön
+                setFilters({ page: 1 }) // Yeni kayıt eklendiğinde başa dön
             }
             
             // Otomatik tarih genişletme (Visibility fix)
             if (data.tarih) {
-                if (data.tarih > endDate) setEndDate(data.tarih)
-                if (data.tarih < startDate) setStartDate(data.tarih)
+                if (data.tarih > endDate) setFilters({ end: data.tarih })
+                if (data.tarih < startDate) setFilters({ start: data.tarih })
             }
 
             queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
@@ -164,55 +171,65 @@ export default function FuelPage() {
     }
 
     return (
-        <PremiumLayout title="Yakıt Kayıtları" primaryColor="#0df259">
-            <div className="flex-1 w-full h-full p-6 animate-stagger-fade overflow-y-auto custom-scrollbar">
-                <FuelHeader 
-                    onAdd={() => { setSelectedRecord(null); setIsModalOpen(true); }}
-                    onExport={handleExport}
-                    onDownloadTemplate={handleDownloadTemplate}
-                    onImport={handleImport}
-                />
+        <PremiumLayout title="Yakıt Kayıtları">
+            <ErrorBoundary>
+                <div className="flex-1 w-full h-full px-6 py-8 animate-stagger-fade overflow-y-auto custom-scrollbar">
+                    <FuelHeader 
+                        onAdd={() => { setSelectedRecord(null); setIsModalOpen(true); }}
+                        onExport={handleExport}
+                        onDownloadTemplate={handleDownloadTemplate}
+                        onImport={handleImport}
+                    />
 
-                <FuelStats stats={stats as any} loading={isStatsLoading} />
+                    <FuelStats stats={stats as any} loading={isStatsLoading} />
 
-                {comparisonData && (
-                    <ComparisonWidget data={comparisonData} isLoading={isComparisonLoading} />
-                )}
+                    {comparisonData && (
+                        <ComparisonWidget data={comparisonData} isLoading={isComparisonLoading} />
+                    )}
 
-                <FuelFilters 
-                    startDate={startDate}
-                    setStartDate={setStartDate}
-                    endDate={endDate}
-                    setEndDate={setEndDate}
-                    vehicleFilter={vehicleFilter}
-                    setVehicleFilter={setVehicleFilter}
-                    vehicles={vehicles}
-                    onFilter={() => {
-                        setPage(1) // Filtre değişince başa dön
-                        queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
-                        queryClient.invalidateQueries({ queryKey: ['fuelStats'] })
-                    }}
-                />
-
-                <div className="mt-6 border border-[#22492f] rounded-2xl bg-[#1a3825] overflow-hidden">
-                    <FuelTable
-                        records={records}
-                        loading={isRecordsLoading}
-                        onEdit={(r) => {
-                            setSelectedRecord(r)
-                            setIsModalOpen(true)
+                    <FuelFilters 
+                        startDate={startDate}
+                        setStartDate={(val) => setFilters({ start: val })}
+                        endDate={endDate}
+                        setEndDate={(val) => setFilters({ end: val })}
+                        vehicleFilter={vehicleFilter}
+                        setVehicleFilter={(val) => setFilters({ vehicle: val })}
+                        vehicles={vehicles}
+                        onFilter={() => {
+                            setFilters({ page: 1 }) // Filtre değişince başa dön
+                            queryClient.invalidateQueries({ queryKey: ['fuelRecords'] })
+                            queryClient.invalidateQueries({ queryKey: ['fuelStats'] })
                         }}
-                        onDelete={handleDelete}
+                        onReset={() => {
+                            setFilters({
+                                page: 1,
+                                start: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 10),
+                                end: new Date().toISOString().slice(0, 10),
+                                vehicle: ""
+                            })
+                        }}
                     />
-                    
-                    <FuelPagination
-                        currentPage={page}
-                        totalCount={totalRecords}
-                        pageSize={pageSize}
-                        onPageChange={setPage}
-                    />
+
+                    <div className="mt-6 border border-border rounded-2xl bg-surface shadow-sm overflow-hidden">
+                        <FuelTable
+                            records={records}
+                            loading={isRecordsLoading}
+                            onEdit={(r) => {
+                                setSelectedRecord(r)
+                                setIsModalOpen(true)
+                            }}
+                            onDelete={handleDelete}
+                        />
+                        
+                        <FuelPagination
+                            currentPage={page}
+                            totalCount={totalRecords}
+                            pageSize={pageSize}
+                            onPageChange={(p) => setFilters({ page: p })}
+                        />
+                    </div>
                 </div>
-            </div>
+            </ErrorBoundary>
 
             <FuelModal
                 isOpen={isModalOpen}

@@ -108,47 +108,47 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-[#1a0121]/90 backdrop-blur-xl rounded-[32px] w-full max-w-lg border border-[#d006f9]/30 shadow-[0_0_40px_rgba(208,6,249,0.15)] overflow-hidden flex flex-col"
+                    className="bg-surface rounded-[12px] w-full max-w-lg border border-border shadow-xl overflow-hidden flex flex-col"
                 >
-                    <div className="flex items-center justify-between p-6 border-b border-[#d006f9]/20 bg-black/40 shrink-0">
+                    <div className="flex items-center justify-between p-6 border-b border-border bg-bg-elevated/30 shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-[#d006f9]/20 border border-[#d006f9]/40 rounded-xl flex items-center justify-center text-[#d006f9] shadow-[0_0_15px_rgba(208,6,249,0.3)]">
+                            <div className="w-12 h-12 bg-bg-elevated border border-border rounded-[10px] flex items-center justify-center text-accent shadow-sm">
                                 <User className="w-6 h-6" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">
+                                <h2 className="text-xl font-bold text-primary tracking-tight">
                                     {driver ? 'Sürücüyü Düzenle' : 'Yeni Sürücü Ekle'}
                                 </h2>
-                                <p className="text-sm text-white/50">Sürücü bilgilerini giriniz</p>
+                                <p className="text-xs font-medium text-secondary">Sürücü bilgilerini giriniz</p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-colors">
+                        <button onClick={onClose} className="p-2 text-secondary hover:text-primary hover:bg-bg-elevated rounded-[8px] transition-colors">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
                     <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                            <label className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
                                 <User className="w-3.5 h-3.5" /> Ad Soyad *
                             </label>
                             <Input
                                 {...register('ad_soyad')}
                                 placeholder="Örn: Ahmet Yılmaz"
-                                className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
+                                className="bg-bg-elevated/50 border-transparent text-primary focus:border-border"
                                 error={!!errors.ad_soyad}
                             />
-                            {errors.ad_soyad && <p className="text-xs text-red-400 font-medium">{errors.ad_soyad.message}</p>}
+                            {errors.ad_soyad && <p className="text-[10px] text-danger font-bold mt-1 uppercase tracking-tight">{errors.ad_soyad.message}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                                <label className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
                                     <Phone className="w-3.5 h-3.5" /> Telefon
                                 </label>
                                 <Controller
@@ -159,23 +159,23 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
                                             {...field}
                                             onChange={(e) => field.onChange(formatPhone(e.target.value))}
                                             placeholder="0532 123 45 67"
-                                            className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60"
+                                            className="bg-bg-elevated/50 border-transparent text-primary focus:border-border"
                                             error={!!errors.telefon}
                                         />
                                     )}
                                 />
-                                {errors.telefon && <p className="text-xs text-red-400 font-medium">{errors.telefon.message}</p>}
+                                {errors.telefon && <p className="text-[10px] text-danger font-bold mt-1 uppercase tracking-tight">{errors.telefon.message}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider">
+                                <label className="text-xs font-bold text-secondary uppercase tracking-widest">
                                     Ehliyet Sınıfı
                                 </label>
                                 <select
                                     {...register('ehliyet_sinifi')}
-                                    className="w-full h-12 px-4 rounded-xl border border-[#d006f9]/30 bg-black/40 text-sm font-medium text-white focus:border-[#d006f9]/60 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
+                                    className="w-full h-10 px-4 rounded-[8px] border border-border bg-bg-elevated text-xs font-bold text-primary focus:border-secondary outline-none transition-all"
                                 >
                                     {EHLIYET_OPTIONS.map(cls => (
-                                        <option key={cls} value={cls} className="bg-[#1a0121]">{cls} Sınıfı</option>
+                                        <option key={cls} value={cls}>{cls} Sınıfı</option>
                                     ))}
                                 </select>
                             </div>
@@ -183,14 +183,14 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                                <label className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
                                     <Calendar className="w-3.5 h-3.5" /> İşe Başlama
                                 </label>
-                                <Input type="date" {...register('ise_baslama')} className="bg-black/40 border-[#d006f9]/30 text-white focus:border-[#d006f9]/60" error={!!errors.ise_baslama} />
+                                <Input type="date" {...register('ise_baslama')} className="bg-bg-elevated/50 border-transparent text-primary focus:border-border" error={!!errors.ise_baslama} />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider">
-                                    Manuel Puan: <span className="text-[#d006f9]">{manualScore?.toFixed(1)}</span>
+                                <label className="text-xs font-bold text-secondary uppercase tracking-widest">
+                                    Manuel Puan: <span className="text-accent">{manualScore?.toFixed(1)}</span>
                                 </label>
                                 <input
                                     type="range"
@@ -198,9 +198,9 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
                                     max="2.0"
                                     step="0.1"
                                     {...register('manual_score', { valueAsNumber: true })}
-                                    className="w-full h-2 bg-black/50 rounded-lg appearance-none cursor-pointer accent-[#d006f9]"
+                                    className="w-full h-1.5 bg-bg-elevated rounded-lg appearance-none cursor-pointer accent-accent"
                                 />
-                                <div className="flex justify-between text-[10px] text-white/30 font-medium">
+                                <div className="flex justify-between text-[10px] text-secondary font-bold">
                                     <span>0.1 Düşük</span>
                                     <span>2.0 Mükemmel</span>
                                 </div>
@@ -208,39 +208,39 @@ export function DriverModal({ isOpen, onClose, onSave, driver }: DriverModalProp
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+                            <label className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
                                 <FileText className="w-3.5 h-3.5" />
-                                Notlar <span className="text-white/30 font-normal">({notlar.length}/500)</span>
+                                Notlar <span className="text-secondary/50 font-medium">({notlar.length}/500)</span>
                             </label>
                             <textarea
                                 {...register('notlar')}
                                 placeholder="Sürücü hakkında notlar..."
                                 rows={3}
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.notlar ? 'border-red-500' : 'border-[#d006f9]/30'} bg-black/40 text-sm text-white focus:border-[#d006f9]/60 outline-none transition-all resize-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]`}
+                                className={`w-full px-4 py-3 rounded-[8px] border ${errors.notlar ? 'border-danger' : 'border-transparent'} bg-bg-elevated text-xs text-primary focus:border-border outline-none transition-all resize-none`}
                             />
-                            {errors.notlar && <p className="text-xs text-red-400 font-medium">{errors.notlar.message}</p>}
+                            {errors.notlar && <p className="text-[10px] text-danger font-bold mt-1 uppercase tracking-tight">{errors.notlar.message}</p>}
                         </div>
 
                         <div className="pt-2">
-                            <label className="flex items-center gap-3 cursor-pointer p-3 border border-white/10 rounded-xl hover:bg-black/30 transition-colors bg-black/20">
+                            <label className="flex items-center gap-3 cursor-pointer p-3 border border-border rounded-[8px] hover:bg-bg-elevated/50 transition-colors bg-bg-elevated/30">
                                 <input
                                     type="checkbox"
                                     {...register('aktif')}
-                                    className="w-5 h-5 text-[#d006f9] rounded border-white/20 focus:ring-[#d006f9] bg-black/50"
+                                    className="w-4 h-4 text-accent rounded border-border focus:ring-accent bg-surface"
                                 />
                                 <div>
-                                    <span className="text-sm font-bold text-white">Sürücü Aktif</span>
-                                    <p className="text-xs text-white/50">Pasif sürücüler seferlere atanamaz</p>
+                                    <span className="text-xs font-bold text-primary">Sürücü Aktif</span>
+                                    <p className="text-[10px] text-secondary font-medium">Pasif sürücüler seferlere atanamaz</p>
                                 </div>
                             </label>
                         </div>
 
-                        <div className="flex gap-4">
-                            <Button type="button" variant="secondary" className="flex-1 h-12" onClick={onClose}>İptal</Button>
+                        <div className="flex gap-3 pt-2">
+                            <Button type="button" variant="secondary" className="flex-1 h-10 text-xs font-bold" onClick={onClose}>İptal</Button>
                             <Button 
                                 type="submit" 
-                                variant="glossy-purple"
-                                className="flex-1 h-12" 
+                                variant="primary"
+                                className="flex-1 h-10 text-xs font-bold" 
                                 isLoading={isSubmitting}
                             >
                                 {driver ? 'Güncelle' : 'Kaydet'}

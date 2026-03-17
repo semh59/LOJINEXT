@@ -13,7 +13,12 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, size = 'md', className }: ModalProps) {
-    // Esc tuşu ve body scroll lock için effect her zaman çalışmalı (isOpen kontrolü içeride)
+    const [isMounted, setIsMounted] = React.useState(false)
+
+    React.useEffect(() => {
+        setIsMounted(true)
+    }, [])
+
     React.useEffect(() => {
         if (!isOpen) return;
 
@@ -30,7 +35,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
         }
     }, [isOpen, onClose])
 
-    if (!isOpen) return null
+    if (!isMounted || !isOpen) return null
 
     const sizeClasses = {
         sm: 'max-w-md',
@@ -41,13 +46,18 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+            // LojiNext v2.0 Modal Overlay Rules: backdrop blur + fade
+            className="fixed inset-0 z-[999] flex items-center justify-center p-[16px] bg-bg-base/40 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
             <div
+                // LojiNext v2.0 Modal Rules: 14px radius, scale(0.96) -> scale(1) + fade 200ms entrance
                 className={cn(
-                    "relative w-full rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20",
-                    "max-h-[90vh] overflow-y-auto",
+                    "relative w-full rounded-[14px] bg-surface p-[32px] border border-border",
+                    "shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]",
+                    // Framer Motion or Tailwind Animate rule equivalence
+                    "animate-in fade-in zoom-in-[0.96] duration-200", 
+                    "max-h-[90vh] overflow-y-auto custom-scrollbar",
                     sizeClasses[size],
                     className
                 )}
@@ -56,19 +66,19 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
             >
                 <button
                     onClick={onClose}
-                    className="absolute right-6 top-6 rounded-full p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors z-10 bg-white/80 backdrop-blur-sm"
+                    className="absolute right-[24px] top-[24px] rounded-full p-[8px] text-secondary hover:bg-bg-elevated hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-text-secondary"
                 >
-                    <X className="h-5 w-5" />
-                    <span className="sr-only">Close</span>
+                    <X className="h-[20px] w-[20px]" />
+                    <span className="sr-only">Kapat</span>
                 </button>
 
                 {title && (
-                    <div className="mb-6 pr-10">
-                        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+                    <div className="mb-[24px] pr-[40px]">
+                        <h2 className="text-[20px] font-bold text-primary tracking-tight">{title}</h2>
                     </div>
                 )}
 
-                <div className="text-slate-600">
+                <div className="text-primary">
                     {children}
                 </div>
             </div>
@@ -76,4 +86,3 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
         document.body
     )
 }
-

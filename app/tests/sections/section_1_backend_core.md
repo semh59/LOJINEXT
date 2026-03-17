@@ -59,11 +59,11 @@
 
 ## 2. AI Modülleri Analizi
 
-### 2.1 `ai_service.py` - Yerel LLM Servisi
+### 2.1 `ai_service.py` - Remote LLM Servisi
 
 **Mimari:**
-- GPT4All tabanlı Qwen2.5-1.5B-Instruct modeli
-- Lazy loading pattern ile model yükleme
+- Groq tabanlı remote inference + RAG entegrasyonu
+- Hata durumları için fallback yanıt akışı
 - Thread-safe singleton pattern
 
 **Kritik Noktalar:**

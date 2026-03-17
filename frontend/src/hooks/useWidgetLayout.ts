@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { storageService } from '../services/storage-service';
 
 /**
  * localStorage'den widget sıralamasını okuyup yazan hook.
@@ -13,27 +14,26 @@ export function useWidgetLayout(
 ) {
     const [order, setOrder] = useState<string[]>(() => {
         try {
-            const saved = localStorage.getItem(storageKey)
+            const saved = storageService.getItem<string[]>(storageKey as any);
             if (saved) {
-                const parsed: string[] = JSON.parse(saved)
                 // If the saved order is different than the default, merge them
                 // This ensures new widgets (like ai-prediction) show up even if order was saved
-                const missing = defaultOrder.filter(id => !parsed.includes(id))
+                const missing = defaultOrder.filter(id => !saved.includes(id));
                 if (missing.length > 0) {
-                    return [...parsed, ...missing]
+                    return [...saved, ...missing];
                 }
-                return parsed
+                return saved;
             }
         } catch {
-            // Corrupted localStorage, fall back
+            // Corrupted storage, fall back
         }
-        return defaultOrder
-    })
+        return defaultOrder;
+    });
 
-    // Persist to localStorage
+    // Persist to storageService
     useEffect(() => {
-        localStorage.setItem(storageKey, JSON.stringify(order))
-    }, [order, storageKey])
+        storageService.setItem(storageKey as any, order);
+    }, [order, storageKey]);
 
     // Drag state
     const dragItemRef = useRef<number | null>(null)
@@ -68,9 +68,9 @@ export function useWidgetLayout(
     }, [])
 
     const resetOrder = useCallback(() => {
-        setOrder(defaultOrder)
-        localStorage.removeItem(storageKey)
-    }, [defaultOrder, storageKey])
+        setOrder(defaultOrder);
+        storageService.removeItem(storageKey as any);
+    }, [defaultOrder, storageKey]);
 
     return {
         order,

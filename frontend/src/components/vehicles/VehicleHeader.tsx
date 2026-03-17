@@ -20,11 +20,10 @@ export function VehicleHeader({ onAdd, onExport, onDownloadTemplate, onImport }:
                 />
                 <Button
                     onClick={onAdd}
-                    variant="glossy-purple"
-                    size="lg"
-                    className="px-6 h-12"
+                    variant="primary"
+                    className="gap-2"
                 >
-                    <Plus className="w-5 h-5" /> Yeni Araç Ekle
+                    <Plus className="w-4 h-4" /> Yeni Araç Ekle
                 </Button>
             </div>
         </div>

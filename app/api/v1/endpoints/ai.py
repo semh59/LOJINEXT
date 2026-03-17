@@ -12,9 +12,13 @@ router = APIRouter()
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., example="Filo durumu nedir?")
+    message: str = Field(
+        ...,
+        json_schema_extra={"example": "Filo durumu nedir?"},
+    )
     history: Optional[List[dict]] = Field(
-        default=[], example=[{"role": "user", "content": "Selam"}]
+        default=[],
+        json_schema_extra={"example": [{"role": "user", "content": "Selam"}]},
     )
 
 

@@ -9,7 +9,7 @@ from typing import Dict, Tuple
 
 from app.config import settings
 from app.core.services.route_validator import RouteValidator
-from app.database.unit_of_work import UnitOfWork
+from app.core.unit_of_work import get_uow
 from app.infrastructure.logging.logger import get_logger
 from app.services.prediction_service import get_prediction_service
 
@@ -50,7 +50,7 @@ class RouteService:
 
         # Cache kontrolü
         if use_cache:
-            async with UnitOfWork() as uow:
+            async with get_uow() as uow:
                 cached = await uow.route_repo.get_by_coords(lat1, lon1, lat2, lon2)
                 if cached:
                     logger.info("Route cache hit.")
@@ -198,7 +198,14 @@ class RouteService:
                 from app.infrastructure.routing.mapbox_client import MapboxClient
 
                 mapbox_client = MapboxClient()
-                mb_result = await mapbox_client.get_route((lon1, lat1), (lon2, lat2))
+                mb_result = None
+                try:
+                    mb_result = await mapbox_client.get_route((lon1, lat1), (lon2, lat2))
+                except Exception as mapbox_exc:
+                    logger.warning(
+                        "Mapbox fallback failed, using ORS-corrected route: %s",
+                        mapbox_exc,
+                    )
 
                 if mb_result:
                     # Mapbox successfully returned a route.
@@ -236,7 +243,7 @@ class RouteService:
             result["fuel_estimate"] = fuel_estimate
 
             # Cache'e kaydet
-            async with UnitOfWork() as uow:
+            async with get_uow() as uow:
                 await uow.route_repo.save_route(
                     {
                         "origin_lat": lat1,
@@ -264,7 +271,7 @@ class RouteService:
 
     async def get_base_location(self) -> str:
         """Sistemin ana merkez lokasyonunu getirir"""
-        async with UnitOfWork() as uow:
+        async with get_uow() as uow:
             return await uow.config_repo.get_value("default_base_location", "FABRİKA")
 
     def haversine(self, lon1: float, lat1: float, lon2: float, lat2: float) -> float:

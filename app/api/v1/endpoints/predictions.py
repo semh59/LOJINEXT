@@ -2,7 +2,11 @@ from typing import Annotated, Optional
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select, and_
+
+from celery.result import AsyncResult
+from app.infrastructure.background.celery_app import celery_app
 
 from app.api.deps import SessionDep, get_current_active_admin, get_current_user
 from app.database.models import Kullanici, Sofor, Sefer
@@ -14,10 +18,68 @@ from app.schemas.prediction import (
     PredictionComparisonResponse,
     AccuracyDistribution,
     PredictionComparisonPoint,
+    PredictionEnqueueRequest,
+    PredictionEnqueueResponse,
+    PredictionStatusResponse,
 )
 from app.services.prediction_service import PredictionService
+import asyncio
+import json
 
 router = APIRouter()
+
+@router.post("", response_model=PredictionEnqueueResponse, status_code=202)
+async def enqueue_prediction(
+    request: PredictionEnqueueRequest,
+    current_user: Annotated[Kullanici, Depends(get_current_user)],
+):
+    """Uzun süren tahmin isteklerini kuyruğa alır (Celery)."""
+    task = celery_app.send_task(
+        "prediction.generate", args=[request.question, request.context]
+    )
+    return PredictionEnqueueResponse(task_id=task.id)
+
+
+@router.get("/{task_id}", response_model=PredictionStatusResponse)
+async def prediction_status(
+    task_id: str, current_user: Annotated[Kullanici, Depends(get_current_user)]
+):
+    """Task durumunu döndürür (polling)."""
+    result = AsyncResult(task_id, app=celery_app)
+    payload = result.result if isinstance(result.result, dict) else {}
+    return PredictionStatusResponse(
+        task_id=task_id,
+        status=result.state.lower(),
+        answer=payload.get("answer"),
+        error=payload.get("error"),
+        finished_at=payload.get("finished_at"),
+    )
+
+
+@router.get("/{task_id}/stream")
+async def prediction_stream(
+    task_id: str, current_user: Annotated[Kullanici, Depends(get_current_user)]
+):
+    """SSE benzeri akış; polling yerine sürekli durum gönderir."""
+
+    async def event_generator():
+        while True:
+            result = AsyncResult(task_id, app=celery_app)
+            payload = result.result if isinstance(result.result, dict) else {}
+            data = {
+                "task_id": task_id,
+                "status": result.state.lower(),
+                "answer": payload.get("answer"),
+                "error": payload.get("error"),
+                "finished_at": payload.get("finished_at"),
+            }
+            yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+            if result.state.lower() in {"success", "failure", "revoked"}:
+                break
+            await asyncio.sleep(1)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/predict", response_model=PredictionResponse)

@@ -1,5 +1,7 @@
 import axiosInstance from './axios-instance';
 import { Location, LocationCreate, LocationUpdate, AnalysisResponse } from '../../types/location';
+import { validateResponse } from '../../lib/api-validator';
+import { GuzergahSchema, PaginatedResponseSchema } from '../../schemas/entities';
 
 /**
  * Rota bilgisi yanıt tipi (OpenRouteService)
@@ -47,9 +49,9 @@ export const locationService = {
      */
     getAll: async (params: LocationFilters = {}): Promise<{ items: Location[]; total: number }> => {
         const response = await axiosInstance.get<{ items: Location[]; total: number }>('/locations/', { 
-            params: { ...params, limit: 500 } 
+            params: { limit: 500, ...params } 
         });
-        return response.data;
+        return validateResponse(PaginatedResponseSchema(GuzergahSchema), response.data, 'locationService.getAll');
     },
 
     /**
@@ -57,7 +59,7 @@ export const locationService = {
      */
     getById: async (id: number): Promise<Location> => {
         const response = await axiosInstance.get<Location>(`/locations/${id}`);
-        return response.data;
+        return validateResponse(GuzergahSchema, response.data, `locationService.getById(${id})`);
     },
 
     /**

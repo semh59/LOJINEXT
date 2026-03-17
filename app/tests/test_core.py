@@ -81,6 +81,7 @@ class TestAnalizService:
                 fiyat_tl=43,
                 litre=200,
                 km_sayac=100000,
+                depo_durumu="dolu",
             ),
             YakitAlimi(
                 id=2,
@@ -89,6 +90,7 @@ class TestAnalizService:
                 fiyat_tl=44,
                 litre=180,
                 km_sayac=100600,
+                depo_durumu="dolu",
             ),
             YakitAlimi(
                 id=3,
@@ -97,6 +99,7 @@ class TestAnalizService:
                 fiyat_tl=45,
                 litre=220,
                 km_sayac=101400,
+                depo_durumu="dolu",
             ),
         ]
 

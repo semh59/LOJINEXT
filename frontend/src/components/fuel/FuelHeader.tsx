@@ -21,7 +21,7 @@ export function FuelHeader({ onAdd, onExport, onDownloadTemplate, onImport }: Fu
                 />
                 <Button
                     onClick={onAdd}
-                    variant="glossy-green"
+                    variant="primary"
                     className="px-6 h-10 text-sm"
                 >
                     <Plus className="w-5 h-5" /> Yeni Kayıt Ekle

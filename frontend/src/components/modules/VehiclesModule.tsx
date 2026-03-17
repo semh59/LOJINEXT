@@ -11,6 +11,7 @@ import { vehicleService } from '../../services/api/vehicle-service'
 import { Vehicle } from '../../types'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNotify } from '../../context/NotificationContext'
+import { useUrlState } from '../../hooks/use-url-state'
 
 const ITEMS_PER_PAGE = 24
 
@@ -21,18 +22,27 @@ export function VehiclesModule() {
     // UI Görünüm State'i
     const [isFilterOpen, setIsFilterOpen] = useState(false)
 
-    // Filter state'leri
-    const [search, setSearch] = useState('')
-    const [showOnlyActive, setShowOnlyActive] = useState(true)
-    const [currentPage, setCurrentPage] = useState(1)
-
-    // Gelişmiş Filtreler
-    const [filters, setFilters] = useState({
+    const [urlState, setUrlState] = useUrlState({
+        search: '',
+        aktif: true as boolean,
+        page: 1,
         marka: '',
         model: '',
         min_yil: '',
         max_yil: ''
     })
+
+    const { 
+        search, 
+        aktif: showOnlyActive, 
+        page: currentPage,
+        marka,
+        model,
+        min_yil,
+        max_yil
+    } = urlState
+
+    const filters = { marka, model, min_yil, max_yil }
 
     // Modal state'leri
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -135,11 +145,13 @@ export function VehiclesModule() {
 
     const handleImport = async (file: File) => {
         try {
-            await vehicleService.uploadExcel(file)
+            const res = await vehicleService.uploadExcel(file)
             notify("success", "Başarılı", "Araçlar başarıyla içe aktarıldı.")
             queryClient.invalidateQueries({ queryKey: ['vehicles'] })
+            return res
         } catch (error) {
             notify("error", "Hata", "İçe aktarma başarısız.")
+            throw error
         }
     }
 
@@ -168,25 +180,25 @@ export function VehiclesModule() {
                 onAdd={() => { setSelectedVehicle(null); setIsModalOpen(true); }}
                 onExport={handleExport}
                 onDownloadTemplate={handleDownloadTemplate}
-                onImport={handleImport}
+                onImport={handleImport as any}
             />
 
             <VehicleFilters 
                 search={search}
-                setSearch={setSearch}
+                setSearch={(val) => setUrlState({ search: val, page: 1 })}
                 showOnlyActive={showOnlyActive}
-                setShowOnlyActive={setShowOnlyActive}
+                setShowOnlyActive={(val) => setUrlState({ aktif: val, page: 1 })}
                 isFilterOpen={isFilterOpen}
                 setIsFilterOpen={setIsFilterOpen}
                 filters={filters}
-                setFilters={setFilters}
+                setFilters={(newFilters: any) => setUrlState({ ...newFilters, page: 1 })}
             />
 
             {/* Content Area */}
             <div className="min-h-[400px]">
                 {isLoading ? (
                     <div className="flex items-center justify-center pt-20">
-                        <div className="w-12 h-12 border-4 border-[#d006f9] border-t-transparent rounded-full animate-spin" />
+                        <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
                     </div>
                 ) : (
                     <VehicleTable
@@ -202,21 +214,21 @@ export function VehiclesModule() {
             {/* Pagination */}
             {!isLoading && totalPages > 1 && (
                 <div className="flex items-center justify-center pt-8">
-                    <div className="bg-[#1a0121]/60 backdrop-blur-md px-2 py-2 rounded-2xl flex items-center gap-1 border border-[#d006f9]/20 shadow-[0_0_15px_rgba(208,6,249,0.05)]">
+                    <div className="bg-surface px-2 py-2 rounded-2xl flex items-center gap-1 border border-border shadow-sm">
                         <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            onClick={() => setUrlState({ page: Math.max(1, currentPage - 1) })}
                             disabled={currentPage === 1}
-                            className="p-2 rounded-xl bg-black/40 text-white border border-[#d006f9]/20 disabled:opacity-30 hover:border-[#d006f9]/50 transition-all"
+                            className="p-2 rounded-xl bg-bg-elevated text-primary border border-border disabled:opacity-30 hover:border-secondary transition-all"
                         >
                             <ChevronLeft className="w-5 h-5" />
                         </button>
-                        <span className="px-4 font-bold text-sm text-white">
+                        <span className="px-4 font-bold text-sm text-primary tracking-tight">
                             Sayfa {currentPage} / {totalPages}
                         </span>
                         <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            onClick={() => setUrlState({ page: Math.min(totalPages, currentPage + 1) })}
                             disabled={currentPage === totalPages}
-                            className="p-2 rounded-xl bg-black/40 text-white border border-[#d006f9]/20 disabled:opacity-30 hover:border-[#d006f9]/50 transition-all"
+                            className="p-2 rounded-xl bg-bg-elevated text-primary border border-border disabled:opacity-30 hover:border-secondary transition-all"
                         >
                             <ChevronRight className="w-5 h-5" />
                         </button>

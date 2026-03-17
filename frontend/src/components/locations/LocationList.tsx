@@ -23,22 +23,22 @@ const getDifficultyConfig = (difficulty: string) => {
             return {
                 label: 'Dağlık',
                 icon: <Mountain className="w-3 h-3" />,
-                bg: 'bg-red-500/10 text-red-500 border-red-500/20',
-                dot: 'bg-red-500'
+                bg: 'bg-danger/10 text-danger border-danger/20',
+                dot: 'bg-danger'
             };
         case 'Orta':
             return {
                 label: 'Eğimli',
                 icon: <TrendingUp className="w-3 h-3" />,
-                bg: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-                dot: 'bg-amber-500'
+                bg: 'bg-warning/10 text-warning border-warning/20',
+                dot: 'bg-warning'
             };
         default:
             return {
                 label: 'Düz',
                 icon: <Wind className="w-3 h-3" />,
-                bg: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-                dot: 'bg-emerald-500'
+                bg: 'bg-success/10 text-success border-success/20',
+                dot: 'bg-success'
             };
     }
 };
@@ -49,48 +49,48 @@ const getSourceConfig = (source: string | undefined) => {
         case 'mapbox':
             return {
                 label: 'Sistem-V2',
-                bg: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+                bg: 'bg-info/10 text-info border-info/20',
                 icon: <Database className="w-3 h-3" />
             };
         case 'api':
         case 'openrouteservice':
             return {
                 label: 'Sistem-V1',
-                bg: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
+                bg: 'bg-accent/10 text-accent border-accent/20',
                 icon: <Database className="w-3 h-3" />
             };
         case 'cache':
             return {
                 label: 'Önbellek',
-                bg: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+                bg: 'bg-success/10 text-success border-success/20',
                 icon: <Database className="w-3 h-3" />
             };
         default:
             return {
                 label: 'Sistem',
-                bg: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+                bg: 'bg-bg-elevated text-secondary border-border',
                 icon: <Database className="w-3 h-3" />
             };
     }
 };
 
 const SkeletonRow = () => (
-    <tr className="animate-pulse border-b border-[#482923]/50">
-        <td className="px-6 py-4"><div className="h-4 bg-[#331e19] rounded w-24" /></td>
-        <td className="px-6 py-4"><div className="h-4 bg-[#331e19] rounded w-24" /></td>
-        <td className="px-6 py-4"><div className="h-4 bg-[#331e19] rounded w-16" /></td>
-        <td className="px-6 py-4"><div className="h-4 bg-[#331e19] rounded w-12" /></td>
-        <td className="px-6 py-4"><div className="h-4 bg-[#331e19] rounded w-20" /></td>
-        <td className="px-6 py-4 text-right"><div className="h-8 bg-[#331e19] rounded-lg w-20 ml-auto" /></td>
+    <tr className="animate-pulse border-b border-border">
+        <td className="px-6 py-4"><div className="h-4 bg-bg-elevated/50 rounded w-24" /></td>
+        <td className="px-6 py-4"><div className="h-4 bg-bg-elevated/50 rounded w-24" /></td>
+        <td className="px-6 py-4"><div className="h-4 bg-bg-elevated/50 rounded w-16" /></td>
+        <td className="px-6 py-4"><div className="h-4 bg-bg-elevated/50 rounded w-12" /></td>
+        <td className="px-6 py-4"><div className="h-4 bg-bg-elevated/50 rounded w-20" /></td>
+        <td className="px-6 py-4 text-right"><div className="h-8 bg-bg-elevated/50 rounded-lg w-20 ml-auto" /></td>
     </tr>
 );
 
 export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, onAdd }: LocationListProps) {
     if (loading) {
         return (
-            <div className="bg-[#331e19]/40 backdrop-blur-md rounded-xl border border-[#482923] shadow-sm overflow-hidden">
+            <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
-                    <thead className="text-[#c99b92] text-xs uppercase tracking-wider bg-[#221411]/50 border-b border-[#482923]">
+                    <thead className="text-secondary text-xs uppercase tracking-wider bg-bg-elevated border-b border-border">
                         <tr>
                             <th className="px-6 py-4 font-medium">Güzargah Bilgisi</th>
                             <th className="px-6 py-4 font-medium">Varış Noktası</th>
@@ -110,15 +110,15 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
 
     if (locations.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-[#331e19]/40 backdrop-blur-md rounded-xl border-2 border-dashed border-[#482923]">
-                <div className="w-20 h-20 rounded-full bg-[#221411] flex items-center justify-center mb-6 border border-[#482923]">
-                    <MapPin className="w-10 h-10 text-[#c99b92]" />
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-surface rounded-xl border-2 border-dashed border-border">
+                <div className="w-20 h-20 rounded-full bg-bg-elevated flex items-center justify-center mb-6">
+                    <MapPin className="w-10 h-10 text-secondary" />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Güzergah Bulunamadı</h3>
-                <p className="text-[#c99b92] max-w-md mb-8">
+                <h3 className="text-2xl font-bold text-primary mb-2">Güzergah Bulunamadı</h3>
+                <p className="text-secondary max-w-md mb-8">
                     Arama kriterlerinize uygun güzergah bulunamadı veya henüz hiç güzergah eklenmemiş.
                 </p>
-                <button onClick={onAdd} className="flex items-center gap-2 bg-[#ec3713] hover:bg-red-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-lg transition-all">
+                <button onClick={onAdd} className="flex items-center gap-2 bg-accent hover:bg-accent/80 text-bg-base font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all">
                     <ArrowRight className="w-5 h-5" />
                     İlk Güzergahı Ekle
                 </button>
@@ -127,13 +127,13 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
     }
 
     return (
-        <div className="bg-[#331e19]/40 backdrop-blur-md rounded-xl border border-[#482923] shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
-            <div className="p-4 border-b border-[#482923] flex items-center justify-between">
-                <h3 className="text-white text-lg font-bold">Kayıtlı Güzergahlar</h3>
+        <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+                <h3 className="text-primary text-lg font-bold">Kayıtlı Güzergahlar</h3>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                    <thead className="text-[#c99b92] text-xs uppercase tracking-wider bg-[#221411]/50 border-b border-[#482923]">
+                    <thead className="text-secondary text-xs uppercase tracking-wider bg-bg-elevated border-b border-border">
                         <tr>
                             <th className="px-6 py-4 font-medium">Güzargah Bilgisi</th>
                             <th className="px-6 py-4 font-medium">Varış Noktası</th>
@@ -143,7 +143,7 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
                             <th className="px-6 py-4 font-medium text-right">İşlemler</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#482923]/50 text-sm text-white">
+                    <tbody className="divide-y divide-border text-sm text-primary">
                         {locations.map((loc, index) => {
                             const difficulty = getDifficultyConfig(loc.zorluk);
                             const source = getSourceConfig(loc.source);
@@ -153,26 +153,26 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.03 }}
-                                    className="hover:bg-[#482923]/30 transition-colors group"
+                                    className="hover:bg-bg-elevated transition-colors group"
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="size-8 rounded-lg bg-[#221411] border border-[#482923] flex items-center justify-center text-[#ec3713]">
+                                            <div className="size-8 rounded-lg bg-bg-elevated border border-border flex items-center justify-center text-accent">
                                                 <MapPin className="w-4 h-4" />
                                             </div>
-                                            <span className="font-bold text-white tracking-wide">{loc.cikis_yeri}</span>
+                                            <span className="font-bold text-primary tracking-wide">{loc.cikis_yeri}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                                            <ArrowRight className="w-4 h-4 text-[#ec3713]" />
-                                            <span className="font-bold text-slate-300">{loc.varis_yeri}</span>
+                                            <ArrowRight className="w-4 h-4 text-accent" />
+                                            <span className="font-bold text-secondary">{loc.varis_yeri}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-base font-black text-white">{loc.mesafe_km}</span>
-                                            <span className="text-xs font-bold text-[#c99b92]">KM</span>
+                                            <span className="text-base font-bold text-primary tabular-nums">{loc.mesafe_km}</span>
+                                            <span className="text-[10px] font-bold text-secondary uppercase">KM</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -186,9 +186,9 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-4">
-                                                <div className="flex gap-2 text-xs font-bold text-[#c99b92] uppercase">
-                                                    <span className="text-emerald-400">↑ {loc.ascent_m || 0}m</span>
-                                                    <span className="text-red-400">↓ {loc.descent_m || 0}m</span>
+                                                <div className="flex gap-2 text-xs font-bold text-secondary uppercase tabular-nums">
+                                                    <span className="text-success">↑ {loc.ascent_m || 0}m</span>
+                                                    <span className="text-danger">↓ {loc.descent_m || 0}m</span>
                                                 </div>
                                             </div>
                                             <div className={cn(
@@ -206,7 +206,7 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
                                                 variant="secondary"
                                                 size="sm"
                                                 onClick={() => onAnalyze(loc)}
-                                                className="h-8 bg-[#221411] border-[#482923] text-blue-400 hover:text-white hover:bg-blue-500/20 shadow-sm flex items-center gap-1 px-2"
+                                                className="h-8 bg-bg-elevated border-border text-info hover:text-bg-base hover:bg-info shadow-sm flex items-center gap-1 px-2"
                                                 title="Sanal Sefer Simülasyonu"
                                             >
                                                 <TrendingUp className="w-3.5 h-3.5" />
@@ -216,7 +216,7 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
                                                 variant="secondary"
                                                 size="sm"
                                                 onClick={() => onEdit(loc)}
-                                                className="h-8 w-8 p-0 bg-[#221411] border-[#482923] text-amber-500 hover:text-white hover:bg-amber-500/20"
+                                                className="h-8 w-8 p-0 bg-bg-elevated border-border text-warning hover:text-bg-base hover:bg-warning"
                                             >
                                                 <Edit2 className="w-4 h-4" />
                                             </Button>
@@ -224,7 +224,7 @@ export function LocationList({ locations, loading, onEdit, onDelete, onAnalyze, 
                                                 variant="secondary"
                                                 size="sm"
                                                 onClick={() => onDelete(loc)}
-                                                className="h-8 w-8 p-0 bg-[#221411] border-[#482923] text-red-500 hover:text-white hover:bg-red-500/20"
+                                                className="h-8 w-8 p-0 bg-bg-elevated border-border text-danger hover:text-bg-base hover:bg-danger"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>

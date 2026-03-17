@@ -33,6 +33,10 @@ async def test_uow_ghost_transaction_detection(caplog):
     caplog.set_level(logging.ERROR)
 
     async with UnitOfWork() as uow:
+        # Create a model without committing to trigger the ghost transaction branch
+        from app.database.models import Arac
+
+        uow.session.add(Arac(plaka="34GHOST"))
         # Do nothing, just exit
         pass
 

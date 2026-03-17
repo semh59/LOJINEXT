@@ -1,5 +1,5 @@
-"""
-TIR Yakıt Takip Sistemi - Konfigürasyon
+﻿"""
+TIR YakÄ±t Takip Sistemi - KonfigÃ¼rasyon
 Modernized with pydantic-settings
 """
 
@@ -14,22 +14,22 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 ASSETS_DIR = BASE_DIR / "assets"
 
-# Veritabanı dizinini oluştur (data files için)
+# VeritabanÄ± dizinini oluÅŸtur (data files iÃ§in)
 DATA_DIR.mkdir(exist_ok=True)
 
 
 class Settings(BaseSettings):
     """
-    Uygulama Ayarları
-    Environment variable'lardan okunur ve validasyon yapılır.
+    Uygulama AyarlarÄ±
+    Environment variable'lardan okunur ve validasyon yapÄ±lÄ±r.
     """
 
     # Uygulama Bilgileri
-    APP_NAME: str = "TIR Yakıt Takip Sistemi"
+    APP_NAME: str = "TIR YakÄ±t Takip Sistemi"
     APP_VERSION: str = "2.0.0"
     APP_AUTHOR: str = "DevAI"
     API_V1_STR: str = "/api/v1"
-    MAX_PAGINATION_LIMIT: int = 1000  # Pagination DoS koruması
+    MAX_PAGINATION_LIMIT: int = 1000  # Pagination DoS korumasÄ±
 
     # Security - MUST be set in .env file
     ENVIRONMENT: str = "dev"  # dev, prod, test
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    ADMIN_PASSWORD: SecretStr  # Seed Admin Şifresi (Kullanıcı Tablosu İçin)
+    ADMIN_PASSWORD: SecretStr  # Seed Admin Åifresi (KullanÄ±cÄ± Tablosu Ä°Ã§in)
     SUPER_ADMIN_USERNAME: str = "skara"
     SUPER_ADMIN_PASSWORD: Optional[SecretStr] = (
         None  # Sadece .env'den okunur (bypass db)
@@ -57,13 +57,16 @@ class Settings(BaseSettings):
 
     @field_validator("CORS_ORIGINS", mode="after")
     def check_cors_and_warn(cls, v: List[str], info) -> List[str]:
-        """Zero Tolerance: Prod ortamında '*' yasak. Dev ortamında boşsa uyar."""
+        """Zero Tolerance: Prod ortamÄ±nda '*' yasak. Dev ortamÄ±nda boÅŸsa uyar."""
         env = info.data.get("ENVIRONMENT", "dev")
 
         if env == "prod" and "*" in v:
             raise ValueError(
                 "SECURITY RISK: CORS_ORIGINS cannot contain '*' in production environment"
             )
+
+        if not v and env == "prod":
+            raise ValueError("CORS_ORIGINS boÅŸ olamaz (prod ortamÄ±).")
 
         if not v and env != "test":
             import logging
@@ -81,13 +84,41 @@ class Settings(BaseSettings):
             raise ValueError("ENVIRONMENT must be 'dev', 'prod' or 'test'")
         return v
 
+    @field_validator("GROQ_API_KEY", mode="after")
+    def require_llm_key_in_prod(cls, v, info):
+        env = info.data.get("ENVIRONMENT", "dev")
+        if env == "prod" and not v:
+            raise ValueError("GROQ_API_KEY zorunlu (prod ortamı).")
+        return v
+
+    @field_validator("HF_TOKEN", mode="after")
+    def require_hf_token_in_prod(cls, v, info):
+        env = info.data.get("ENVIRONMENT", "dev")
+        if env == "prod" and not v:
+            raise ValueError("HF_TOKEN zorunlu (prod ortamı).")
+        return v
+
+    @field_validator("OPENROUTESERVICE_API_KEY", mode="after")
+    def require_routing_key_in_prod(cls, v, info):
+        env = info.data.get("ENVIRONMENT", "dev")
+        if env == "prod" and not v:
+            raise ValueError("OPENROUTESERVICE_API_KEY zorunlu (prod ortamı).")
+        return v
+
+    @field_validator("CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", mode="after")
+    def require_celery_urls_in_prod(cls, v, info):
+        env = info.data.get("ENVIRONMENT", "dev")
+        if env == "prod" and not v:
+            raise ValueError("Celery broker/result URL prod ortamÄ± iÃ§in zorunlu.")
+        return v
+
     # Database
     DATABASE_URL: str
     ALEMBIC_READY: bool = False  # Set to True when migration setup is complete
 
     @property
     def masked_database_url(self) -> str:
-        """Logging için credential'ları maskele"""
+        """Logging iÃ§in credential'larÄ± maskele"""
         import re
 
         return re.sub(r":([^:@]+)@", ":***@", self.DATABASE_URL)
@@ -97,9 +128,15 @@ class Settings(BaseSettings):
     MAPBOX_API_KEY: Optional[str] = None
     ROUTING_PROVIDER_STRATEGY: str = "hybrid"  # or 'ors_only', 'mapbox_only'
 
+    # Queue / Celery
+    CELERY_BROKER_URL: Optional[str] = None
+    CELERY_RESULT_BACKEND: Optional[str] = None
+    CELERY_EAGER: bool = False
+
     # AI Configuration
     AI_PROVIDER: str = "groq"
     GROQ_API_KEY: Optional[SecretStr] = None
+    HF_TOKEN: Optional[SecretStr] = None  # HuggingFace indirme/limitleri iÃ§in
     GROQ_MODEL_NAME: str = "llama-3.3-70b-versatile"
     AI_TEMPERATURE: float = 0.1
     AI_MAX_TOKENS: int = 1500
@@ -109,14 +146,14 @@ class Settings(BaseSettings):
     DEFAULT_ANORMAL_UST_SINIR: float = 45.0
     DEFAULT_ANORMAL_ALT_SINIR: float = 20.0
 
-    # Analiz Servisi Ayarları
-    ANOMALY_Z_THRESHOLD: float = 2.5  # Z-Score eşik değeri
-    ELITE_SCORE_TRIP_LIMIT: int = 20  # Elite puanlama için max sefer sayısı
+    # Analiz Servisi AyarlarÄ±
+    ANOMALY_Z_THRESHOLD: float = 2.5  # Z-Score eÅŸik deÄŸeri
+    ELITE_SCORE_TRIP_LIMIT: int = 20  # Elite puanlama iÃ§in max sefer sayÄ±sÄ±
 
-    # Tahmin Servisi Ayarları
-    VEHICLE_AGE_DEGRADATION_RATE: float = 0.015  # Yıl başına verimlilik kaybı (%1.5)
-    MAX_AGE_DEGRADATION: float = 0.15  # Maksimum yaş degradasyonu (%15)
-    DEFAULT_LOAD_TON: float = 24.0  # Standart yüklü TIR tonajı
+    # Tahmin Servisi AyarlarÄ±
+    VEHICLE_AGE_DEGRADATION_RATE: float = 0.015  # YÄ±l baÅŸÄ±na verimlilik kaybÄ± (%1.5)
+    MAX_AGE_DEGRADATION: float = 0.15  # Maksimum yaÅŸ degradasyonu (%15)
+    DEFAULT_LOAD_TON: float = 24.0  # Standart yÃ¼klÃ¼ TIR tonajÄ±
 
     # HGV Route Parametreleri
     HGV_AXLE_LOAD: float = 11.5  # ton
@@ -124,23 +161,23 @@ class Settings(BaseSettings):
     HGV_HEIGHT: float = 4.0  # metre
     HGV_WEIGHT: float = 40.0  # ton
     HGV_LENGTH: float = 16.5  # metre
-    HGV_EMPTY_WEIGHT: float = 14.5  # ton (boş TIR ağırlığı)
+    HGV_EMPTY_WEIGHT: float = 14.5  # ton (boÅŸ TIR aÄŸÄ±rlÄ±ÄŸÄ±)
 
-    # Rate Limiting Ayarları
+    # Rate Limiting AyarlarÄ±
     OPENROUTE_RATE_LIMIT: float = 2.0  # req/sec
     WEATHER_RATE_LIMIT: float = 5.0  # req/sec
     EXTERNAL_API_RATE_LIMIT: float = 10.0  # req/sec (generic)
 
-    # Circuit Breaker Ayarları
-    CB_FAIL_MAX: int = 5  # Hata sayısı
+    # Circuit Breaker AyarlarÄ±
+    CB_FAIL_MAX: int = 5  # Hata sayÄ±sÄ±
     CB_RESET_TIMEOUT: int = 60  # saniye
 
-    # Weather Thresholds (weather_service.py'den taşındı)
-    WEATHER_TEMP_HIGH_THRESHOLD: float = 35.0  # °C
-    WEATHER_TEMP_LOW_THRESHOLD: float = -5.0  # °C
+    # Weather Thresholds (weather_service.py'den taÅŸÄ±ndÄ±)
+    WEATHER_TEMP_HIGH_THRESHOLD: float = 35.0  # Â°C
+    WEATHER_TEMP_LOW_THRESHOLD: float = -5.0  # Â°C
     WEATHER_WIND_HIGH_THRESHOLD: float = 50.0  # km/h
-    WEATHER_IMPACT_HIGH: float = 1.15  # +15% yakıt etkisi
-    WEATHER_IMPACT_MEDIUM: float = 1.05  # +5% yakıt etkisi
+    WEATHER_IMPACT_HIGH: float = 1.15  # +15% yakÄ±t etkisi
+    WEATHER_IMPACT_MEDIUM: float = 1.05  # +5% yakÄ±t etkisi
 
     # Logging & Security PII Masking
     LOG_PII_MASK_EMAIL: str = r"\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Z|a-z]{2,}\b"
@@ -215,21 +252,21 @@ except Exception as e:
 # Tema Renkleri (Koyu Tema)
 COLORS = {
     "bg_dark": "#1a1a2e",  # Ana arka plan
-    "bg_card": "#16213e",  # Kart arka planı
+    "bg_card": "#16213e",  # Kart arka planÄ±
     "bg_sidebar": "#0f3460",  # Sidebar
-    "bg_input": "#1f4068",  # Input alanları
-    "accent": "#e94560",  # Vurgu rengi (kırmızı)
+    "bg_input": "#1f4068",  # Input alanlarÄ±
+    "accent": "#e94560",  # Vurgu rengi (kÄ±rmÄ±zÄ±)
     "accent_hover": "#ff6b6b",  # Hover
     "primary": "#4361ee",  # Birincil (mavi)
-    "success": "#00d9a5",  # Yeşil
-    "warning": "#ffc107",  # Sarı
-    "danger": "#dc3545",  # Kırmızı
+    "success": "#00d9a5",  # YeÅŸil
+    "warning": "#ffc107",  # SarÄ±
+    "danger": "#dc3545",  # KÄ±rmÄ±zÄ±
     "text": "#ffffff",  # Ana metin
-    "text_secondary": "#a0a0a0",  # İkincil metin
-    "border": "#2a4a6e",  # Kenarlık
+    "text_secondary": "#a0a0a0",  # Ä°kincil metin
+    "border": "#2a4a6e",  # KenarlÄ±k
 }
 
-# Font Ayarları
+# Font AyarlarÄ±
 FONTS = {
     "title": ("Segoe UI", 24, "bold"),
     "subtitle": ("Segoe UI", 18, "bold"),
@@ -239,7 +276,7 @@ FONTS = {
     "button": ("Segoe UI", 12, "bold"),
 }
 
-# Varsayılan Parametreler (Legacy Dict Access Support)
+# VarsayÄ±lan Parametreler (Legacy Dict Access Support)
 DEFAULT_PARAMS = {
     "filo_hedef_tuketim": settings.DEFAULT_FILO_HEDEF_TUKETIM,
     "anormal_ust_sinir": settings.DEFAULT_ANORMAL_UST_SINIR,
@@ -249,14 +286,14 @@ DEFAULT_PARAMS = {
     "yedek_gunu": 30,
 }
 
-# Pencere Boyutları
+# Pencere BoyutlarÄ±
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800
 SIDEBAR_WIDTH = 220
 
 
 def get_system_font() -> str:
-    """Platforma göre uygun font yolunu döndür"""
+    """Platforma gÃ¶re uygun font yolunu dÃ¶ndÃ¼r"""
     import platform
 
     system = platform.system()
@@ -266,7 +303,7 @@ def get_system_font() -> str:
     elif system == "Darwin":  # macOS
         return "/System/Library/Fonts/Helvetica.ttc"
     else:  # Linux
-        # Yaygın Linux font yollarını kontrol et
+        # YaygÄ±n Linux font yollarÄ±nÄ± kontrol et
         paths = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/TTF/DejaVuSans.ttf",
@@ -278,12 +315,12 @@ def get_system_font() -> str:
         return "Arial"
 
 
-# Tablo Başlıkları
+# Tablo BaÅŸlÄ±klarÄ±
 YAKIT_COLUMNS = [
     ("ID", 50),
     ("Tarih", 100),
     ("Plaka", 100),
-    ("İstasyon", 150),
+    ("Ä°stasyon", 150),
     ("Fiyat", 80),
     ("Litre", 80),
     ("Tutar", 100),
@@ -295,9 +332,12 @@ SEFER_COLUMNS = [
     ("Tarih", 100),
     ("Saat", 70),
     ("Plaka", 100),
-    ("Şoför", 120),
-    ("Çıkış", 120),
-    ("Varış", 120),
+    ("ÅofÃ¶r", 120),
+    ("Ã‡Ä±kÄ±ÅŸ", 120),
+    ("VarÄ±ÅŸ", 120),
     ("Mesafe", 80),
     ("Ton", 70),
 ]
+
+
+

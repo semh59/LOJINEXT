@@ -212,9 +212,15 @@ class EnsembleFuelPredictor:
         self.is_trained = False
         self.physics_weight = self.weights.get("physics", 0.2)
         self.training_stats = {}
+        self._feature_shape_warned = False
         self._model_lock = (
             threading.Lock()
         )  # Tahmin ve eğitim arasında senkronizasyon için
+
+    @property
+    def WEIGHTS(self) -> Dict[str, float]:
+        """Legacy compatibility alias."""
+        return self.weights
 
     def prepare_features(self, seferler: List[Dict]) -> np.ndarray:
         """
@@ -390,6 +396,61 @@ class EnsembleFuelPredictor:
             )
 
         return np.array(features)
+
+    def _resolve_expected_feature_count(self) -> Optional[int]:
+        """Infer expected feature count from fitted models/scaler metadata."""
+        candidates = [
+            getattr(self.scaler, "n_features_in_", None),
+            getattr(self.gb_model, "n_features_in_", None),
+            getattr(self.rf_model, "n_features_in_", None),
+            getattr(self.xgb_model, "n_features_in_", None),
+            getattr(self.lgb_model, "n_features_in_", None),
+        ]
+        for value in candidates:
+            if value is None:
+                continue
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError):
+                continue
+            if parsed > 0:
+                return parsed
+        return None
+
+    def _align_feature_matrix(self, X: np.ndarray) -> np.ndarray:
+        """Backward-compatible feature shaping for persisted models."""
+        expected = self._resolve_expected_feature_count()
+        if expected is None:
+            return X
+
+        current = X.shape[1]
+        if current == expected:
+            return X
+
+        if current > expected:
+            message = (
+                "Feature schema mismatch (runtime=%s, model=%s). "
+                "Truncating extra features for backward compatibility."
+            ) % (current, expected)
+            if not self._feature_shape_warned:
+                logger.warning(message)
+                self._feature_shape_warned = True
+            else:
+                logger.debug(message)
+            return X[:, :expected]
+
+        missing = expected - current
+        message = (
+            "Feature schema mismatch (runtime=%s, model=%s). "
+            "Padding %s missing features with zeros for backward compatibility."
+        ) % (current, expected, missing)
+        if not self._feature_shape_warned:
+            logger.warning(message)
+            self._feature_shape_warned = True
+        else:
+            logger.debug(message)
+        padding = np.zeros((X.shape[0], missing), dtype=X.dtype)
+        return np.hstack([X, padding])
 
     def _get_physics_predictions(self, seferler: List[Dict]) -> np.ndarray:
         """Fizik modeli tahminleri"""
@@ -573,16 +634,31 @@ class EnsembleFuelPredictor:
                 # XGBoost eğitimi
                 xgb_r2 = 0.0
                 if self.xgb_model is not None:
-                    self.xgb_model.fit(X_train, y_train, sample_weight=sw_train)
-                    xgb_test_pred = self.xgb_model.predict(X_test)
-                    xgb_r2 = r2_score(y_test, xgb_test_pred) if len(y_test) > 0 else 0
+                    try:
+                        self.xgb_model.fit(X_train, y_train, sample_weight=sw_train)
+                        xgb_test_pred = self.xgb_model.predict(X_test)
+                        xgb_r2 = (
+                            r2_score(y_test, xgb_test_pred) if len(y_test) > 0 else 0
+                        )
+                    except Exception as exc:
+                        logger.warning("XGBoost fit failed, skipping model: %s", exc)
+                        xgb_r2 = 0.0
 
                 # LightGBM eğitimi
                 lgb_r2 = 0.0
                 if LIGHTGBM_AVAILABLE and self.lgb_model is not None:
-                    self.lgb_model.fit(X_train, y_train, sample_weight=sw_train)
-                    lgb_test_pred = self.lgb_model.predict(X_test)
-                    lgb_r2 = r2_score(y_test, lgb_test_pred) if len(y_test) > 0 else 0
+                    try:
+                        self.lgb_model.fit(X_train, y_train, sample_weight=sw_train)
+                        lgb_test_pred = self.lgb_model.predict(X_test)
+                        lgb_r2 = (
+                            r2_score(y_test, lgb_test_pred) if len(y_test) > 0 else 0
+                        )
+                    except MemoryError as exc:
+                        logger.warning("LightGBM fit OOM, skipping model: %s", exc)
+                        lgb_r2 = 0.0
+                    except Exception as exc:
+                        logger.warning("LightGBM fit failed, skipping model: %s", exc)
+                        lgb_r2 = 0.0
 
                 # Dürüst Test Skorları (GB & RF)
                 gb_test_r2 = (
@@ -812,6 +888,7 @@ class EnsembleFuelPredictor:
 
         # ML düzeltme (Residuals)
         X = self.prepare_features([sefer])
+        X = self._align_feature_matrix(X)
         X_scaled = self.scaler.transform(X)
 
         gb_residual = self.gb_model.predict(X_scaled)[0]
